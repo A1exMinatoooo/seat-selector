@@ -1,10 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { parseParticipantCsv, validateResolvable, type ParticipantImportRow } from "@/features/participants/import";
 import { getDb } from "@/server/db/client";
-import { events, participants, participantTickets, ticketTypes } from "@/server/db/schema";
+import { events, participants, participantTickets, reservations, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
 
 async function eventTicketTypes(eventId: string) {
@@ -39,5 +39,22 @@ export async function resetDeviceAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const eventId = String(formData.get("eventId")); const participantId = String(formData.get("participantId"));
   await getDb().update(participants).set({ deviceHash: null, deviceBoundAt: null }).where(and(eq(participants.id, participantId), eq(participants.eventId, eventId)));
+  revalidatePath(`/admin/events/${eventId}/participants`);
+}
+
+export async function toggleLocationExemptionAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId")); const participantId = String(formData.get("participantId")); const enabled = formData.get("enabled") === "1";
+  await getDb().update(participants).set({ locationExemptAt: enabled ? new Date() : null }).where(and(eq(participants.id, participantId), eq(participants.eventId, eventId)));
+  revalidatePath(`/admin/events/${eventId}/participants`);
+}
+
+export async function resetSelectionAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId")); const participantId = String(formData.get("participantId"));
+  await getDb().transaction(async (tx) => {
+    await tx.delete(reservations).where(and(eq(reservations.eventId, eventId), eq(reservations.participantId, participantId)));
+    await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, eventId));
+  });
   revalidatePath(`/admin/events/${eventId}/participants`);
 }
