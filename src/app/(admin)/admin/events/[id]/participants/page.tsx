@@ -5,6 +5,7 @@ import { getDb } from "@/server/db/client";
 import { events, participants, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
 import { formatDateTimeMilliseconds } from "@/shared/date-time";
+import { maskPhone } from "@/shared/phone";
 import { addParticipantAction, importParticipantsAction, resetDeviceAction, resetSelectionAction, toggleLocationExemptionAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -86,7 +87,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
               <tbody>{people.map((person) => (
                 <tr key={person.id}>
                   <td>{person.name}</td>
-                  <td>{person.phoneIsFull ? `${person.phoneDigits.slice(0, 3)}****${person.phoneLast4}` : `****${person.phoneLast4}`}</td>
+                  <td>{maskPhone(person.phoneDigits, person.phoneIsFull)}</td>
                   <td>{(byPerson.get(person.id) ?? []).map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</td>
                   <td>{(seatMap.get(person.id) ?? []).map((seat) => `${seat.rowLabel}${seat.columnLabel}`).join("、") || "未选"}</td>
                   <td>{confirmationTime(reservationMap.get(person.id)?.confirmedAt, event.timeZone)}</td>

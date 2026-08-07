@@ -6,6 +6,7 @@ import { eventAuditLogs, events, participants } from "@/server/db/schema";
 import type { AuditAction } from "@/server/domain/event-audit";
 import { requireAdmin } from "@/server/security/admin-session";
 import { formatDateTimeMilliseconds } from "@/shared/date-time";
+import { maskPhone } from "@/shared/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,10 @@ const actionLabels: Record<AuditAction, string> = {
   selection_reset: "清除选座",
   seat_confirmed: "选座成功",
   seat_conflict: "选座冲突",
+  selection_displaced: "临时选择失效",
+  seating_entered: "进入选座界面",
+  location_verified: "定位成功",
+  location_rejected: "定位失败",
 };
 
 const statusLabels: Record<string, string> = { draft: "草稿", open: "开放中", ended: "已结束" };
@@ -34,6 +39,19 @@ function conflictReason(value: unknown): string {
   return "选座唯一约束冲突";
 }
 
+function locationReason(value: unknown): string {
+  const labels: Record<string, string> = {
+    stale_position: "定位数据已过期",
+    insufficient_accuracy: "定位精度不足",
+    outside_range: "超出活动范围",
+    permission_denied: "浏览器定位权限被拒绝",
+    position_unavailable: "浏览器无法获取位置",
+    timeout: "浏览器定位超时",
+    unknown: "浏览器定位失败",
+  };
+  return labels[String(value)] ?? "定位验证失败";
+}
+
 function auditDetails(action: AuditAction, details: Record<string, unknown>): string {
   if (action === "event_created") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种`;
   if (action === "event_status_changed") return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
@@ -43,7 +61,11 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
   if (action === "location_exemption_changed") return details.enabled === true ? "启用定位豁免" : "取消定位豁免";
   if (action === "selection_reset") return "管理员清除已确认座位";
   if (action === "seat_confirmed") return `确认座位：${stringList(details.seats).join("、") || "未知"}`;
-  return `${conflictReason(details.reason)}；请求座位：${stringList(details.requestedSeats).join("、") || "未知"}`;
+  if (action === "seat_conflict") return `${conflictReason(details.reason)}；请求座位：${stringList(details.requestedSeats).join("、") || "未知"}`;
+  if (action === "selection_displaced") return `临时选择被抢先确认：${stringList(details.seats).join("、") || "未知"}`;
+  if (action === "seating_entered") return `进入座位图；设备标识 ${String(details.deviceId ?? "未知")}`;
+  if (action === "location_verified") return `距离 ${String(details.distanceMeters ?? "—")}m；精度 ${String(details.accuracyMeters ?? "—")}m；范围 ${String(details.radiusMeters ?? "—")}m${details.exempt === true ? "；定位豁免" : ""}`;
+  return `${locationReason(details.reason)}；${details.distanceMeters === undefined ? "" : `距离 ${String(details.distanceMeters)}m；`}精度 ${String(details.accuracyMeters ?? "—")}m；范围 ${String(details.radiusMeters ?? "—")}m`;
 }
 
 export default async function EventAuditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,7 +74,7 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
   const [event] = await getDb().select({ name: events.name, timeZone: events.timeZone }).from(events).where(eq(events.id, id)).limit(1);
   if (!event) notFound();
   const logs = await getDb()
-    .select({ id: eventAuditLogs.id, action: eventAuditLogs.action, details: eventAuditLogs.details, occurredAt: eventAuditLogs.occurredAt, participantName: participants.name })
+    .select({ id: eventAuditLogs.id, action: eventAuditLogs.action, details: eventAuditLogs.details, occurredAt: eventAuditLogs.occurredAt, participantName: participants.name, phoneDigits: participants.phoneDigits, phoneIsFull: participants.phoneIsFull })
     .from(eventAuditLogs)
     .leftJoin(participants, eq(eventAuditLogs.participantId, participants.id))
     .where(eq(eventAuditLogs.eventId, id))
@@ -65,7 +87,7 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
       <header className="section-header"><div><p className="eyebrow">活动审计</p><h1>审计日志</h1></div><span>最近 {logs.length} 条 · 时间精确到毫秒</span></header>
       <section className="panel wide">
         {logs.length ? (
-          <div className="table-wrap"><table><thead><tr><th>发生时间</th><th>事件</th><th>参与者</th><th>详情</th></tr></thead><tbody>{logs.map((log) => <tr key={log.id}><td className="timestamp-cell">{formatDateTimeMilliseconds(log.occurredAt, event.timeZone)}</td><td><span className={`audit-action ${log.action === "seat_conflict" ? "conflict" : ""}`}>{actionLabels[log.action]}</span></td><td>{log.participantName ?? "管理员"}</td><td>{auditDetails(log.action, log.details)}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>发生时间</th><th>事件</th><th>参与者</th><th>手机号</th><th>详情</th></tr></thead><tbody>{logs.map((log) => <tr key={log.id}><td className="timestamp-cell">{formatDateTimeMilliseconds(log.occurredAt, event.timeZone)}</td><td><span className={`audit-action ${log.action === "seat_conflict" || log.action === "selection_displaced" || log.action === "location_rejected" ? "conflict" : ""}`}>{actionLabels[log.action]}</span></td><td>{log.participantName ?? "管理员"}</td><td>{log.phoneDigits ? maskPhone(log.phoneDigits, log.phoneIsFull ?? false) : "—"}</td><td>{auditDetails(log.action, log.details)}</td></tr>)}</tbody></table></div>
         ) : <p className="muted">该活动暂时没有审计记录。新产生的活动变更、选座和冲突会显示在这里。</p>}
       </section>
     </main>

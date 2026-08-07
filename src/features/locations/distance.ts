@@ -16,6 +16,9 @@ export function distanceMeters(from: Coordinate, to: Coordinate): number {
 }
 
 export function isLocationAllowed(distance: number, accuracy: number, radius: number): boolean {
-  const maximumAccuracy = Math.max(100, Math.min(500, radius / 2));
-  return accuracy <= maximumAccuracy && distance <= radius;
+  return accuracy <= maximumLocationAccuracy(radius) && distance <= radius;
+}
+
+export function maximumLocationAccuracy(radius: number): number {
+  return Math.max(100, Math.min(500, radius / 2));
 }

@@ -24,6 +24,10 @@ export const auditAction = pgEnum("audit_action", [
   "selection_reset",
   "seat_confirmed",
   "seat_conflict",
+  "selection_displaced",
+  "seating_entered",
+  "location_verified",
+  "location_rejected",
 ]);
 
 export const cinemas = pgTable("cinemas", {

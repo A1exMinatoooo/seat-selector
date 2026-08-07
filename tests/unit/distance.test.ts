@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceMeters, isLocationAllowed } from "@/features/locations/distance";
+import { distanceMeters, isLocationAllowed, maximumLocationAccuracy } from "@/features/locations/distance";
 
 describe("location distance", () => {
   it("calculates a stable short distance", () => {
@@ -12,5 +12,7 @@ describe("location distance", () => {
     expect(isLocationAllowed(900, 40, 1000)).toBe(true);
     expect(isLocationAllowed(1100, 40, 1000)).toBe(false);
     expect(isLocationAllowed(100, 600, 1000)).toBe(false);
+    expect(maximumLocationAccuracy(1000)).toBe(500);
+    expect(maximumLocationAccuracy(100)).toBe(100);
   });
 });
