@@ -18,6 +18,12 @@ describe("participant CSV", () => {
     expect(createParticipantCsvTemplate([...types, { id: "type-3", name: "双人,套票" }])).toBe("\uFEFF姓名,手机号或尾号,普通票,学生票,\"双人,套票\"\r\n");
   });
 
+  it("marks and parses lottery-eligible ticket columns", () => {
+    const lotteryTypes = [{ id: "type-1", name: "普通票", lotteryEligible: true }];
+    expect(createParticipantCsvTemplate(lotteryTypes)).toContain("普通票（参与抽奖）");
+    expect(parseParticipantCsv("姓名,手机号或尾号,普通票（参与抽奖）\n王明,13800138000,2", lotteryTypes)[0]?.ticketTotal).toBe(2);
+  });
+
   it("parses a manually entered participant with ticket allocations", () => {
     const row = parseParticipantInput({ name: "李华", phone: "5678", quantities: { "type-1": "0", "type-2": "2" } }, types);
     expect(row).toMatchObject({ name: "李华", phoneLast4: "5678", phoneIsFull: false, ticketTotal: 2 });

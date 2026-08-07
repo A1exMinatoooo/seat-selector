@@ -7,5 +7,17 @@ export const eventInputSchema = z.object({
   radiusMeters: z.coerce.number().int().min(50).max(100_000),
   startsAt: z.coerce.date(),
   timeZone: z.string().trim().min(1).max(64),
-  ticketTypes: z.array(z.string().trim().min(1).max(40)).min(1).max(20).refine((items) => new Set(items).size === items.length, "票种名称不能重复"),
+  lotteryEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
+  ticketTypes: z.array(z.object({
+    name: z.string().trim().min(1).max(40),
+    lotteryEligible: z.boolean(),
+  })).min(1).max(20).refine((items) => new Set(items.map((item) => item.name)).size === items.length, "票种名称不能重复"),
+  prizes: z.array(z.object({
+    name: z.string().trim().min(1).max(80),
+    quantity: z.coerce.number().int().min(1).max(100_000),
+  })).max(100),
+}).superRefine((input, context) => {
+  if (input.lotteryEnabled && input.prizes.length === 0) context.addIssue({ code: "custom", path: ["prizes"], message: "开启抽奖时至少需要一项奖品" });
+  if (input.lotteryEnabled && !input.ticketTypes.some((type) => type.lotteryEligible)) context.addIssue({ code: "custom", path: ["ticketTypes"], message: "开启抽奖时至少需要一个参与抽奖的票种" });
+  if (new Set(input.prizes.map((prize) => prize.name)).size !== input.prizes.length) context.addIssue({ code: "custom", path: ["prizes"], message: "奖品名称不能重复" });
 });

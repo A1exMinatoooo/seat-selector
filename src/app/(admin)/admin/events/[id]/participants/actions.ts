@@ -8,7 +8,7 @@ import { eventAuditLogs, events, participants, participantTickets, reservations,
 import { requireAdmin } from "@/server/security/admin-session";
 
 async function eventTicketTypes(eventId: string) {
-  return getDb().select({ id: ticketTypes.id, name: ticketTypes.name }).from(ticketTypes).where(eq(ticketTypes.eventId, eventId));
+  return getDb().select({ id: ticketTypes.id, name: ticketTypes.name, lotteryEligible: ticketTypes.lotteryEligible }).from(ticketTypes).where(eq(ticketTypes.eventId, eventId));
 }
 
 async function insertRows(eventId: string, rows: ParticipantImportRow[], source: "csv" | "manual") {

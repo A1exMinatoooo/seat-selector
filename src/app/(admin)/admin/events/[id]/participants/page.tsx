@@ -42,7 +42,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
       <div className="admin-grid participant-entry-grid">
         <section className="panel">
           <h2>CSV 批量导入</h2>
-          <p className="muted">模板会按当前票种生成列：姓名、手机号或尾号、{types.map((type) => type.name).join("、")}。</p>
+          <p className="muted">模板会按当前票种生成列：姓名、手机号或尾号、{types.map((type) => `${type.name}${type.lotteryEligible ? "（参与抽奖）" : ""}`).join("、")}。</p>
           <div className="header-actions">
             <a className="button" href={`/api/admin/events/${id}/participants/template.csv`}>下载导入模板</a>
           </div>
@@ -68,7 +68,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
               <fieldset className="ticket-allocation">
                 <legend>购买票种与张数</legend>
                 <div className="form-row">
-                  {types.map((type) => <label key={type.id}>{type.name}<input type="number" name={`ticket:${type.id}`} min={0} max={20} step={1} defaultValue={0} required /></label>)}
+                  {types.map((type) => <label key={type.id}>{type.name}{type.lotteryEligible ? "（参与抽奖）" : ""}<input type="number" name={`ticket:${type.id}`} min={0} max={20} step={1} defaultValue={0} required /></label>)}
                 </div>
                 <small>所有票种合计至少 1 张，单个票种最多 20 张。</small>
               </fieldset>

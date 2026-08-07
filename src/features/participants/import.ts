@@ -1,7 +1,7 @@
 import { parse } from "csv-parse/sync";
 import { z } from "zod";
 
-export type TicketColumn = { id: string; name: string };
+export type TicketColumn = { id: string; name: string; lotteryEligible?: boolean };
 export type ParticipantImportRow = { name: string; nameFirst: string; phoneDigits: string; phoneLast4: string; phoneIsFull: boolean; tickets: Array<{ ticketTypeId: string; quantity: number }>; ticketTotal: number };
 
 const baseRowSchema = z.object({ 姓名: z.string().trim().min(1).max(80), 手机号或尾号: z.string().trim().regex(/^\+?\d[\d\s-]{2,19}$/) }).passthrough();
@@ -29,7 +29,11 @@ function participantRow(name: string, phone: string, ticketTypes: TicketColumn[]
 }
 
 export function createParticipantCsvTemplate(ticketTypes: TicketColumn[]): string {
-  return `\uFEFF${["姓名", "手机号或尾号", ...ticketTypes.map((ticket) => ticket.name)].map(csvCell).join(",")}\r\n`;
+  return `\uFEFF${["姓名", "手机号或尾号", ...ticketTypes.map(ticketColumnName)].map(csvCell).join(",")}\r\n`;
+}
+
+export function ticketColumnName(ticket: TicketColumn): string {
+  return ticket.lotteryEligible ? `${ticket.name}（参与抽奖）` : ticket.name;
 }
 
 export function parseParticipantInput(input: unknown, ticketTypes: TicketColumn[]): ParticipantImportRow {
@@ -45,7 +49,7 @@ export function parseParticipantCsv(source: string, ticketTypes: TicketColumn[])
   const rows = records.map((raw, index) => {
     const base = baseRowSchema.parse(raw);
     try {
-      return participantRow(base.姓名, base.手机号或尾号, ticketTypes, (ticket) => raw[ticket.name] ?? "0");
+      return participantRow(base.姓名, base.手机号或尾号, ticketTypes, (ticket) => raw[ticketColumnName(ticket)] ?? raw[ticket.name] ?? "0");
     } catch (error) {
       throw new Error(`第 ${index + 2} 行${error instanceof Error ? error.message : "格式无效"}`, { cause: error });
     }
