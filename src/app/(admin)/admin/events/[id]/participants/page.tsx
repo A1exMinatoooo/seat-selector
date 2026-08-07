@@ -4,9 +4,14 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/server/db/client";
 import { events, participants, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
+import { formatDateTimeMilliseconds } from "@/shared/date-time";
 import { addParticipantAction, importParticipantsAction, resetDeviceAction, resetSelectionAction, toggleLocationExemptionAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+function confirmationTime(value: Date | undefined, timeZone: string): string {
+  return value ? formatDateTimeMilliseconds(value, timeZone) : "—";
+}
 
 export default async function ParticipantsPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -77,13 +82,14 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
         {people.length ? (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>姓名</th><th>手机</th><th>票种</th><th>座位</th><th>设备</th><th>管理操作</th></tr></thead>
+              <thead><tr><th>姓名</th><th>手机</th><th>票种</th><th>座位</th><th>选座确认时间</th><th>设备</th><th>管理操作</th></tr></thead>
               <tbody>{people.map((person) => (
                 <tr key={person.id}>
                   <td>{person.name}</td>
                   <td>{person.phoneIsFull ? `${person.phoneDigits.slice(0, 3)}****${person.phoneLast4}` : `****${person.phoneLast4}`}</td>
                   <td>{(byPerson.get(person.id) ?? []).map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</td>
                   <td>{(seatMap.get(person.id) ?? []).map((seat) => `${seat.rowLabel}${seat.columnLabel}`).join("、") || "未选"}</td>
+                  <td>{confirmationTime(reservationMap.get(person.id)?.confirmedAt, event.timeZone)}</td>
                   <td>{person.deviceBoundAt ? "已绑定" : "未绑定"}</td>
                   <td><div className="row-actions">
                     {person.deviceBoundAt ? <form action={resetDeviceAction}><input type="hidden" name="eventId" value={id} /><input type="hidden" name="participantId" value={person.id} /><button className="text-button" type="submit">解绑设备</button></form> : null}
