@@ -1,0 +1,74 @@
+name: pick-your-seat
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://${POSTGRES_USER:-pickseat}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pickseat}
+  APP_URL: ${APP_URL:?set APP_URL}
+  APP_SECRET: ${APP_SECRET:?set APP_SECRET}
+  ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?set ADMIN_PASSWORD_HASH}
+  TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
+  DEFAULT_TIME_ZONE: ${DEFAULT_TIME_ZONE:-Asia/Shanghai}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pickseat}
+      POSTGRES_USER: ${POSTGRES_USER:-pickseat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pickseat} -d ${POSTGRES_DB:-pickseat}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+    networks: [backend]
+
+  migrate:
+    build:
+      context: .
+      target: runner
+    command: ["node", "migrate.mjs"]
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment: *app-environment
+    expose: ["3000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *default-logging
+    networks: [backend, frontend]
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+    internal: true
+  frontend:
