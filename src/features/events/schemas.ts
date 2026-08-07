@@ -8,6 +8,7 @@ export const eventInputSchema = z.object({
   startsAt: z.coerce.date(),
   timeZone: z.string().trim().min(1).max(64),
   lotteryEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
+  availableSeatIds: z.array(z.string().uuid()).max(2500),
   ticketTypes: z.array(z.object({
     name: z.string().trim().min(1).max(40),
     lotteryEligible: z.boolean(),

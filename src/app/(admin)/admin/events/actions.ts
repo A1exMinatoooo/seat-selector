@@ -3,9 +3,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
-import { eventAuditLogs, events, lotteryPrizes, participantTickets, ticketTypes } from "@/server/db/schema";
+import { eventAuditLogs, eventSeats, events, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 
@@ -13,21 +15,52 @@ export async function createEventAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const rawTypes = formData.get("ticketTypes");
   const rawPrizes = formData.get("prizes");
+  const rawAvailableSeatIds = formData.get("availableSeatIds");
   const parsedTypes = typeof rawTypes === "string" ? JSON.parse(rawTypes) as unknown : [];
   const parsedPrizes = typeof rawPrizes === "string" ? JSON.parse(rawPrizes) as unknown : [];
-  const input = eventInputSchema.parse({ ...Object.fromEntries(formData), ticketTypes: parsedTypes, prizes: parsedPrizes });
+  const parsedAvailableSeatIds = typeof rawAvailableSeatIds === "string" ? JSON.parse(rawAvailableSeatIds) as unknown : [];
+  const input = eventInputSchema.parse({ ...Object.fromEntries(formData), ticketTypes: parsedTypes, prizes: parsedPrizes, availableSeatIds: parsedAvailableSeatIds });
   const eventId = await getDb().transaction(async (tx) => {
+    const hallSeats = await tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, input.hallId));
+    const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds);
     const [created] = await tx.insert(events).values({
       publicCode: randomToken(18), name: input.name, hallId: input.hallId, locationId: input.locationId,
       radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, lotteryEnabled: input.lotteryEnabled,
     }).returning({ id: events.id });
     if (!created) throw new Error("Event creation did not return an id");
+    if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: created.id, seatId })));
     await tx.insert(ticketTypes).values(input.ticketTypes.map((type, sortOrder) => ({ eventId: created.id, ...type, sortOrder })));
     if (input.lotteryEnabled) await tx.insert(lotteryPrizes).values(input.prizes.map((prize, sortOrder) => ({ eventId: created.id, ...prize, sortOrder })));
     await tx.insert(eventAuditLogs).values({ eventId: created.id, action: "event_created", details: { ticketTypeCount: input.ticketTypes.length, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
     return created.id;
   });
   redirect(`/admin/events/${eventId}`);
+}
+
+const eventAvailabilityInputSchema = z.object({
+  id: z.string().uuid(),
+  availableSeatIds: z.string().transform((value, context) => {
+    try { return JSON.parse(value) as unknown; }
+    catch { context.addIssue({ code: "custom", message: "座位范围数据无效" }); return z.NEVER; }
+  }).pipe(z.array(z.string().uuid()).max(2500)),
+});
+
+export async function updateEventSeatsAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const input = eventAvailabilityInputSchema.parse(Object.fromEntries(formData));
+  await getDb().transaction(async (tx) => {
+    const [event] = await tx.select({ hallId: events.hallId, status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
+    if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
+    const [hallSeats, reserved] = await Promise.all([
+      tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
+      tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
+    ]);
+    const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds, reserved.map((item) => item.seatId));
+    await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
+    if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
+    await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
+  });
+  revalidatePath(`/admin/events/${input.id}`);
 }
 
 export async function setEventStatusAction(formData: FormData): Promise<void> {

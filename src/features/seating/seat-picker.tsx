@@ -6,10 +6,11 @@ import { reportBrowserLocationFailure } from "./location-audit";
 
 export type SeatDto = { id: string; rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
 
-export function SeatPicker({ code, eventName, seats, initialOccupied, initialVersion, ticketTotal, centerAfterColumn, locationExempt }: { code: string; eventName: string; seats: SeatDto[]; initialOccupied: string[]; initialVersion: number; ticketTotal: number; centerAfterColumn: number | null; locationExempt: boolean }) {
+export function SeatPicker({ code, eventName, seats, initialAvailable, initialOccupied, initialVersion, ticketTotal, centerAfterColumn, locationExempt }: { code: string; eventName: string; seats: SeatDto[]; initialAvailable: string[]; initialOccupied: string[]; initialVersion: number; ticketTotal: number; centerAfterColumn: number | null; locationExempt: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [occupied, setOccupied] = useState(() => new Set(initialOccupied));
+  const [available, setAvailable] = useState(() => new Set(initialAvailable));
   const [version, setVersion] = useState(initialVersion);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,15 +61,17 @@ export function SeatPicker({ code, eventName, seats, initialOccupied, initialVer
     void reportDisplaced();
     const response = await fetch(`/api/events/${code}/seat-state?version=${version}`, { cache: "no-store" });
     if (response.status === 204 || !response.ok) return;
-    const data = await response.json() as { version: number; occupiedSeatIds: string[] };
+    const data = await response.json() as { version: number; occupiedSeatIds: string[]; availableSeatIds: string[] };
     const next = new Set(data.occupiedSeatIds);
     const displaced = selectedRef.current.filter((seatId) => next.has(seatId));
     setVersion(data.version);
     setOccupied(next);
-    if (displaced.length) {
+    setAvailable(new Set(data.availableSeatIds));
+    const noLongerAvailable = selectedRef.current.filter((seatId) => !data.availableSeatIds.includes(seatId));
+    if (displaced.length || noLongerAvailable.length) {
       displaced.forEach((seatId) => pendingDisplacedRef.current.add(seatId));
-      setSelected((old) => old.filter((seatId) => !next.has(seatId)));
-      showToast("你选中的座位刚刚被他人确认，请重新选择。");
+      setSelected((old) => old.filter((seatId) => !next.has(seatId) && data.availableSeatIds.includes(seatId)));
+      showToast(displaced.length ? "你选中的座位刚刚被他人确认，请重新选择。" : "活动开放范围已更新，请重新选择。");
       void reportDisplaced();
     }
   }, [code, reportDisplaced, showToast, version]);
@@ -106,7 +109,7 @@ export function SeatPicker({ code, eventName, seats, initialOccupied, initialVer
       showToast("这个座位已被其他参与者选择。");
       return;
     }
-    if (!seat.selectable || seat.kind !== "seat") return;
+    if (!seat.selectable || seat.kind !== "seat" || !available.has(seat.id)) return;
     setSelected((old) => old.includes(seat.id) ? old.filter((id) => id !== seat.id) : old.length >= ticketTotal ? (showToast(`最多选择 ${ticketTotal} 个座位`), old) : [...old, seat.id]);
   }
 
@@ -147,5 +150,5 @@ export function SeatPicker({ code, eventName, seats, initialOccupied, initialVer
     return seat ? `${seat.rowLabel}${seat.columnLabel}` : "";
   }).filter(Boolean), [seats, selected]);
 
-  return <main className="seat-page"><header><p className="eyebrow">{eventName}</p><h1>挑选你的座位</h1><div className="legend"><span className="available">可选</span><span className="golden">黄金区</span><span className="occupied">已选</span><span className="blocked">不可选</span></div></header><section className="seat-map-wrap"><div className="screen">银幕方向</div><div className="public-seat-grid" style={{ gridTemplateColumns: `repeat(${columns}, 42px)` }}>{seats.map((seat) => <button key={seat.id} type="button" aria-label={`${seat.rowLabel}${seat.columnLabel}`} disabled={seat.kind !== "seat" || !seat.selectable} className={`public-seat ${seat.kind} ${seat.golden ? "golden" : ""} ${occupied.has(seat.id) ? "occupied" : ""} ${selected.includes(seat.id) ? "mine" : ""} ${centerAfterColumn === seat.columnIndex ? "center-gap" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? seat.columnIndex + 1 : ""}</button>)}</div></section><footer className="selection-bar"><div><strong>已选 {selected.length}/{ticketTotal}</strong><span>{selectedLabels.length ? selectedLabels.join("、") : "请在上方点选座位"}</span></div><button className="button primary" disabled={selected.length !== ticketTotal || busy} onClick={confirm}>{busy ? "正在确认…" : "确认选座"}</button></footer>{toast ? <div className="toast" role="status">{toast}</div> : null}</main>;
+  return <main className="seat-page"><header><p className="eyebrow">{eventName}</p><h1>挑选你的座位</h1><div className="legend"><span className="available">可选</span><span className="golden">黄金区</span><span className="occupied">已选</span><span className="blocked">不可选</span></div></header><section className="seat-map-wrap"><div className="screen">银幕方向</div><div className="public-seat-grid" style={{ gridTemplateColumns: `repeat(${columns}, 42px)` }}>{seats.map((seat) => <button key={seat.id} type="button" aria-label={`${seat.rowLabel}${seat.columnLabel}`} disabled={seat.kind !== "seat" || !seat.selectable || !available.has(seat.id)} className={`public-seat ${seat.kind} ${seat.golden ? "golden" : ""} ${occupied.has(seat.id) ? "occupied" : ""} ${selected.includes(seat.id) ? "mine" : ""} ${centerAfterColumn === seat.columnIndex ? "center-gap" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? seat.columnIndex + 1 : ""}</button>)}</div></section><footer className="selection-bar"><div><strong>已选 {selected.length}/{ticketTotal}</strong><span>{selectedLabels.length ? selectedLabels.join("、") : "请在上方点选座位"}</span></div><button className="button primary" disabled={selected.length !== ticketTotal || busy} onClick={confirm}>{busy ? "正在确认…" : "确认选座"}</button></footer>{toast ? <div className="toast" role="status">{toast}</div> : null}</main>;
 }

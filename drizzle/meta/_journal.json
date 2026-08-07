@@ -71,6 +71,13 @@
       "when": 1786092462246,
       "tag": "0009_lottery",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786095445426,
+      "tag": "0010_large_ronan",
+      "breakpoints": true
     }
   ]
 }

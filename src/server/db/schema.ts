@@ -190,6 +190,18 @@ export const reservations = pgTable(
   (table) => [uniqueIndex("reservations_event_participant_uidx").on(table.eventId, table.participantId)],
 );
 
+export const eventSeats = pgTable(
+  "event_seats",
+  {
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id").notNull().references(() => seats.id),
+  },
+  (table) => [
+    uniqueIndex("event_seats_event_seat_uidx").on(table.eventId, table.seatId),
+    index("event_seats_event_idx").on(table.eventId),
+  ],
+);
+
 export const reservationSeats = pgTable(
   "reservation_seats",
   {
