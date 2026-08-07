@@ -2,10 +2,10 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { EventSeatManagementForm } from "@/features/events/event-seat-management-form";
+import { EventStatusForm } from "@/features/events/event-status-form";
 import { getDb } from "@/server/db/client";
 import { cinemas, eventSeats, events, halls, locationPresets, lotteryPrizes, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
-import { setEventStatusAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <Link className="button" href={`/admin/events/${event.id}/participants`}>参与者清单</Link>
           <Link className="button" href={`/admin/events/${event.id}/audit`}>审计日志</Link>
           {event.status === "open" ? <Link className="button" href={`/admin/events/${event.id}/checkin`}>现场二维码</Link> : null}
-          {event.status !== "ended" ? <form action={setEventStatusAction}><input type="hidden" name="id" value={event.id} /><input type="hidden" name="status" value={event.status === "draft" ? "open" : "ended"} /><button className="button primary" type="submit">{event.status === "draft" ? "开放选座" : "结束活动"}</button></form> : null}
+          {event.status !== "ended" ? <EventStatusForm eventId={event.id} status={event.status} /> : null}
         </div>
       </header>
       <div className="admin-grid">

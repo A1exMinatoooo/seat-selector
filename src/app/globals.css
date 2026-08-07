@@ -24,6 +24,7 @@ h1 { margin: 22px 0; font-size: clamp(44px, 8vw, 92px); line-height: .98; letter
 .hero-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 28px; }
 .button { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; padding: 0 20px; border-radius: 999px; border: 1px solid var(--line); font-weight: 700; cursor: pointer; }
 .button.primary { color: white; background: var(--green); border-color: var(--green); }
+.button.danger { color: white; background: #b42318; border-color: #b42318; }
 .fine-print { color: var(--muted); font-size: 14px; }
 .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 64px; }
 .feature-grid article { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
