@@ -58,7 +58,8 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
   if (action === "event_created") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种`;
   if (action === "event_status_changed") return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
   if (action === "seat_availability_changed") {
-    const source = details.source === "half_lock" ? `快速锁定${details.side === "left" ? "左" : "右"}半场` : "手动编辑";
+    const side = details.side === "left" ? "左" : "右";
+    const source = details.source === "half_unlock" ? `取消锁定${side}半场` : details.source === "half_switch" ? `切换为锁定${side}半场` : details.source === "half_lock" ? `快速锁定${side}半场` : "手动编辑";
     return `${source}；开放座位 ${String(details.beforeCount ?? 0)} → ${String(details.afterCount ?? 0)}；新增 ${String(details.addedCount ?? 0)}，关闭 ${String(details.removedCount ?? 0)}`;
   }
   if (action === "participants_imported") return `导入 ${String(details.count ?? 0)} 人，共 ${String(details.ticketTotal ?? 0)} 张票`;

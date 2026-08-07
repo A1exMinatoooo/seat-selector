@@ -7,7 +7,7 @@ import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
-import { describeAvailabilityChange, lockSeatHalf, resolveEventAvailability } from "@/server/domain/event-seat-availability";
+import { describeAvailabilityChange, resolveEventAvailability, toggleSeatHalfLock } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 
@@ -74,7 +74,7 @@ const halfLockInputSchema = z.object({
   side: z.enum(["left", "right"]),
 });
 
-export async function lockEventSeatHalfAction(formData: FormData): Promise<void> {
+export async function toggleEventSeatHalfLockAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const input = halfLockInputSchema.parse(Object.fromEntries(formData));
   await getDb().transaction(async (tx) => {
@@ -85,14 +85,16 @@ export async function lockEventSeatHalfAction(formData: FormData): Promise<void>
       tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
       tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
     ]);
-    const availableSeatIds = lockSeatHalf(hallSeats, available.map((item) => item.seatId), reserved.map((item) => item.seatId), input.side, event.centerAfterColumn);
+    const beforeSeatIds = available.map((item) => item.seatId);
+    const result = toggleSeatHalfLock(hallSeats, beforeSeatIds, reserved.map((item) => item.seatId), input.side, event.centerAfterColumn);
+    const availableSeatIds = result.availableSeatIds;
     await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
     await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
     await tx.insert(eventAuditLogs).values({
       eventId: input.id,
       action: "seat_availability_changed",
-      details: { source: "half_lock", side: input.side, ...describeAvailabilityChange(available.map((item) => item.seatId), availableSeatIds) },
+      details: { source: `half_${result.operation}`, side: input.side, previousSide: result.previousSide, activeSide: result.activeSide, ...describeAvailabilityChange(beforeSeatIds, availableSeatIds) },
     });
   });
   revalidatePath(`/admin/events/${input.id}`);
