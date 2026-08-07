@@ -85,7 +85,7 @@ export function SeatLayoutEditor() {
       </div>
       <div className="label-presets">
         <div><strong>快速生成行名称</strong><select aria-label="行名称格式" value={rowStyle} onChange={(event) => setRowStyle(event.target.value as LabelStyle)}><option value="letters">字母</option><option value="numbers">数字</option></select><select aria-label="行名称顺序" value={rowDirection} onChange={(event) => setRowDirection(event.target.value as LabelDirection)}><option value="ascending">正序</option><option value="descending">倒序</option></select><button type="button" onClick={() => setRowLabels(generateSeatLabels(rowLabels.length, rowStyle, rowDirection))}>生成</button></div>
-        <div><strong>横排座位号类型</strong><select aria-label="横排座位号类型" value={numberStyle} onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}><option value="numbers">数字</option><option value="letters">字母</option></select><button type="button" onClick={() => setTool("number")}>开始填充</button><button type="button" onClick={() => setTool("clear-number")}>清除座位号</button></div>
+        <div><strong>横排座位号类型</strong><select aria-label="横排座位号类型" value={numberStyle} onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}><option value="numbers">数字</option><option value="letters">字母</option></select><button className={tool === "number" ? "active" : ""} aria-pressed={tool === "number"} type="button" onClick={() => setTool((current) => current === "number" ? "seat" : "number")}>{tool === "number" ? "停止填充" : "开始填充"}</button><button className={tool === "clear-number" ? "active" : ""} aria-pressed={tool === "clear-number"} type="button" onClick={() => setTool((current) => current === "clear-number" ? "seat" : "clear-number")}>{tool === "clear-number" ? "停止清除" : "清除座位号"}</button></div>
       </div>
       <div className="label-editor">
         <div><strong>行名称</strong>{rowLabels.map((label, i) => <input aria-label={`第${i + 1}行名称`} key={i} value={label} onChange={(e) => setRowLabels((old) => old.map((item, index) => index === i ? e.target.value : item))} />)}</div>
@@ -116,7 +116,7 @@ export function SeatLayoutEditor() {
         })}</div>;
         })}
       </div>
-      <div className="layout-help"><strong>横排座位号说明</strong><p>每排默认不编号。选择数字或字母后点击“开始填充”，再按实际顺序点击或拖过座位；跨过空位后会接着上次的号码继续。清除中间某个号码不会改变其他号码，只有末尾号码被清除后，下次才从当前最后一个号码续编。右键单击或长按已有座位号可单独编辑。</p></div>
+      <div className="layout-help"><strong>横排座位号说明</strong><p>每排默认不编号。选择数字或字母后点击“开始填充”，按钮高亮表示功能已启用，再次点击可停止；随后按实际顺序点击或拖过座位，跨过空位后会接着上次的号码继续。“清除座位号”同样会在启用时高亮。清除中间某个号码不会改变其他号码，只有末尾号码被清除后，下次才从当前最后一个号码续编。右键单击或长按已有座位号可单独编辑。</p></div>
       <input type="hidden" name="layout" value={payload} />
     </fieldset>
   );
