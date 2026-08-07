@@ -42,6 +42,8 @@ export function EventSeatEditor({
   const locked = useMemo(() => new Set(lockedSeatIds), [lockedSeatIds]);
   const painting = useRef<boolean | null>(null);
   const columns = Math.max(...(hall?.seats.map((seat) => seat.columnIndex) ?? [0])) + 1;
+  const rowIndexes = [...new Set(hall?.seats.map((seat) => seat.rowIndex) ?? [])];
+  const columnLabels = Array.from({ length: columns }, (_, columnIndex) => hall?.seats.find((seat) => seat.columnIndex === columnIndex)?.columnLabel ?? String(columnIndex + 1));
 
   function paint(seatId: string) {
     if (painting.current === null || locked.has(seatId)) return;
@@ -79,7 +81,7 @@ export function EventSeatEditor({
       </div>
       <div
         className="seat-grid event-seat-grid"
-        style={{ gridTemplateColumns: `repeat(${columns}, 36px)` }}
+        style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }}
         onPointerMove={(event) => {
           if (painting.current === null) return;
           const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-event-seat-id]");
@@ -89,7 +91,9 @@ export function EventSeatEditor({
         onPointerCancel={() => { painting.current = null; }}
         onPointerLeave={(event) => { if (event.pointerType === "mouse") painting.current = null; }}
       >
-        {hall.seats.map((seat) => {
+        <span className="seat-coordinate corner" aria-hidden="true" />
+        {columnLabels.map((label, index) => <span className="seat-coordinate column" key={`column:${index}`}>{label}</span>)}
+        {rowIndexes.map((rowIndex) => <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row">{hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1}</span>{hall.seats.filter((seat) => seat.rowIndex === rowIndex).map((seat) => {
           const structural = seat.kind !== "seat" || !seat.selectable;
           const isLocked = locked.has(seat.id);
           const isAvailable = available.has(seat.id);
@@ -112,7 +116,7 @@ export function EventSeatEditor({
               {seat.kind === "seat" ? seat.columnIndex + 1 : ""}
             </button>
           );
-        })}
+        })}</div>)}
       </div>
       <input type="hidden" name="availableSeatIds" value={JSON.stringify([...available])} />
     </fieldset>
