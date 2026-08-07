@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 const actionLabels: Record<AuditAction, string> = {
   event_created: "创建活动",
   event_status_changed: "活动状态变更",
+  seat_availability_changed: "座位开放范围变更",
   participants_imported: "批量导入参与者",
   participant_added: "手动增加参与者",
   device_reset: "解绑设备",
@@ -56,6 +57,10 @@ function locationReason(value: unknown): string {
 function auditDetails(action: AuditAction, details: Record<string, unknown>): string {
   if (action === "event_created") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种`;
   if (action === "event_status_changed") return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
+  if (action === "seat_availability_changed") {
+    const source = details.source === "half_lock" ? `快速锁定${details.side === "left" ? "左" : "右"}半场` : "手动编辑";
+    return `${source}；开放座位 ${String(details.beforeCount ?? 0)} → ${String(details.afterCount ?? 0)}；新增 ${String(details.addedCount ?? 0)}，关闭 ${String(details.removedCount ?? 0)}`;
+  }
   if (action === "participants_imported") return `导入 ${String(details.count ?? 0)} 人，共 ${String(details.ticketTotal ?? 0)} 张票`;
   if (action === "participant_added") return `购买 ${String(details.ticketTotal ?? 0)} 张票`;
   if (action === "device_reset") return "管理员解除设备绑定";

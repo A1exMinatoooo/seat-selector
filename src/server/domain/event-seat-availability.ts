@@ -6,6 +6,20 @@ export type SeatPosition = {
 
 export type PositionedSeat = SeatPosition & { columnIndex: number };
 
+export function describeAvailabilityChange(
+  beforeSeatIds: Iterable<string>,
+  afterSeatIds: Iterable<string>,
+): { beforeCount: number; afterCount: number; addedCount: number; removedCount: number } {
+  const before = new Set(beforeSeatIds);
+  const after = new Set(afterSeatIds);
+  return {
+    beforeCount: before.size,
+    afterCount: after.size,
+    addedCount: [...after].filter((seatId) => !before.has(seatId)).length,
+    removedCount: [...before].filter((seatId) => !after.has(seatId)).length,
+  };
+}
+
 export function resolveEventAvailability(
   seats: SeatPosition[],
   requestedSeatIds: Iterable<string>,

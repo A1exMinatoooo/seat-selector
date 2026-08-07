@@ -7,7 +7,7 @@ import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
-import { lockSeatHalf, resolveEventAvailability } from "@/server/domain/event-seat-availability";
+import { describeAvailabilityChange, lockSeatHalf, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 
@@ -51,14 +51,20 @@ export async function updateEventSeatsAction(formData: FormData): Promise<void> 
   await getDb().transaction(async (tx) => {
     const [event] = await tx.select({ hallId: events.hallId, status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
     if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
-    const [hallSeats, reserved] = await Promise.all([
+    const [hallSeats, currentAvailable, reserved] = await Promise.all([
       tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
+      tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
       tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
     ]);
     const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds, reserved.map((item) => item.seatId));
     await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
     await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
+    await tx.insert(eventAuditLogs).values({
+      eventId: input.id,
+      action: "seat_availability_changed",
+      details: { source: "manual", ...describeAvailabilityChange(currentAvailable.map((item) => item.seatId), availableSeatIds) },
+    });
   });
   revalidatePath(`/admin/events/${input.id}`);
 }
@@ -83,6 +89,11 @@ export async function lockEventSeatHalfAction(formData: FormData): Promise<void>
     await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
     await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
+    await tx.insert(eventAuditLogs).values({
+      eventId: input.id,
+      action: "seat_availability_changed",
+      details: { source: "half_lock", side: input.side, ...describeAvailabilityChange(available.map((item) => item.seatId), availableSeatIds) },
+    });
   });
   revalidatePath(`/admin/events/${input.id}`);
 }

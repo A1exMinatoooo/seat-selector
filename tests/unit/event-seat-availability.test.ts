@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lockSeatHalf, resolveEventAvailability, type PositionedSeat, type SeatPosition } from "@/server/domain/event-seat-availability";
+import { describeAvailabilityChange, lockSeatHalf, resolveEventAvailability, type PositionedSeat, type SeatPosition } from "@/server/domain/event-seat-availability";
 
 const seats: SeatPosition[] = [
   { id: "a", kind: "seat", templateSelectable: true },
@@ -15,6 +15,17 @@ describe("resolveEventAvailability", () => {
 
   it("never removes a reserved selectable seat", () => {
     expect(resolveEventAvailability(seats, [], ["b"])).toEqual(["b"]);
+  });
+});
+
+describe("describeAvailabilityChange", () => {
+  it("summarizes additions and removals", () => {
+    expect(describeAvailabilityChange(["a", "b", "c"], ["b", "c", "d", "e"])).toEqual({
+      beforeCount: 3,
+      afterCount: 4,
+      addedCount: 2,
+      removedCount: 1,
+    });
   });
 });
 

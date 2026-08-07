@@ -17,6 +17,7 @@ export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
 export const auditAction = pgEnum("audit_action", [
   "event_created",
   "event_status_changed",
+  "seat_availability_changed",
   "participants_imported",
   "participant_added",
   "device_reset",

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'seat_availability_changed' BEFORE 'participants_imported';
