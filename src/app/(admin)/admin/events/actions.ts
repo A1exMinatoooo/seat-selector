@@ -1,25 +1,32 @@
 "use server";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { eventInputSchema } from "@/features/events/schemas";
+import { eventConfigurationInputSchema, eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
+import { DomainError, errorCodes } from "@/shared/errors";
+
+function parseJsonFormField(formData: FormData, name: string): unknown {
+  const value = formData.get(name);
+  if (typeof value !== "string") return [];
+  try { return JSON.parse(value) as unknown; }
+  catch { throw new DomainError(errorCodes.validation, `${name} 数据无效`); }
+}
 
 export async function createEventAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  const rawTypes = formData.get("ticketTypes");
-  const rawPrizes = formData.get("prizes");
-  const rawAvailableSeatIds = formData.get("availableSeatIds");
-  const parsedTypes = typeof rawTypes === "string" ? JSON.parse(rawTypes) as unknown : [];
-  const parsedPrizes = typeof rawPrizes === "string" ? JSON.parse(rawPrizes) as unknown : [];
-  const parsedAvailableSeatIds = typeof rawAvailableSeatIds === "string" ? JSON.parse(rawAvailableSeatIds) as unknown : [];
-  const input = eventInputSchema.parse({ ...Object.fromEntries(formData), ticketTypes: parsedTypes, prizes: parsedPrizes, availableSeatIds: parsedAvailableSeatIds });
+  const input = eventInputSchema.parse({
+    ...Object.fromEntries(formData),
+    ticketTypes: parseJsonFormField(formData, "ticketTypes"),
+    prizes: parseJsonFormField(formData, "prizes"),
+    availableSeatIds: parseJsonFormField(formData, "availableSeatIds"),
+  });
   const eventId = await getDb().transaction(async (tx) => {
     const [hall] = await tx.select({ id: halls.id }).from(halls).where(and(eq(halls.id, input.hallId), isNull(halls.archivedAt))).limit(1).for("share");
     if (!hall) throw new Error("Hall template is no longer active");
@@ -31,12 +38,61 @@ export async function createEventAction(formData: FormData): Promise<void> {
     }).returning({ id: events.id });
     if (!created) throw new Error("Event creation did not return an id");
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: created.id, seatId })));
-    await tx.insert(ticketTypes).values(input.ticketTypes.map((type, sortOrder) => ({ eventId: created.id, ...type, sortOrder })));
+    await tx.insert(ticketTypes).values(input.ticketTypes.map((type, sortOrder) => ({ eventId: created.id, name: type.name, lotteryEligible: type.lotteryEligible, sortOrder })));
     if (input.lotteryEnabled) await tx.insert(lotteryPrizes).values(input.prizes.map((prize, sortOrder) => ({ eventId: created.id, ...prize, sortOrder })));
     await tx.insert(eventAuditLogs).values({ eventId: created.id, action: "event_created", details: { ticketTypeCount: input.ticketTypes.length, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
     return created.id;
   });
   redirect(`/admin/events/${eventId}`);
+}
+
+export async function updateEventConfigurationAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const input = eventConfigurationInputSchema.parse({
+    ...Object.fromEntries(formData),
+    ticketTypes: parseJsonFormField(formData, "ticketTypes"),
+    prizes: parseJsonFormField(formData, "prizes"),
+  });
+
+  await getDb().transaction(async (tx) => {
+    const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
+    if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
+    if (event.status !== "draft") throw new DomainError(errorCodes.eventConflict, "只有草稿活动可以修改配置", 409);
+
+    const existingTypes = await tx.select({ id: ticketTypes.id }).from(ticketTypes).where(eq(ticketTypes.eventId, input.id));
+    const existingTypeIds = new Set(existingTypes.map((type) => type.id));
+    const retainedTypeIds = new Set(input.ticketTypes.flatMap((type) => type.id ? [type.id] : []));
+    if ([...retainedTypeIds].some((id) => !existingTypeIds.has(id))) throw new DomainError(errorCodes.validation, "票种数据无效");
+    const removedTypeIds = existingTypes.map((type) => type.id).filter((id) => !retainedTypeIds.has(id));
+    if (removedTypeIds.length) {
+      const [usedType] = await tx.select({ id: participantTickets.ticketTypeId }).from(participantTickets).where(inArray(participantTickets.ticketTypeId, removedTypeIds)).limit(1);
+      if (usedType) throw new DomainError(errorCodes.eventConflict, "已有参与者使用该票种，不能移除", 409);
+      await tx.delete(ticketTypes).where(inArray(ticketTypes.id, removedTypeIds));
+    }
+
+    for (const type of input.ticketTypes) {
+      if (type.id) await tx.update(ticketTypes).set({ name: `__editing__${type.id}` }).where(and(eq(ticketTypes.id, type.id), eq(ticketTypes.eventId, input.id)));
+    }
+    for (const [sortOrder, type] of input.ticketTypes.entries()) {
+      if (type.id) await tx.update(ticketTypes).set({ name: type.name, lotteryEligible: type.lotteryEligible, sortOrder }).where(and(eq(ticketTypes.id, type.id), eq(ticketTypes.eventId, input.id)));
+      else await tx.insert(ticketTypes).values({ eventId: input.id, name: type.name, lotteryEligible: type.lotteryEligible, sortOrder });
+    }
+
+    await tx.delete(lotteryPrizes).where(eq(lotteryPrizes.eventId, input.id));
+    if (input.lotteryEnabled) await tx.insert(lotteryPrizes).values(input.prizes.map((prize, sortOrder) => ({ eventId: input.id, ...prize, sortOrder })));
+    await tx.update(events).set({
+      name: input.name,
+      locationId: input.locationId,
+      radiusMeters: input.radiusMeters,
+      startsAt: input.startsAt,
+      timeZone: input.timeZone,
+      lotteryEnabled: input.lotteryEnabled,
+      version: sql`${events.version} + 1`,
+    }).where(eq(events.id, input.id));
+    await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
+  });
+  revalidatePath("/admin/events");
+  revalidatePath(`/admin/events/${input.id}`);
 }
 
 const eventAvailabilityInputSchema = z.object({

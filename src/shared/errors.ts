@@ -4,6 +4,7 @@ export const errorCodes = {
   validation: "VALIDATION_ERROR",
   notFound: "NOT_FOUND",
   conflict: "SEAT_CONFLICT",
+  eventConflict: "EVENT_CONFLICT",
   locationRequired: "LOCATION_REQUIRED",
   deviceBound: "DEVICE_ALREADY_BOUND",
   lotteryUnavailable: "LOTTERY_UNAVAILABLE",

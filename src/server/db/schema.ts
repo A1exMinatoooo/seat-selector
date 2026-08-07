@@ -16,6 +16,7 @@ export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
 export const auditAction = pgEnum("audit_action", [
   "event_created",
+  "event_configuration_changed",
   "event_status_changed",
   "seat_availability_changed",
   "participants_imported",

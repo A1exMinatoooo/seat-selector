@@ -92,6 +92,13 @@
       "when": 1786105499870,
       "tag": "0012_freezing_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786108304926,
+      "tag": "0013_event_configuration_audit",
+      "breakpoints": true
     }
   ]
 }

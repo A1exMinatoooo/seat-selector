@@ -5,5 +5,6 @@ describe("DomainError", () => {
   it("preserves stable public error codes", () => {
     const error = new DomainError(errorCodes.validation, "invalid");
     expect(error.code).toBe("VALIDATION_ERROR");
+    expect(errorCodes.eventConflict).toBe("EVENT_CONFLICT");
   });
 });

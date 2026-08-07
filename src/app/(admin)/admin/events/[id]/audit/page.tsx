@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const actionLabels: Record<AuditAction, string> = {
   event_created: "创建活动",
+  event_configuration_changed: "活动设置变更",
   event_status_changed: "活动状态变更",
   seat_availability_changed: "座位开放范围变更",
   participants_imported: "批量导入参与者",
@@ -56,6 +57,7 @@ function locationReason(value: unknown): string {
 
 function auditDetails(action: AuditAction, details: Record<string, unknown>): string {
   if (action === "event_created") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种`;
+  if (action === "event_configuration_changed") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种；抽奖${details.lotteryEnabled === true ? "开启" : "关闭"}；${String(details.prizeCount ?? 0)} 项奖品`;
   if (action === "event_status_changed") return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
   if (action === "seat_availability_changed") {
     const side = details.side === "left" ? "左" : "右";

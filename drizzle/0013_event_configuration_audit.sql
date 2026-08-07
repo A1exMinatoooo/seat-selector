@@ -1,0 +1,1 @@
+ALTER TYPE "public"."audit_action" ADD VALUE 'event_configuration_changed' BEFORE 'event_status_changed';
