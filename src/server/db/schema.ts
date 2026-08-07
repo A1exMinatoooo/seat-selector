@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
+export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
 
 export const cinemas = pgTable("cinemas", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -51,6 +52,35 @@ export const locationPresets = pgTable("location_presets", {
   defaultRadiusMeters: integer("default_radius_meters").notNull().default(1000),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    publicCode: text("public_code").notNull().unique(),
+    name: text("name").notNull(),
+    hallId: uuid("hall_id").notNull().references(() => halls.id),
+    locationId: uuid("location_id").notNull().references(() => locationPresets.id),
+    radiusMeters: integer("radius_meters").notNull(),
+    status: eventStatus("status").notNull().default("draft"),
+    version: integer("version").notNull().default(1),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("events_status_starts_at_idx").on(table.status, table.startsAt)],
+);
+
+export const ticketTypes = pgTable(
+  "ticket_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [uniqueIndex("ticket_types_event_name_uidx").on(table.eventId, table.name)],
+);
 
 export const adminSessions = pgTable(
   "admin_sessions",
