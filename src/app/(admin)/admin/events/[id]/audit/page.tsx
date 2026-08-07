@@ -24,6 +24,7 @@ const actionLabels: Record<AuditAction, string> = {
   seating_entered: "进入选座界面",
   location_verified: "定位成功",
   location_rejected: "定位失败",
+  lottery_drawn: "完成抽奖",
 };
 
 const statusLabels: Record<string, string> = { draft: "草稿", open: "开放中", ended: "已结束" };
@@ -65,6 +66,7 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
   if (action === "selection_displaced") return `临时选择被抢先确认：${stringList(details.seats).join("、") || "未知"}`;
   if (action === "seating_entered") return `进入座位图；设备标识 ${String(details.deviceId ?? "未知")}`;
   if (action === "location_verified") return `距离 ${String(details.distanceMeters ?? "—")}m；精度 ${String(details.accuracyMeters ?? "—")}m；范围 ${String(details.radiusMeters ?? "—")}m${details.exempt === true ? "；定位豁免" : ""}`;
+  if (action === "lottery_drawn") return `抽取 ${String(details.drawCount ?? 0)} 次；结果：${Array.isArray(details.prizes) ? details.prizes.map((prize) => typeof prize === "string" ? prize : "未中奖").join("、") : "未知"}`;
   return `${locationReason(details.reason)}；${details.distanceMeters === undefined ? "" : `距离 ${String(details.distanceMeters)}m；`}精度 ${String(details.accuracyMeters ?? "—")}m；范围 ${String(details.radiusMeters ?? "—")}m`;
 }
 

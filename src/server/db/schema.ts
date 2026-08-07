@@ -28,6 +28,7 @@ export const auditAction = pgEnum("audit_action", [
   "seating_entered",
   "location_verified",
   "location_rejected",
+  "lottery_drawn",
 ]);
 
 export const cinemas = pgTable("cinemas", {
@@ -82,6 +83,7 @@ export const events = pgTable(
     version: integer("version").notNull().default(1),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
+    lotteryEnabled: boolean("lottery_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("events_status_starts_at_idx").on(table.status, table.startsAt)],
@@ -94,8 +96,21 @@ export const ticketTypes = pgTable(
     eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     sortOrder: integer("sort_order").notNull(),
+    lotteryEligible: boolean("lottery_eligible").notNull().default(false),
   },
   (table) => [uniqueIndex("ticket_types_event_name_uidx").on(table.eventId, table.name)],
+);
+
+export const lotteryPrizes = pgTable(
+  "lottery_prizes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    quantity: integer("quantity").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [uniqueIndex("lottery_prizes_event_name_uidx").on(table.eventId, table.name)],
 );
 
 export const participants = pgTable(
@@ -117,6 +132,24 @@ export const participants = pgTable(
   (table) => [
     uniqueIndex("participants_event_phone_uidx").on(table.eventId, table.phoneDigits),
     index("participants_event_last4_idx").on(table.eventId, table.phoneLast4),
+  ],
+);
+
+export const lotteryDraws = pgTable(
+  "lottery_draws",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+    drawIndex: integer("draw_index").notNull(),
+    prizeId: uuid("prize_id").references(() => lotteryPrizes.id),
+    prizeName: text("prize_name"),
+    drawnAt: timestamp("drawn_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("lottery_draws_participant_index_uidx").on(table.participantId, table.drawIndex),
+    index("lottery_draws_event_idx").on(table.eventId),
+    index("lottery_draws_prize_idx").on(table.prizeId),
   ],
 );
 

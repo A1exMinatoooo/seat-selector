@@ -6,6 +6,7 @@ export const errorCodes = {
   conflict: "SEAT_CONFLICT",
   locationRequired: "LOCATION_REQUIRED",
   deviceBound: "DEVICE_ALREADY_BOUND",
+  lotteryUnavailable: "LOTTERY_UNAVAILABLE",
 } as const;
 
 export type ErrorCode = (typeof errorCodes)[keyof typeof errorCodes];
