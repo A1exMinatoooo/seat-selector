@@ -10,6 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project rules
 
+- Before starting any work, read `CONTRIBUTING.md`.
 - Keep business rules in `src/server/domain` and database access in `src/server/db`.
 - Validate every external input with Zod and preserve stable public error codes.
 - Include migrations and tests with schema-changing features.
