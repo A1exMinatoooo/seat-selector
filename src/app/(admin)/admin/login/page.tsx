@@ -21,7 +21,7 @@ export default async function AdminLoginPage({
           管理员口令
           <input name="password" type="password" autoComplete="current-password" required minLength={10} />
         </label>
-        {error ? <p className="form-error" role="alert">口令不正确，请重试。</p> : null}
+        {error ? <p className="form-error" role="alert">{error === "rate" ? "尝试次数过多，请稍后再试。" : "口令不正确，请重试。"}</p> : null}
         <button className="button primary" type="submit">登录管理端</button>
       </form>
     </main>
