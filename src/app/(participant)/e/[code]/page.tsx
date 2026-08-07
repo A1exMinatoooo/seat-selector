@@ -1,8 +1,18 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ParticipantEntry } from "@/features/entry/participant-entry";
+import { LocationGate } from "@/features/seating/location-gate";
+import { SeatPicker } from "@/features/seating/seat-picker";
+import { SuccessView } from "@/features/seating/success-view";
 import { getDb } from "@/server/db/client";
-import { events } from "@/server/db/schema";
-import { getLocationClaim, getParticipantClaim } from "@/server/security/participant-session";
+import { events, halls, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { requireParticipantForEvent } from "@/server/security/participant-auth";
+import { getEntryClaim, getLocationClaim } from "@/server/security/participant-session";
+
 export const dynamic = "force-dynamic";
-export default async function ParticipantPage({ params }: { params: Promise<{ code: string }> }) { const { code } = await params; const [event] = await getDb().select({ id: events.id, name: events.name }).from(events).where(and(eq(events.publicCode, code), eq(events.status, "open"))).limit(1); if (!event) notFound(); const [participant, location] = await Promise.all([getParticipantClaim(), getLocationClaim()]); if (participant?.eventId === event.id && location?.participantId === participant.participantId) return <main className="participant-shell"><section className="participant-card"><p className="eyebrow">验证完成</p><h1>准备选座</h1><p>座位图即将开放。</p></section></main>; return <ParticipantEntry code={code} eventName={event.name} />; }
+export default async function ParticipantPage({ params }: { params: Promise<{ code: string }> }) { const { code } = await params; const [event] = await getDb().select({ id: events.id, name: events.name, version: events.version, centerAfterColumn: halls.centerAfterColumn }).from(events).innerJoin(halls, eq(events.hallId, halls.id)).where(and(eq(events.publicCode, code), eq(events.status, "open"))).limit(1); if (!event) notFound(); let participant; try { participant = await requireParticipantForEvent(code); } catch { const entry = await getEntryClaim(); return entry?.eventId === event.id ? <ParticipantEntry code={code} eventName={event.name} /> : <main className="participant-shell"><section className="participant-card"><p className="eyebrow">安全入口</p><h1>请扫描现场二维码</h1><p>活动链接本身不包含选座资格，请使用现场屏幕上正在显示的动态二维码进入。</p></section></main>; }
+  const [reservation] = await getDb().select().from(reservations).where(and(eq(reservations.eventId, event.id), eq(reservations.participantId, participant.participantId))).limit(1);
+  if (reservation) { const [seatRows, tickets] = await Promise.all([getDb().select({ rowLabel: seats.rowLabel, columnLabel: seats.columnLabel }).from(reservationSeats).innerJoin(seats, eq(reservationSeats.seatId, seats.id)).where(eq(reservationSeats.reservationId, reservation.id)).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)), getDb().select({ name: ticketTypes.name, quantity: participantTickets.quantity }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(eq(participantTickets.participantId, participant.participantId)).orderBy(asc(ticketTypes.sortOrder))]); return <SuccessView eventName={event.name} confirmedAt={reservation.confirmedAt.toISOString()} serverTime={new Date().toISOString()} seats={seatRows.map((seat) => `${seat.rowLabel}${seat.columnLabel}`)} tickets={tickets} />; }
+  const location = await getLocationClaim(); if (!location || location.participantId !== participant.participantId) return <LocationGate eventName={event.name} />;
+  const [seatRows, occupied] = await Promise.all([getDb().select().from(seats).where(eq(seats.hallId, participant.hallId)).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)), getDb().select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, event.id))]);
+  return <SeatPicker code={code} eventName={event.name} seats={seatRows} initialOccupied={occupied.map((row) => row.seatId)} initialVersion={event.version} ticketTotal={participant.ticketTotal} centerAfterColumn={event.centerAfterColumn} />; }

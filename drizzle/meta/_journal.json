@@ -36,6 +36,13 @@
       "when": 1786079820990,
       "tag": "0004_parched_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786080384687,
+      "tag": "0005_serious_hitman",
+      "breakpoints": true
     }
   ]
 }

@@ -114,6 +114,30 @@ export const participantTickets = pgTable(
   (table) => [uniqueIndex("participant_tickets_participant_type_uidx").on(table.participantId, table.ticketTypeId)],
 );
 
+export const reservations = pgTable(
+  "reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("reservations_event_participant_uidx").on(table.eventId, table.participantId)],
+);
+
+export const reservationSeats = pgTable(
+  "reservation_seats",
+  {
+    reservationId: uuid("reservation_id").notNull().references(() => reservations.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id").notNull().references(() => seats.id),
+  },
+  (table) => [
+    uniqueIndex("reservation_seats_event_seat_uidx").on(table.eventId, table.seatId),
+    index("reservation_seats_reservation_idx").on(table.reservationId),
+  ],
+);
+
 export const adminSessions = pgTable(
   "admin_sessions",
   {
