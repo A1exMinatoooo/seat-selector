@@ -2,7 +2,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { parseParticipantCsv, validateResolvable, type ParticipantImportRow } from "@/features/participants/import";
+import { parseParticipantCsv, parseParticipantInput, validateResolvable, type ParticipantImportRow } from "@/features/participants/import";
 import { getDb } from "@/server/db/client";
 import { events, participants, participantTickets, reservations, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -32,6 +32,18 @@ export async function importParticipantsAction(formData: FormData): Promise<void
   if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
   const types = await eventTicketTypes(eventId);
   await insertRows(eventId, parseParticipantCsv(await file.text(), types));
+  revalidatePath(`/admin/events/${eventId}/participants`);
+}
+
+export async function addParticipantAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId"));
+  const [event] = await getDb().select({ status: events.status }).from(events).where(eq(events.id, eventId)).limit(1);
+  if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
+  const types = await eventTicketTypes(eventId);
+  const quantities = Object.fromEntries(types.map((type) => [type.id, formData.get(`ticket:${type.id}`)]));
+  const row = parseParticipantInput({ name: formData.get("name"), phone: formData.get("phone"), quantities }, types);
+  await insertRows(eventId, [row]);
   revalidatePath(`/admin/events/${eventId}/participants`);
 }
 

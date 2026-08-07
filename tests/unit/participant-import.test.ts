@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseParticipantCsv } from "@/features/participants/import";
+import { createParticipantCsvTemplate, parseParticipantCsv, parseParticipantInput } from "@/features/participants/import";
 
 const types = [{ id: "type-1", name: "普通票" }, { id: "type-2", name: "学生票" }];
 
@@ -12,5 +12,19 @@ describe("participant CSV", () => {
 
   it("rejects an unresolvable name-first and tail collision", () => {
     expect(() => parseParticipantCsv("姓名,手机号或尾号,普通票,学生票\n张小明,8000,1,0\n张晓,8000,1,0", types)).toThrow(/补录完整手机号|重复/);
+  });
+
+  it("creates a UTF-8 template with dynamic and escaped ticket columns", () => {
+    expect(createParticipantCsvTemplate([...types, { id: "type-3", name: "双人,套票" }])).toBe("\uFEFF姓名,手机号或尾号,普通票,学生票,\"双人,套票\"\r\n");
+  });
+
+  it("parses a manually entered participant with ticket allocations", () => {
+    const row = parseParticipantInput({ name: "李华", phone: "5678", quantities: { "type-1": "0", "type-2": "2" } }, types);
+    expect(row).toMatchObject({ name: "李华", phoneLast4: "5678", phoneIsFull: false, ticketTotal: 2 });
+    expect(row.tickets).toEqual([{ ticketTypeId: "type-2", quantity: 2 }]);
+  });
+
+  it("rejects a manually entered participant without tickets", () => {
+    expect(() => parseParticipantInput({ name: "李华", phone: "5678", quantities: {} }, types)).toThrow(/至少需要一张票/);
   });
 });
