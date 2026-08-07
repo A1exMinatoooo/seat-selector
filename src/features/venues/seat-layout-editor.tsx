@@ -99,13 +99,11 @@ export function SeatLayoutEditor() {
         const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-layout-seat]");
         if (target?.dataset.rowIndex && target.dataset.columnIndex) applyTool(Number(target.dataset.rowIndex), Number(target.dataset.columnIndex));
       }} onPointerUp={stopPainting} onPointerCancel={stopPainting} onPointerLeave={(event) => { if (event.pointerType === "mouse") stopPainting(); }}>
-        <span className="seat-coordinate corner" aria-hidden="true" />
-        {Array.from({ length: columns }, (_, index) => <span className="seat-coordinate column" key={`column:${index}`}>{index + 1}</span>)}
         {rowLabels.map((rowLabel, rowIndex) => {
           const isEmptyRow = Array.from({ length: columns }, (_, columnIndex) => overrides[`${rowIndex}:${columnIndex}`] === "empty").every(Boolean);
           return <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row"><span>{rowLabel}</span><button className="empty-row-toggle" type="button" aria-pressed={isEmptyRow} onClick={() => toggleEmptyRow(rowIndex)}>{isEmptyRow ? "恢复座位" : "设为空行"}</button></span>{cells.filter((cell) => cell.rowIndex === rowIndex).map((cell) => {
           const mode = overrides[`${cell.rowIndex}:${cell.columnIndex}`] ?? "seat";
-          return <button title={`${cell.rowLabel}排 ${cell.columnLabel || "未编号"}`} aria-label={`${cell.rowLabel}排${cell.columnLabel || "未编号"}：${mode}`} className={`editor-seat ${mode}`} type="button" key={`${cell.rowIndex}:${cell.columnIndex}`} data-layout-seat data-row-index={cell.rowIndex} data-column-index={cell.columnIndex} onContextMenu={(event) => { event.preventDefault(); if (cell.kind === "seat") editSeatNumber(cell.rowIndex, cell.columnIndex); }} onPointerDown={(event) => {
+          return <button title={`${cell.rowLabel}排 ${cell.columnLabel || "未编号"}`} aria-label={`${cell.rowLabel}排${cell.columnLabel || "未编号"}：${mode}`} className={`editor-seat ${mode} ${center === cell.columnIndex ? "center-divider" : ""}`} type="button" key={`${cell.rowIndex}:${cell.columnIndex}`} data-layout-seat data-row-index={cell.rowIndex} data-column-index={cell.columnIndex} onContextMenu={(event) => { event.preventDefault(); if (cell.kind === "seat") editSeatNumber(cell.rowIndex, cell.columnIndex); }} onPointerDown={(event) => {
             if (event.button === 2) return;
             event.preventDefault();
             painting.current = true;

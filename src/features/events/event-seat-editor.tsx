@@ -52,7 +52,6 @@ export function EventSeatEditor({
   const painting = useRef<boolean | null>(null);
   const columns = Math.max(...(hall?.seats.map((seat) => seat.columnIndex) ?? [0])) + 1;
   const rowIndexes = [...new Set(hall?.seats.map((seat) => seat.rowIndex) ?? [])];
-  const columnLabels = Array.from({ length: columns }, (_, columnIndex) => hall?.seats.find((seat) => seat.columnIndex === columnIndex)?.columnLabel ?? String(columnIndex + 1));
   const positionedSeats = useMemo(() => hall?.seats.map((seat) => ({ ...seat, templateSelectable: seat.selectable })) ?? [], [hall]);
   const activeLockedHalf = detectLockedSeatHalf(positionedSeats, available, locked, centerAfterColumn);
 
@@ -117,8 +116,6 @@ export function EventSeatEditor({
         onPointerCancel={() => { painting.current = null; }}
         onPointerLeave={(event) => { if (event.pointerType === "mouse") painting.current = null; }}
       >
-        <span className="seat-coordinate corner" aria-hidden="true" />
-        {columnLabels.map((label, index) => <span className="seat-coordinate column" key={`column:${index}`}>{label}</span>)}
         {rowIndexes.map((rowIndex) => <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row">{hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1}</span>{hall.seats.filter((seat) => seat.rowIndex === rowIndex).map((seat) => {
           const structural = seat.kind !== "seat" || !seat.selectable;
           const isLocked = locked.has(seat.id);
@@ -132,7 +129,7 @@ export function EventSeatEditor({
               title={`${seat.rowLabel} ${seat.columnLabel}${isLocked ? "（已被选择，不能关闭）" : ""}`}
               aria-label={`${seat.rowLabel}${seat.columnLabel}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
               aria-pressed={isAvailable}
-              className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${isLocked ? "locked" : ""}`}
+              className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
               onPointerDown={(event) => {
                 if (structural || isLocked) return;
                 event.preventDefault();
