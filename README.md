@@ -65,6 +65,8 @@ pnpm admin:hash 'replace-with-a-strong-password'
 - `ADMIN_PASSWORD_HASH`：密码哈希完整值；在 `.env` 中用单引号包裹，防止 `$` 被 Compose 展开。
 - `TRUSTED_PROXY_COUNT`：内置 Caddy 和单层外部反代均设置为 `1`。
 
+PostgreSQL 数据默认保存在 `compose.yaml` 同级的 `./pgdata` 目录。该目录不会提交到 Git，也不应在 PostgreSQL 运行时直接复制作为备份；请使用后文的逻辑备份命令。
+
 ### 方案 A：内置 Caddy
 
 先将域名 A/AAAA 记录指向 VPS，并开放 TCP 80、TCP/UDP 443：
@@ -124,6 +126,8 @@ docker compose -f compose.yaml -f compose.caddy.yaml ps
 ```cron
 15 3 * * * cd /opt/pick-your-seat && ./scripts/backup.sh >> /var/log/pickseat-backup.log 2>&1
 ```
+
+从使用 `postgres_data` 命名卷的旧版本升级时，应先在旧版本运行 `./scripts/backup.sh`。更新 Compose 文件后再按下面的恢复流程把备份写入新的 `./pgdata` 目录，避免误以为空目录中的新数据库是原数据库。
 
 恢复前先停止应用和迁移服务，再恢复到空数据库：
 
