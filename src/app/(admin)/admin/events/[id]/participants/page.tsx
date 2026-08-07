@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { NumericInput } from "@/features/forms/numeric-input";
 import { getDb } from "@/server/db/client";
 import { events, participants, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -68,7 +69,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
               <fieldset className="ticket-allocation">
                 <legend>购买票种与张数</legend>
                 <div className="form-row">
-                  {types.map((type) => <label key={type.id}>{type.name}{type.lotteryEligible ? "（参与抽奖）" : ""}<input type="number" name={`ticket:${type.id}`} min={0} max={20} step={1} defaultValue={0} required /></label>)}
+                  {types.map((type) => <label key={type.id}>{type.name}{type.lotteryEligible ? "（参与抽奖）" : ""}<NumericInput name={`ticket:${type.id}`} min={0} max={20} defaultValue={0} /></label>)}
                 </div>
                 <small>所有票种合计至少 1 张，单个票种最多 20 张。</small>
               </fieldset>

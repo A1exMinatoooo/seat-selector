@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { NumericInput } from "@/features/forms/numeric-input";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
 import { displaySeatNumber, nextSeatNumber } from "./seat-numbering";
 
@@ -79,9 +80,9 @@ export function SeatLayoutEditor() {
     <fieldset className="layout-editor">
       <legend>座位布局</legend>
       <div className="layout-controls">
-        <label>行数<input type="number" min="1" max="50" value={rowLabels.length} onChange={(e) => resizeRows(Number(e.target.value))} /></label>
-        <label>列数<input type="number" min="1" max="50" value={columns} onChange={(e) => resizeColumns(Number(e.target.value))} /></label>
-        <label>中线位于第几列后<input type="number" min="1" max={columns} value={center + 1} onChange={(e) => setCenter(Number(e.target.value) - 1)} /></label>
+        <label>行数<NumericInput min={1} max={50} value={rowLabels.length} onValueChange={resizeRows} /></label>
+        <label>列数<NumericInput min={1} max={50} value={columns} onValueChange={resizeColumns} /></label>
+        <label>中线位于第几列后<NumericInput min={1} max={columns} value={center + 1} onValueChange={(value) => setCenter(value - 1)} /></label>
       </div>
       <div className="label-presets">
         <div><strong>快速生成行名称</strong><select aria-label="行名称格式" value={rowStyle} onChange={(event) => setRowStyle(event.target.value as LabelStyle)}><option value="letters">字母</option><option value="numbers">数字</option></select><select aria-label="行名称顺序" value={rowDirection} onChange={(event) => setRowDirection(event.target.value as LabelDirection)}><option value="ascending">正序</option><option value="descending">倒序</option></select><button type="button" onClick={() => setRowLabels(generateSeatLabels(rowLabels.length, rowStyle, rowDirection))}>生成</button></div>
