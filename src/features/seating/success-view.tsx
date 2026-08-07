@@ -42,9 +42,9 @@ export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTi
   const now = new Date(nowIso);
   const won = lotteryResults.some((result) => result.prizeName !== null);
   return <main className="success-page">
-    <p className="eyebrow">选座成功 · {eventName}</p>
+    <header className="success-heading"><p className="eyebrow">选座成功</p><h1>{eventName}</h1></header>
     <div className="live-time"><span>当前时间</span><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>
-    <section><p>你的座位</p><h1>{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h1></section>
+    <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
     <div className="ticket-summary">{tickets.map((ticket) => <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>)}</div>
     {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<strong>{result.prizeName ?? "未中奖"}</strong></li>)}</ol></section> : null}
     <p className="confirmed-at">手机尾号 {phoneLast4}<br />确认时间 {new Date(confirmedAt).toLocaleString("zh-CN", { hour12: false })}</p>
