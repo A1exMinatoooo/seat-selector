@@ -1,12 +1,12 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
-import { eventAuditLogs, eventSeats, events, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
@@ -21,6 +21,8 @@ export async function createEventAction(formData: FormData): Promise<void> {
   const parsedAvailableSeatIds = typeof rawAvailableSeatIds === "string" ? JSON.parse(rawAvailableSeatIds) as unknown : [];
   const input = eventInputSchema.parse({ ...Object.fromEntries(formData), ticketTypes: parsedTypes, prizes: parsedPrizes, availableSeatIds: parsedAvailableSeatIds });
   const eventId = await getDb().transaction(async (tx) => {
+    const [hall] = await tx.select({ id: halls.id }).from(halls).where(and(eq(halls.id, input.hallId), isNull(halls.archivedAt))).limit(1).for("share");
+    if (!hall) throw new Error("Hall template is no longer active");
     const hallSeats = await tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, input.hallId));
     const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds);
     const [created] = await tx.insert(events).values({

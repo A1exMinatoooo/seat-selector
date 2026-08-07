@@ -1,15 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
 import { cinemas, halls, seats } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
 import { hallLayoutSchema } from "@/features/venues/schemas";
 import { importHallTemplates } from "@/server/db/hall-template-transfer";
+import { HallTemplateInUseError, replaceHallTemplate } from "@/server/db/hall-template-edit";
 import { parseHallTemplateBundle } from "@/server/domain/hall-template-transfer";
 
 export type HallTemplateImportState = { status: "idle" | "success" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE_FILE" | "IMPORT_FAILED" };
+export type HallTemplateUpdateState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE" | "HALL_TEMPLATE_IN_USE" | "UPDATE_FAILED" };
 
 export async function createCinemaAction(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -38,6 +41,27 @@ export async function createHallAction(formData: FormData): Promise<void> {
     await tx.insert(seats).values(input.layout.cells.map((cell) => ({ hallId: hall.id, ...cell })));
   });
   revalidatePath("/admin/venues");
+}
+
+export async function updateHallAction(_previousState: HallTemplateUpdateState, formData: FormData): Promise<HallTemplateUpdateState> {
+  await requireAdmin();
+  const parsed = z.object({
+    id: z.string().uuid(),
+    name: z.string().trim().min(1).max(80),
+    layout: z.string().transform((value, context) => {
+      try { return JSON.parse(value) as unknown; } catch { context.addIssue({ code: "custom", message: "布局数据无效" }); return z.NEVER; }
+    }).pipe(hallLayoutSchema),
+  }).safeParse({ id: formData.get("id"), name: formData.get("name"), layout: formData.get("layout") });
+  if (!parsed.success) return { status: "error", message: "模板内容无效，请检查后重试。", submission: Date.now(), code: "INVALID_TEMPLATE" };
+  try {
+    await replaceHallTemplate(parsed.data);
+  } catch (error) {
+    if (error instanceof HallTemplateInUseError) return { status: "error", message: "该模板仍有关联的草稿或进行中活动，不能编辑。", submission: Date.now(), code: "HALL_TEMPLATE_IN_USE" };
+    console.error(JSON.stringify({ level: "error", message: "hall_template_update_failed", hallId: parsed.data.id, error: error instanceof Error ? error.message : "Unknown error" }));
+    return { status: "error", message: "模板保存失败，请稍后重试。", submission: Date.now(), code: "UPDATE_FAILED" };
+  }
+  revalidatePath("/admin/venues");
+  redirect("/admin/venues");
 }
 
 export async function importHallTemplatesAction(_previousState: HallTemplateImportState, formData: FormData): Promise<HallTemplateImportState> {

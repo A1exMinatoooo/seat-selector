@@ -43,6 +43,7 @@ export const halls = pgTable("halls", {
   cinemaId: uuid("cinema_id").notNull().references(() => cinemas.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   centerAfterColumn: integer("center_after_column"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, isNull } from "drizzle-orm";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { EventSeatEditor } from "@/features/events/event-seat-editor";
 import { NumericInput } from "@/features/forms/numeric-input";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function NewEventPage() {
   await requireAdmin();
   const [hallRows, locations, seatRows] = await Promise.all([
-    getDb().select({ id: halls.id, hall: halls.name, cinema: cinemas.name }).from(halls).innerJoin(cinemas, eq(halls.cinemaId, cinemas.id)).orderBy(asc(cinemas.name), asc(halls.name)),
+    getDb().select({ id: halls.id, hall: halls.name, cinema: cinemas.name }).from(halls).innerJoin(cinemas, eq(halls.cinemaId, cinemas.id)).where(isNull(halls.archivedAt)).orderBy(asc(cinemas.name), asc(halls.name)),
     getDb().select().from(locationPresets).orderBy(asc(locationPresets.name)),
     getDb().select().from(seats).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
   ]);

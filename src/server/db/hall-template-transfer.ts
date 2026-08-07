@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { HallTemplateBundle } from "@/server/domain/hall-template-transfer";
 import { getDb } from "./client";
 import { cinemas, halls, seats } from "./schema";
@@ -9,13 +9,13 @@ export type HallTemplateExportScope = { type: "all" } | { type: "cinema"; id: st
 
 export async function exportHallTemplates(scope: HallTemplateExportScope): Promise<HallTemplateBundle | null> {
   const cinemaCondition = scope.type === "cinema" ? eq(cinemas.id, scope.id) : undefined;
-  const hallCondition = scope.type === "hall" ? eq(halls.id, scope.id) : undefined;
+  const hallCondition = scope.type === "hall" ? and(eq(halls.id, scope.id), isNull(halls.archivedAt)) : undefined;
   const cinemaRows = scope.type === "hall"
     ? await getDb().selectDistinct({ id: cinemas.id, name: cinemas.name }).from(cinemas).innerJoin(halls, eq(halls.cinemaId, cinemas.id)).where(hallCondition).orderBy(asc(cinemas.name))
     : await getDb().select({ id: cinemas.id, name: cinemas.name }).from(cinemas).where(cinemaCondition).orderBy(asc(cinemas.name));
   if (!cinemaRows.length) return null;
 
-  const hallRows = await getDb().select({ id: halls.id, cinemaId: halls.cinemaId, name: halls.name, centerAfterColumn: halls.centerAfterColumn }).from(halls).where(scope.type === "hall" ? hallCondition : inArray(halls.cinemaId, cinemaRows.map((cinema) => cinema.id))).orderBy(asc(halls.createdAt));
+  const hallRows = await getDb().select({ id: halls.id, cinemaId: halls.cinemaId, name: halls.name, centerAfterColumn: halls.centerAfterColumn }).from(halls).where(scope.type === "hall" ? hallCondition : and(inArray(halls.cinemaId, cinemaRows.map((cinema) => cinema.id)), isNull(halls.archivedAt))).orderBy(asc(halls.createdAt));
   if (!hallRows.length) return null;
   const seatRows = await getDb().select({ hallId: seats.hallId, rowIndex: seats.rowIndex, columnIndex: seats.columnIndex, rowLabel: seats.rowLabel, columnLabel: seats.columnLabel, kind: seats.kind, selectable: seats.selectable, golden: seats.golden }).from(seats).where(inArray(seats.hallId, hallRows.map((hall) => hall.id))).orderBy(asc(seats.rowIndex), asc(seats.columnIndex));
 

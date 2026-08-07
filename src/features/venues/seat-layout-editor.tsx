@@ -7,22 +7,29 @@ import { displaySeatNumber, nextSeatNumber } from "./seat-numbering";
 
 type LayoutTool = "seat" | "blocked" | "golden" | "aisle" | "empty";
 type Tool = LayoutTool | "number" | "clear-number";
-type Cell = { rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
+export type LayoutCell = { rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
+export type EditableHallLayout = { rows: number; columns: number; centerAfterColumn: number | null; cells: LayoutCell[] };
 
-export function SeatLayoutEditor() {
-  const [rowLabels, setRowLabels] = useState(() => generateSeatLabels(8, "letters", "ascending"));
-  const [columns, setColumns] = useState(12);
-  const [seatNumbers, setSeatNumbers] = useState<Record<string, string>>({});
+function layoutTool(cell: LayoutCell): LayoutTool {
+  if (cell.kind === "aisle" || cell.kind === "empty") return cell.kind;
+  if (cell.golden) return "golden";
+  return cell.selectable ? "seat" : "blocked";
+}
+
+export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHallLayout }) {
+  const [rowLabels, setRowLabels] = useState(() => initialLayout ? Array.from({ length: initialLayout.rows }, (_, rowIndex) => initialLayout.cells.find((cell) => cell.rowIndex === rowIndex)?.rowLabel ?? String(rowIndex + 1)) : generateSeatLabels(8, "letters", "ascending"));
+  const [columns, setColumns] = useState(initialLayout?.columns ?? 12);
+  const [seatNumbers, setSeatNumbers] = useState<Record<string, string>>(() => Object.fromEntries(initialLayout?.cells.map((cell) => [`${cell.rowIndex}:${cell.columnIndex}`, cell.columnLabel]) ?? []));
   const [rowStyle, setRowStyle] = useState<LabelStyle>("letters");
   const [rowDirection, setRowDirection] = useState<LabelDirection>("ascending");
   const [numberStyle, setNumberStyle] = useState<LabelStyle>("numbers");
   const [tool, setTool] = useState<Tool>("seat");
-  const [overrides, setOverrides] = useState<Record<string, LayoutTool>>({});
-  const [center, setCenter] = useState(6);
+  const [overrides, setOverrides] = useState<Record<string, LayoutTool>>(() => Object.fromEntries(initialLayout?.cells.map((cell) => [`${cell.rowIndex}:${cell.columnIndex}`, layoutTool(cell)]) ?? []));
+  const [center, setCenter] = useState(initialLayout?.centerAfterColumn ?? 6);
   const painting = useRef(false);
   const painted = useRef(new Set<string>());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cells = useMemo(() => rowLabels.flatMap((rowLabel, rowIndex) => Array.from({ length: columns }, (_, columnIndex): Cell => {
+  const cells = useMemo(() => rowLabels.flatMap((rowLabel, rowIndex) => Array.from({ length: columns }, (_, columnIndex): LayoutCell => {
     const key = `${rowIndex}:${columnIndex}`;
     const mode = overrides[`${rowIndex}:${columnIndex}`] ?? "seat";
     return { rowIndex, columnIndex, rowLabel, columnLabel: seatNumbers[key] ?? "", kind: mode === "aisle" || mode === "empty" ? mode : "seat", selectable: mode !== "blocked" && mode !== "aisle" && mode !== "empty", golden: mode === "golden" };
