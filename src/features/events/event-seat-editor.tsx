@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { detectLockedSeatHalf, toggleSeatHalfLock, type SeatHalf } from "@/server/domain/event-seat-availability";
+import { displaySeatNumber } from "@/features/venues/seat-numbering";
 
 export type EventSeat = {
   id: string;
@@ -143,7 +144,7 @@ export function EventSeatEditor({
                 painting.current = null;
               }}
             >
-              {seat.kind === "seat" ? seat.columnLabel : ""}
+              {seat.kind === "seat" ? displaySeatNumber(seat.columnLabel) : ""}
             </button>
           );
         })}</div>)}

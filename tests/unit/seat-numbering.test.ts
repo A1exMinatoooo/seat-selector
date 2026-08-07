@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextSeatNumber } from "@/features/venues/seat-numbering";
+import { displaySeatNumber, nextSeatNumber } from "@/features/venues/seat-numbering";
 
 describe("nextSeatNumber", () => {
   it("continues numeric numbering across unlabelled gaps", () => {
@@ -16,5 +16,11 @@ describe("nextSeatNumber", () => {
 
   it("supports alphabetic sequences beyond Z and ignores custom labels", () => {
     expect(nextSeatNumber(["Z", "入口", "AA"], "letters")).toBe("AB");
+  });
+
+  it("removes a stored seat suffix from map labels", () => {
+    expect(displaySeatNumber("12座")).toBe("12");
+    expect(displaySeatNumber("B座")).toBe("B");
+    expect(displaySeatNumber("B")).toBe("B");
   });
 });

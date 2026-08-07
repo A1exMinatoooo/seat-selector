@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
-import { nextSeatNumber } from "./seat-numbering";
+import { displaySeatNumber, nextSeatNumber } from "./seat-numbering";
 
 type LayoutTool = "seat" | "blocked" | "golden" | "aisle" | "empty";
 type Tool = LayoutTool | "number" | "clear-number";
@@ -112,7 +112,7 @@ export function SeatLayoutEditor() {
             painted.current.clear();
             applyTool(cell.rowIndex, cell.columnIndex);
             if (cell.kind === "seat" && cell.columnLabel) longPressTimer.current = setTimeout(() => { stopPainting(); editSeatNumber(cell.rowIndex, cell.columnIndex); }, 550);
-          }} onPointerUp={stopPainting} onClick={(event) => { if (event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? cell.columnLabel : ""}</button>;
+          }} onPointerUp={stopPainting} onClick={(event) => { if (event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? displaySeatNumber(cell.columnLabel) : ""}</button>;
         })}</div>;
         })}
       </div>
