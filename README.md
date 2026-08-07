@@ -102,29 +102,34 @@ location / {
 
 ### 使用 Docker tar 包部署
 
-仓库的 `Build Docker tar packages` GitHub Actions 工作流可以手动运行，也会在推送 `v*` 标签时运行。每次分别生成以下构建产物：
+仓库的 `Build Docker tar packages` GitHub Actions 工作流支持两种发布方式：
+
+- 推送 `v*` 标签时，构建产物会自动发布到该标签对应的 GitHub Release。
+- 手动运行时必须输入尚不存在的版本标签（例如 `v1.0.0`）；工作流会在所选提交上创建并推送标签，再创建对应的 GitHub Release。
+
+版本标签必须采用 `v1.0.0` 或 `v1.0.0-rc.1` 形式。每次发布分别生成以下构建产物：
 
 - `amd64`：用于常见 Intel/AMD x86-64 服务器。
 - `arm64`：用于 ARM64/AArch64 服务器。
 
-在 GitHub Actions 运行页面下载与服务器架构对应的 artifact 并解压，然后导入镜像：
+在 GitHub Releases 页面下载与服务器架构对应的 tar 包，然后导入镜像：
 
 ```bash
-docker load --input pick-your-seat-COMMIT_SHA-amd64.tar
+docker load --input pick-your-seat-v1.0.0-amd64.tar
 docker image inspect pick-your-seat:latest --format '{{.Os}}/{{.Architecture}}'
 ```
 
-ARM64 服务器将文件名替换为 `pick-your-seat-COMMIT_SHA-arm64.tar`。将仓库中的 Compose 文件、Caddy 配置和 `.env` 一并放到服务器后，无需在服务器安装 Node.js 或 pnpm 即可启动：
+ARM64 服务器将文件名替换为 `pick-your-seat-v1.0.0-arm64.tar`。将仓库中的 Compose 文件、Caddy 配置和 `.env` 一并放到服务器后，无需在服务器安装 Node.js 或 pnpm 即可启动：
 
 ```bash
 docker compose -f compose.yaml -f compose.caddy.yaml up -d --no-build
 docker compose -f compose.yaml -f compose.caddy.yaml ps
 ```
 
-使用已有反向代理时，将第二个 Compose 文件替换为 `compose.external-proxy.yaml`。tar 包同时包含 `pick-your-seat:latest` 和基于提交 SHA 的镜像标签；如需固定版本，在 `.env` 中设置：
+使用已有反向代理时，将第二个 Compose 文件替换为 `compose.external-proxy.yaml`。tar 包同时包含 `pick-your-seat:latest`、发布版本和提交 SHA 三个镜像标签；如需固定版本，在 `.env` 中设置：
 
 ```dotenv
-APP_IMAGE=pick-your-seat:COMMIT_SHA
+APP_IMAGE=pick-your-seat:v1.0.0
 ```
 
 PostgreSQL 和 Caddy 镜像仍会从镜像仓库拉取。完全离线部署时，还需提前在联网机器上分别拉取并通过 `docker save` 打包 `postgres:18-alpine` 和 `caddy:2-alpine`。
