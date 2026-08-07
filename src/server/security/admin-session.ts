@@ -18,7 +18,7 @@ export async function createAdminSession(): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/admin",
+    path: "/",
     expires: expiresAt,
   });
 }

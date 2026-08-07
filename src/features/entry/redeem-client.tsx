@@ -1,0 +1,4 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+export function RedeemClient({ code, token }: { code: string; token: string }) { const router = useRouter(); const [error, setError] = useState(false); useEffect(() => { const controller = new AbortController(); void fetch("/api/entry/redeem", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code, token }), signal: controller.signal }).then((response) => { if (!response.ok) throw new Error(); router.replace(`/e/${code}`); }).catch(() => setError(true)); return () => controller.abort(); }, [code, router, token]); return <main className="participant-shell"><section className="participant-card"><p className="eyebrow">安全入场</p><h1>{error ? "二维码已失效" : "正在验证二维码"}</h1><p>{error ? "请回到活动现场，重新扫描屏幕上最新的二维码。" : "请稍候，不要关闭页面。"}</p></section></main>; }

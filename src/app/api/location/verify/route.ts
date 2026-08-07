@@ -1,0 +1,10 @@
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { distanceMeters, isLocationAllowed } from "@/features/locations/distance";
+import { getDb } from "@/server/db/client";
+import { events, locationPresets, participants } from "@/server/db/schema";
+import { getParticipantClaim, setLocationClaim } from "@/server/security/participant-session";
+import { apiFailure, assertSameOrigin } from "@/server/security/request";
+import { DomainError, errorCodes } from "@/shared/errors";
+const schema = z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), accuracy: z.number().positive().max(10_000), capturedAt: z.number().int() });
+export async function POST(request: Request) { try { assertSameOrigin(request); const input = schema.parse(await request.json()); if (Math.abs(Date.now() - input.capturedAt) > 30_000) throw new DomainError(errorCodes.locationRequired, "Stale position", 403); const claim = await getParticipantClaim(); if (!claim) throw new DomainError(errorCodes.unauthorized, "Participant required", 401); const [row] = await getDb().select({ latitude: locationPresets.latitude, longitude: locationPresets.longitude, radius: events.radiusMeters, exempt: participants.locationExemptAt }).from(events).innerJoin(locationPresets, eq(events.locationId, locationPresets.id)).innerJoin(participants, and(eq(participants.eventId, events.id), eq(participants.id, claim.participantId))).where(eq(events.id, claim.eventId)).limit(1); if (!row) throw new DomainError(errorCodes.notFound, "Event missing", 404); const distance = Math.round(distanceMeters(input, row)); if (!row.exempt && !isLocationAllowed(distance, input.accuracy, row.radius)) throw new DomainError(errorCodes.locationRequired, "Outside range", 403); await setLocationClaim({ eventId: claim.eventId, participantId: claim.participantId, verifiedAt: Date.now() }); return Response.json({ ok: true, distanceMeters: distance, exempt: Boolean(row.exempt) }); } catch (error) { return apiFailure(error); } }
