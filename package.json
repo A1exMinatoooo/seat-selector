@@ -20,7 +20,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/server/db/migrate.ts",
+    "db:migrate": "node scripts/migrate.mjs",
     "admin:hash": "tsx scripts/hash-password.ts",
     "prepare": "husky"
   },
