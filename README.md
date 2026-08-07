@@ -100,6 +100,35 @@ location / {
 
 外部代理必须覆盖而不是追加不可信客户端传入的转发头，并负责 HTTPS 和证书续期。
 
+### 使用 Docker tar 包部署
+
+仓库的 `Build Docker tar packages` GitHub Actions 工作流可以手动运行，也会在推送 `v*` 标签时运行。每次分别生成以下构建产物：
+
+- `amd64`：用于常见 Intel/AMD x86-64 服务器。
+- `arm64`：用于 ARM64/AArch64 服务器。
+
+在 GitHub Actions 运行页面下载与服务器架构对应的 artifact 并解压，然后导入镜像：
+
+```bash
+docker load --input pick-your-seat-COMMIT_SHA-amd64.tar
+docker image inspect pick-your-seat:latest --format '{{.Os}}/{{.Architecture}}'
+```
+
+ARM64 服务器将文件名替换为 `pick-your-seat-COMMIT_SHA-arm64.tar`。将仓库中的 Compose 文件、Caddy 配置和 `.env` 一并放到服务器后，无需在服务器安装 Node.js 或 pnpm 即可启动：
+
+```bash
+docker compose -f compose.yaml -f compose.caddy.yaml up -d --no-build
+docker compose -f compose.yaml -f compose.caddy.yaml ps
+```
+
+使用已有反向代理时，将第二个 Compose 文件替换为 `compose.external-proxy.yaml`。tar 包同时包含 `pick-your-seat:latest` 和基于提交 SHA 的镜像标签；如需固定版本，在 `.env` 中设置：
+
+```dotenv
+APP_IMAGE=pick-your-seat:COMMIT_SHA
+```
+
+PostgreSQL 和 Caddy 镜像仍会从镜像仓库拉取。完全离线部署时，还需提前在联网机器上分别拉取并通过 `docker save` 打包 `postgres:18-alpine` 和 `caddy:2-alpine`。
+
 ## 更新与回滚
 
 更新前先备份数据库：

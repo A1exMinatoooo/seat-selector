@@ -33,6 +33,7 @@ services:
     networks: [backend]
 
   migrate:
+    image: ${APP_IMAGE:-pick-your-seat:latest}
     build:
       context: .
       target: runner
@@ -45,6 +46,7 @@ services:
     networks: [backend]
 
   app:
+    image: ${APP_IMAGE:-pick-your-seat:latest}
     build:
       context: .
       target: runner
