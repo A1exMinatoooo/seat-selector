@@ -96,6 +96,8 @@ export function SeatLayoutEditor() {
       </div>
       <div className="seat-grid seat-grid-with-coordinates" style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} onPointerMove={(event) => {
         if (!painting.current) return;
+        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
         const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-layout-seat]");
         if (target?.dataset.rowIndex && target.dataset.columnIndex) applyTool(Number(target.dataset.rowIndex), Number(target.dataset.columnIndex));
       }} onPointerUp={stopPainting} onPointerCancel={stopPainting} onPointerLeave={(event) => { if (event.pointerType === "mouse") stopPainting(); }}>
@@ -110,7 +112,7 @@ export function SeatLayoutEditor() {
             painted.current.clear();
             applyTool(cell.rowIndex, cell.columnIndex);
             if (cell.kind === "seat" && cell.columnLabel) longPressTimer.current = setTimeout(() => { stopPainting(); editSeatNumber(cell.rowIndex, cell.columnIndex); }, 550);
-          }} onPointerUp={stopPainting}>{cell.kind === "seat" ? cell.columnLabel : ""}</button>;
+          }} onPointerUp={stopPainting} onClick={(event) => { if (event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? cell.columnLabel : ""}</button>;
         })}</div>;
         })}
       </div>
