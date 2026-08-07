@@ -16,8 +16,9 @@ export async function POST(request: Request) {
     const input = schema.parse(await request.json());
     const claim = await getParticipantClaim();
     if (!claim) throw new DomainError(errorCodes.unauthorized, "Participant required", 401);
-    const [row] = await getDb().select({ latitude: locationPresets.latitude, longitude: locationPresets.longitude, radius: events.radiusMeters, exempt: participants.locationExemptAt }).from(events).innerJoin(locationPresets, eq(events.locationId, locationPresets.id)).innerJoin(participants, and(eq(participants.eventId, events.id), eq(participants.id, claim.participantId))).where(eq(events.id, claim.eventId)).limit(1);
+    const [row] = await getDb().select({ latitude: locationPresets.latitude, longitude: locationPresets.longitude, radius: events.radiusMeters, enabled: events.locationCheckEnabled, exempt: participants.locationExemptAt }).from(events).innerJoin(locationPresets, eq(events.locationId, locationPresets.id)).innerJoin(participants, and(eq(participants.eventId, events.id), eq(participants.id, claim.participantId))).where(eq(events.id, claim.eventId)).limit(1);
     if (!row) throw new DomainError(errorCodes.notFound, "Event missing", 404);
+    if (!row.enabled) return Response.json({ ok: true, locationCheckEnabled: false });
     if (Math.abs(Date.now() - input.capturedAt) > 30_000) {
       await recordEventAudit({ eventId: claim.eventId, participantId: claim.participantId, action: "location_rejected", details: { stage: "server", reason: "stale_position", accuracyMeters: Math.round(input.accuracy), radiusMeters: row.radius } });
       throw new DomainError(errorCodes.locationRequired, "Stale position", 403);

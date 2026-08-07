@@ -9,6 +9,7 @@ const baseInput = {
   startDate: "2026-08-07",
   startTime: "19:30",
   timeZone: "Asia/Shanghai",
+  locationCheckEnabled: true,
   lotteryEnabled: false,
   ticketTypes: [{ id: "00000000-0000-4000-8000-000000000003", name: "普通票", lotteryEligible: false }],
   prizes: [],
@@ -22,6 +23,11 @@ describe("event configuration validation", () => {
 
   it("requires lottery eligibility and a prize when lottery is enabled", () => {
     expect(eventConfigurationInputSchema.safeParse({ ...baseInput, lotteryEnabled: true }).success).toBe(false);
+  });
+
+  it("parses the activity-level location check switch", () => {
+    expect(eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: "on" }).locationCheckEnabled).toBe(true);
+    expect(eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: undefined }).locationCheckEnabled).toBe(false);
   });
 
   it("rejects lottery-eligible ticket types while lottery is disabled", () => {

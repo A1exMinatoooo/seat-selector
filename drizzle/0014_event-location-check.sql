@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "location_check_enabled" boolean DEFAULT true NOT NULL;

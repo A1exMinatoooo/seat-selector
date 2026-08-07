@@ -35,13 +35,13 @@ export async function createEventAction(formData: FormData): Promise<void> {
     const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds);
     const [created] = await tx.insert(events).values({
       publicCode: randomToken(18), name: input.name, hallId: input.hallId, locationId: input.locationId,
-      radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, lotteryEnabled: input.lotteryEnabled,
+      radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled,
     }).returning({ id: events.id });
     if (!created) throw new Error("Event creation did not return an id");
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: created.id, seatId })));
     await tx.insert(ticketTypes).values(input.ticketTypes.map((type, sortOrder) => ({ eventId: created.id, name: type.name, lotteryEligible: type.lotteryEligible, sortOrder })));
     if (input.lotteryEnabled) await tx.insert(lotteryPrizes).values(input.prizes.map((prize, sortOrder) => ({ eventId: created.id, ...prize, sortOrder })));
-    await tx.insert(eventAuditLogs).values({ eventId: created.id, action: "event_created", details: { ticketTypeCount: input.ticketTypes.length, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
+    await tx.insert(eventAuditLogs).values({ eventId: created.id, action: "event_created", details: { ticketTypeCount: input.ticketTypes.length, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
     return created.id;
   });
   redirect(`/admin/events/${eventId}`);
@@ -87,10 +87,11 @@ export async function updateEventConfigurationAction(formData: FormData): Promis
       radiusMeters: input.radiusMeters,
       startsAt: input.startsAt,
       timeZone: input.timeZone,
+      locationCheckEnabled: input.locationCheckEnabled,
       lotteryEnabled: input.lotteryEnabled,
       version: sql`${events.version} + 1`,
     }).where(eq(events.id, input.id));
-    await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
+    await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
   });
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${input.id}`);

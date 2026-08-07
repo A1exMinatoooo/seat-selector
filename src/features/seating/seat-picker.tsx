@@ -7,7 +7,7 @@ import { displaySeatNumber } from "@/features/venues/seat-numbering";
 
 export type SeatDto = { id: string; rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
 
-export function SeatPicker({ code, eventName, seats, initialAvailable, initialOccupied, initialVersion, ticketTotal, centerAfterColumn, locationExempt }: { code: string; eventName: string; seats: SeatDto[]; initialAvailable: string[]; initialOccupied: string[]; initialVersion: number; ticketTotal: number; centerAfterColumn: number | null; locationExempt: boolean }) {
+export function SeatPicker({ code, eventName, seats, initialAvailable, initialOccupied, initialVersion, ticketTotal, centerAfterColumn, skipLocationCheck }: { code: string; eventName: string; seats: SeatDto[]; initialAvailable: string[]; initialOccupied: string[]; initialVersion: number; ticketTotal: number; centerAfterColumn: number | null; skipLocationCheck: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [occupied, setOccupied] = useState(() => new Set(initialOccupied));
@@ -127,7 +127,7 @@ export function SeatPicker({ code, eventName, seats, initialAvailable, initialOc
   function confirm() {
     if (selected.length !== ticketTotal) return;
     setBusy(true);
-    if (locationExempt) {
+    if (skipLocationCheck) {
       void submitSelection();
       return;
     }

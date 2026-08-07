@@ -86,6 +86,7 @@ export const events = pgTable(
     version: integer("version").notNull().default(1),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
+    locationCheckEnabled: boolean("location_check_enabled").notNull().default(true),
     lotteryEnabled: boolean("lottery_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
