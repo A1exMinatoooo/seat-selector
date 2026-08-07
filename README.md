@@ -26,7 +26,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-将密码哈希命令的输出写入 `.env.local` 的 `ADMIN_PASSWORD_HASH`。`APP_SECRET` 应使用至少 32 字节随机值，例如：
+将密码哈希命令的输出用单引号包裹后写入 `.env.local` 的 `ADMIN_PASSWORD_HASH`。`APP_SECRET` 应使用至少 32 字节随机值，例如：
 
 ```bash
 openssl rand -base64 48
