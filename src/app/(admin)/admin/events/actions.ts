@@ -8,6 +8,7 @@ import { eventConfigurationInputSchema, eventInputSchema } from "@/features/even
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
+import { canChangeEventStatus } from "@/server/domain/event-status";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 import { DomainError, errorCodes } from "@/shared/errors";
@@ -141,14 +142,18 @@ export async function updateEventSeatsAction(_previousState: SeatAvailabilitySav
   }
 }
 
+const eventStatusInputSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["open", "ended"]),
+});
+
 export async function setEventStatusAction(formData: FormData): Promise<void> {
   await requireAdmin();
-  const id = String(formData.get("id"));
-  const status = String(formData.get("status"));
-  if ((status !== "open" && status !== "ended") || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Invalid event status change");
+  const { id, status } = eventStatusInputSchema.parse(Object.fromEntries(formData));
   await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled }).from(events).where(eq(events.id, id)).limit(1);
-    if (!event) throw new Error("Event not found");
+    const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled }).from(events).where(eq(events.id, id)).limit(1).for("update");
+    if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
+    if (!canChangeEventStatus(event.status, status)) throw new DomainError(errorCodes.eventConflict, "不允许的活动状态变更", 409);
     if (status === "open" && event.lotteryEnabled) {
       const [eligiblePool, inventory] = await Promise.all([
         tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true))),
