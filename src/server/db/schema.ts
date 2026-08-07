@@ -3,6 +3,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -13,6 +14,17 @@ import {
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
+export const auditAction = pgEnum("audit_action", [
+  "event_created",
+  "event_status_changed",
+  "participants_imported",
+  "participant_added",
+  "device_reset",
+  "location_exemption_changed",
+  "selection_reset",
+  "seat_confirmed",
+  "seat_conflict",
+]);
 
 export const cinemas = pgTable("cinemas", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -112,6 +124,22 @@ export const participantTickets = pgTable(
     quantity: integer("quantity").notNull(),
   },
   (table) => [uniqueIndex("participant_tickets_participant_type_uidx").on(table.participantId, table.ticketTypeId)],
+);
+
+export const eventAuditLogs = pgTable(
+  "event_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id").references(() => participants.id, { onDelete: "set null" }),
+    action: auditAction("action").notNull(),
+    details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("event_audit_logs_event_time_idx").on(table.eventId, table.occurredAt),
+    index("event_audit_logs_participant_idx").on(table.participantId),
+  ],
 );
 
 export const reservations = pgTable(

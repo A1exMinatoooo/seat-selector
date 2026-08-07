@@ -43,6 +43,13 @@
       "when": 1786080384687,
       "tag": "0005_serious_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786085401157,
+      "tag": "0006_fine_jack_power",
+      "breakpoints": true
     }
   ]
 }
