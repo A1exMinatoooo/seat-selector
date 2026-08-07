@@ -82,6 +82,38 @@ export const ticketTypes = pgTable(
   (table) => [uniqueIndex("ticket_types_event_name_uidx").on(table.eventId, table.name)],
 );
 
+export const participants = pgTable(
+  "participants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    nameFirst: text("name_first").notNull(),
+    phoneDigits: text("phone_digits").notNull(),
+    phoneLast4: text("phone_last4").notNull(),
+    phoneIsFull: boolean("phone_is_full").notNull(),
+    ticketTotal: integer("ticket_total").notNull(),
+    deviceHash: text("device_hash"),
+    deviceBoundAt: timestamp("device_bound_at", { withTimezone: true }),
+    locationExemptAt: timestamp("location_exempt_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("participants_event_phone_uidx").on(table.eventId, table.phoneDigits),
+    index("participants_event_last4_idx").on(table.eventId, table.phoneLast4),
+  ],
+);
+
+export const participantTickets = pgTable(
+  "participant_tickets",
+  {
+    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+    ticketTypeId: uuid("ticket_type_id").notNull().references(() => ticketTypes.id),
+    quantity: integer("quantity").notNull(),
+  },
+  (table) => [uniqueIndex("participant_tickets_participant_type_uidx").on(table.participantId, table.ticketTypeId)],
+);
+
 export const adminSessions = pgTable(
   "admin_sessions",
   {
