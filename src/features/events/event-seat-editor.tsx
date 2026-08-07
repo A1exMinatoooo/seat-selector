@@ -146,7 +146,7 @@ export function EventSeatEditor({
                 painting.current = null;
               }}
             >
-              {seat.kind === "seat" ? seat.columnIndex + 1 : ""}
+              {seat.kind === "seat" ? seat.columnLabel : ""}
             </button>
           );
         })}</div>)}
