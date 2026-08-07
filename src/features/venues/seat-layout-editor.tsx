@@ -66,6 +66,15 @@ export function SeatLayoutEditor() {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
     longPressTimer.current = null;
   }
+
+  function toggleEmptyRow(rowIndex: number) {
+    const isEmptyRow = Array.from({ length: columns }, (_, columnIndex) => overrides[`${rowIndex}:${columnIndex}`] === "empty").every(Boolean);
+    setOverrides((old) => {
+      const next = { ...old };
+      for (let columnIndex = 0; columnIndex < columns; columnIndex += 1) next[`${rowIndex}:${columnIndex}`] = isEmptyRow ? "seat" : "empty";
+      return next;
+    });
+  }
   return (
     <fieldset className="layout-editor">
       <legend>座位布局</legend>
@@ -92,7 +101,9 @@ export function SeatLayoutEditor() {
       }} onPointerUp={stopPainting} onPointerCancel={stopPainting} onPointerLeave={(event) => { if (event.pointerType === "mouse") stopPainting(); }}>
         <span className="seat-coordinate corner" aria-hidden="true" />
         {Array.from({ length: columns }, (_, index) => <span className="seat-coordinate column" key={`column:${index}`}>{index + 1}</span>)}
-        {rowLabels.map((rowLabel, rowIndex) => <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row">{rowLabel}</span>{cells.filter((cell) => cell.rowIndex === rowIndex).map((cell) => {
+        {rowLabels.map((rowLabel, rowIndex) => {
+          const isEmptyRow = Array.from({ length: columns }, (_, columnIndex) => overrides[`${rowIndex}:${columnIndex}`] === "empty").every(Boolean);
+          return <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row"><span>{rowLabel}</span><button className="empty-row-toggle" type="button" aria-pressed={isEmptyRow} onClick={() => toggleEmptyRow(rowIndex)}>{isEmptyRow ? "恢复座位" : "设为空行"}</button></span>{cells.filter((cell) => cell.rowIndex === rowIndex).map((cell) => {
           const mode = overrides[`${cell.rowIndex}:${cell.columnIndex}`] ?? "seat";
           return <button title={`${cell.rowLabel}排 ${cell.columnLabel || "未编号"}`} aria-label={`${cell.rowLabel}排${cell.columnLabel || "未编号"}：${mode}`} className={`editor-seat ${mode}`} type="button" key={`${cell.rowIndex}:${cell.columnIndex}`} data-layout-seat data-row-index={cell.rowIndex} data-column-index={cell.columnIndex} onContextMenu={(event) => { event.preventDefault(); if (cell.kind === "seat") editSeatNumber(cell.rowIndex, cell.columnIndex); }} onPointerDown={(event) => {
             if (event.button === 2) return;
@@ -102,7 +113,8 @@ export function SeatLayoutEditor() {
             applyTool(cell.rowIndex, cell.columnIndex);
             if (cell.kind === "seat" && cell.columnLabel) longPressTimer.current = setTimeout(() => { stopPainting(); editSeatNumber(cell.rowIndex, cell.columnIndex); }, 550);
           }} onPointerUp={stopPainting}>{cell.kind === "seat" ? cell.columnLabel : ""}</button>;
-        })}</div>)}
+        })}</div>;
+        })}
       </div>
       <div className="layout-help"><strong>横排座位号说明</strong><p>每排默认不编号。选择数字或字母后点击“开始填充”，再按实际顺序点击或拖过座位；跨过空位后会接着上次的号码继续。清除中间某个号码不会改变其他号码，只有末尾号码被清除后，下次才从当前最后一个号码续编。右键单击或长按已有座位号可单独编辑。</p></div>
       <input type="hidden" name="layout" value={payload} />
