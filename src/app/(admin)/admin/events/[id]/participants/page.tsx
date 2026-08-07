@@ -7,6 +7,7 @@ import { events, participants, participantTickets, reservations, reservationSeat
 import { requireAdmin } from "@/server/security/admin-session";
 import { formatDateTimeMilliseconds } from "@/shared/date-time";
 import { maskPhone } from "@/shared/phone";
+import { formatSeatLabel } from "@/shared/seat-label";
 import { addParticipantAction, importParticipantsAction, resetDeviceAction, resetSelectionAction, toggleLocationExemptionAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +91,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
                   <td>{person.name}</td>
                   <td>{maskPhone(person.phoneDigits, person.phoneIsFull)}</td>
                   <td>{(byPerson.get(person.id) ?? []).map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</td>
-                  <td>{(seatMap.get(person.id) ?? []).map((seat) => `${seat.rowLabel}${seat.columnLabel}`).join("、") || "未选"}</td>
+                  <td>{(seatMap.get(person.id) ?? []).map((seat) => formatSeatLabel(seat.rowLabel, seat.columnLabel)).join("、") || "未选"}</td>
                   <td>{confirmationTime(reservationMap.get(person.id)?.confirmedAt, event.timeZone)}</td>
                   <td>{person.deviceBoundAt ? "已绑定" : "未绑定"}</td>
                   <td><div className="row-actions">

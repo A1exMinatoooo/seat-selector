@@ -6,6 +6,7 @@ import { recordEventAudit } from "@/server/domain/event-audit";
 import { requireParticipantForEvent } from "@/server/security/participant-auth";
 import { apiFailure, assertSameOrigin } from "@/server/security/request";
 import { DomainError, errorCodes } from "@/shared/errors";
+import { formatSeatLabel } from "@/shared/seat-label";
 
 const schema = z.object({
   seatIds: z.array(z.string().uuid()).min(1).max(20).transform((values) => [...new Set(values)]),
@@ -25,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       .innerJoin(seats, eq(reservationSeats.seatId, seats.id))
       .where(and(eq(reservationSeats.eventId, participant.eventId), inArray(reservationSeats.seatId, seatIds), ne(reservations.participantId, participant.participantId)));
     if (!displaced.length) return new Response(null, { status: 204 });
-    const labelById = new Map(displaced.map((seat) => [seat.id, `${seat.rowLabel}${seat.columnLabel}`]));
+    const labelById = new Map(displaced.map((seat) => [seat.id, formatSeatLabel(seat.rowLabel, seat.columnLabel)]));
     await recordEventAudit({
       eventId: participant.eventId,
       participantId: participant.participantId,

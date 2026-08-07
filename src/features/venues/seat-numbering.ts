@@ -30,7 +30,3 @@ export function nextSeatNumber(labels: string[], style: LabelStyle): string {
   const nextOrdinal = lastOrdinal + 1;
   return style === "letters" ? alphabeticLabel(nextOrdinal) : String(nextOrdinal);
 }
-
-export function displaySeatNumber(label: string): string {
-  return label.trim().replace(/座$/u, "");
-}

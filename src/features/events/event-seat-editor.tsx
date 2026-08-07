@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { detectLockedSeatHalf, toggleSeatHalfLock, type SeatHalf } from "@/server/domain/event-seat-availability";
-import { displaySeatNumber } from "@/features/venues/seat-numbering";
+import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 export type EventSeat = {
   id: string;
@@ -127,8 +127,8 @@ export function EventSeatEditor({
               type="button"
               data-event-seat-id={seat.id}
               disabled={structural || isLocked}
-              title={`${seat.rowLabel} ${seat.columnLabel}${isLocked ? "（已被选择，不能关闭）" : ""}`}
-              aria-label={`${seat.rowLabel}${seat.columnLabel}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
+              title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : ""}`}
+              aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
               aria-pressed={isAvailable}
               className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
               onPointerDown={(event) => {

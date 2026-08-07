@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { displaySeatNumber, nextSeatNumber } from "@/features/venues/seat-numbering";
+import { nextSeatNumber } from "@/features/venues/seat-numbering";
+import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 describe("nextSeatNumber", () => {
   it("continues numeric numbering across unlabelled gaps", () => {
@@ -22,5 +23,11 @@ describe("nextSeatNumber", () => {
     expect(displaySeatNumber("12座")).toBe("12");
     expect(displaySeatNumber("B座")).toBe("B");
     expect(displaySeatNumber("B")).toBe("B");
+  });
+
+  it("formats complete seat names outside the map", () => {
+    expect(formatSeatLabel("A", "12")).toBe("A排12座");
+    expect(formatSeatLabel("A排", "12座")).toBe("A排12座");
+    expect(formatSeatLabel("A", "")).toBe("A排未编号座");
   });
 });

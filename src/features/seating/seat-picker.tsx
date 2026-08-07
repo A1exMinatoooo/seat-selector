@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
-import { displaySeatNumber } from "@/features/venues/seat-numbering";
+import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 export type SeatDto = { id: string; rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
 
@@ -148,8 +148,8 @@ export function SeatPicker({ code, eventName, seats, initialAvailable, initialOc
 
   const selectedLabels = useMemo(() => selected.map((id) => {
     const seat = seats.find((item) => item.id === id);
-    return seat ? `${seat.rowLabel}${seat.columnLabel}` : "";
+    return seat ? formatSeatLabel(seat.rowLabel, seat.columnLabel) : "";
   }).filter(Boolean), [seats, selected]);
 
-  return <main className="seat-page"><header><p className="eyebrow">{eventName}</p><h1>挑选你的座位</h1><div className="legend"><span className="available">可选</span><span className="golden">黄金区</span><span className="occupied">已选</span><span className="blocked">不可选</span></div></header><section className="seat-map-wrap"><div className="screen">银幕方向</div><div className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`} style={{ gridTemplateColumns: `repeat(${columns}, 42px)`, "--center-divider-column": (centerAfterColumn ?? 0) + 1 } as CSSProperties}>{seats.map((seat) => <button key={seat.id} type="button" aria-label={`${seat.rowLabel}${seat.columnLabel}`} disabled={seat.kind !== "seat" || !seat.selectable || !available.has(seat.id)} className={`public-seat ${seat.kind} ${seat.golden ? "golden" : ""} ${occupied.has(seat.id) ? "occupied" : ""} ${selected.includes(seat.id) ? "mine" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? displaySeatNumber(seat.columnLabel) : ""}</button>)}</div></section><footer className="selection-bar"><div><strong>已选 {selected.length}/{ticketTotal}</strong><span>{selectedLabels.length ? selectedLabels.join("、") : "请在上方点选座位"}</span></div><button className="button primary" disabled={selected.length !== ticketTotal || busy} onClick={confirm}>{busy ? "正在确认…" : "确认选座"}</button></footer>{toast ? <div className="toast" role="status">{toast}</div> : null}</main>;
+  return <main className="seat-page"><header><p className="eyebrow">{eventName}</p><h1>挑选你的座位</h1><div className="legend"><span className="available">可选</span><span className="golden">黄金区</span><span className="occupied">已选</span><span className="blocked">不可选</span></div></header><section className="seat-map-wrap"><div className="screen">银幕方向</div><div className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`} style={{ gridTemplateColumns: `repeat(${columns}, 42px)`, "--center-divider-column": (centerAfterColumn ?? 0) + 1 } as CSSProperties}>{seats.map((seat) => <button key={seat.id} type="button" aria-label={formatSeatLabel(seat.rowLabel, seat.columnLabel)} disabled={seat.kind !== "seat" || !seat.selectable || !available.has(seat.id)} className={`public-seat ${seat.kind} ${seat.golden ? "golden" : ""} ${occupied.has(seat.id) ? "occupied" : ""} ${selected.includes(seat.id) ? "mine" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? displaySeatNumber(seat.columnLabel) : ""}</button>)}</div></section><footer className="selection-bar"><div><strong>已选 {selected.length}/{ticketTotal}</strong><span>{selectedLabels.length ? selectedLabels.join("、") : "请在上方点选座位"}</span></div><button className="button primary" disabled={selected.length !== ticketTotal || busy} onClick={confirm}>{busy ? "正在确认…" : "确认选座"}</button></footer>{toast ? <div className="toast" role="status">{toast}</div> : null}</main>;
 }

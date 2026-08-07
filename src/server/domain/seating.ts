@@ -5,13 +5,14 @@ import { eventAuditLogs, eventSeats, events, participants, reservations, reserva
 import { recordEventAudit } from "@/server/domain/event-audit";
 import { DomainError, errorCodes } from "@/shared/errors";
 import { postgresErrorInfo } from "@/shared/postgres-error";
+import { formatSeatLabel } from "@/shared/seat-label";
 
 type ConfirmInput = { eventId: string; participantId: string; hallId: string; seatIds: string[]; ticketTotal: number };
 
 async function recordSeatConflict(input: ConfirmInput, reason: string): Promise<void> {
   try {
     const requested = await getDb().select({ id: seats.id, rowLabel: seats.rowLabel, columnLabel: seats.columnLabel }).from(seats).where(and(eq(seats.hallId, input.hallId), inArray(seats.id, input.seatIds)));
-    const labelById = new Map(requested.map((seat) => [seat.id, `${seat.rowLabel}${seat.columnLabel}`]));
+    const labelById = new Map(requested.map((seat) => [seat.id, formatSeatLabel(seat.rowLabel, seat.columnLabel)]));
     await recordEventAudit({
       eventId: input.eventId,
       participantId: input.participantId,
@@ -37,7 +38,7 @@ export async function confirmSeats(input: ConfirmInput): Promise<string> {
         if (!reservation) throw new Error("Reservation creation did not return an id");
         await tx.insert(reservationSeats).values(input.seatIds.map((seatId) => ({ reservationId: reservation.id, eventId: input.eventId, seatId })));
         await tx.update(events).set({ version: sql`${events.version} + 1` }).where(and(eq(events.id, input.eventId), eq(events.status, "open")));
-        const labelById = new Map(valid.map((seat) => [seat.id, `${seat.rowLabel}${seat.columnLabel}`]));
+        const labelById = new Map(valid.map((seat) => [seat.id, formatSeatLabel(seat.rowLabel, seat.columnLabel)]));
         await tx.insert(eventAuditLogs).values({ eventId: input.eventId, participantId: input.participantId, action: "seat_confirmed", details: { reservationId: reservation.id, seats: input.seatIds.map((seatId) => labelById.get(seatId) ?? "未知座位") } });
         return reservation.id;
       }, { isolationLevel: "serializable" });
