@@ -1,4 +1,4 @@
-import { hashPassword } from "../src/server/security/crypto";
+import { hashPassword } from "../src/server/security/password";
 
 const password = process.argv[2];
 if (!password || password.length < 10) {
