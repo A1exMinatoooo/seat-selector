@@ -64,6 +64,7 @@ input, select, textarea { min-height: 46px; border: 1px solid var(--line); borde
 .record-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .record-list li { display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .record-list span { color: var(--muted); font-size: 14px; }
+.record-list div { display: grid; gap: 5px; }.record-list small { color: var(--muted); }
 .layout-editor { border: 1px solid var(--line); border-radius: 18px; padding: 20px; overflow: auto; }
 .layout-controls { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 12px; }
 .layout-controls label { display: grid; gap: 6px; }

@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -41,6 +42,15 @@ export const seats = pgTable(
   },
   (table) => [uniqueIndex("seats_hall_position_uidx").on(table.hallId, table.rowIndex, table.columnIndex)],
 );
+
+export const locationPresets = pgTable("location_presets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  latitude: doublePrecision("latitude").notNull(),
+  longitude: doublePrecision("longitude").notNull(),
+  defaultRadiusMeters: integer("default_radius_meters").notNull().default(1000),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const adminSessions = pgTable(
   "admin_sessions",
