@@ -9,6 +9,8 @@ export async function confirmSeats(input: ConfirmInput): Promise<string> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await getDb().transaction(async (tx) => {
+        const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, input.eventId)).limit(1);
+        if (!event || event.status !== "open") throw new DomainError(errorCodes.forbidden, "Event is not open", 403);
         const [person] = await tx.select({ total: participants.ticketTotal }).from(participants).where(and(eq(participants.id, input.participantId), eq(participants.eventId, input.eventId))).limit(1);
         if (!person || person.total !== input.ticketTotal || input.seatIds.length !== person.total || new Set(input.seatIds).size !== person.total) throw new DomainError(errorCodes.validation, "Seat count does not match tickets", 400);
         const valid = await tx.select({ id: seats.id }).from(seats).where(and(eq(seats.hallId, input.hallId), eq(seats.kind, "seat"), eq(seats.selectable, true), inArray(seats.id, input.seatIds)));
