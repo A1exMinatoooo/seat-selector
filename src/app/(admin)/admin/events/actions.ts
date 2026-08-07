@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
-import { eventAuditLogs, eventSeats, events, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
-import { resolveEventAvailability } from "@/server/domain/event-seat-availability";
+import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { lockSeatHalf, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 
@@ -56,6 +56,30 @@ export async function updateEventSeatsAction(formData: FormData): Promise<void> 
       tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
     ]);
     const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds, reserved.map((item) => item.seatId));
+    await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
+    if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
+    await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
+  });
+  revalidatePath(`/admin/events/${input.id}`);
+}
+
+const halfLockInputSchema = z.object({
+  id: z.string().uuid(),
+  side: z.enum(["left", "right"]),
+});
+
+export async function lockEventSeatHalfAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const input = halfLockInputSchema.parse(Object.fromEntries(formData));
+  await getDb().transaction(async (tx) => {
+    const [event] = await tx.select({ hallId: events.hallId, status: events.status, centerAfterColumn: halls.centerAfterColumn }).from(events).innerJoin(halls, eq(events.hallId, halls.id)).where(eq(events.id, input.id)).limit(1).for("update");
+    if (!event || event.status !== "open") throw new Error("只有进行中的活动可以快速锁定半场");
+    const [hallSeats, available, reserved] = await Promise.all([
+      tx.select({ id: seats.id, columnIndex: seats.columnIndex, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
+      tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
+      tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
+    ]);
+    const availableSeatIds = lockSeatHalf(hallSeats, available.map((item) => item.seatId), reserved.map((item) => item.seatId), input.side, event.centerAfterColumn);
     await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
     await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
