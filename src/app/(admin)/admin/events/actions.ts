@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
-import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
-import { describeAvailabilityChange, resolveEventAvailability, toggleSeatHalfLock } from "@/server/domain/event-seat-availability";
+import { eventAuditLogs, eventSeats, events, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 
@@ -43,61 +43,44 @@ const eventAvailabilityInputSchema = z.object({
     try { return JSON.parse(value) as unknown; }
     catch { context.addIssue({ code: "custom", message: "座位范围数据无效" }); return z.NEVER; }
   }).pipe(z.array(z.string().uuid()).max(2500)),
+  changeSource: z.enum(["manual", "half_lock", "half_unlock", "half_switch"]).default("manual"),
+  side: z.enum(["left", "right"]).optional(),
+}).superRefine((input, context) => {
+  if (input.changeSource.startsWith("half_") && !input.side) context.addIssue({ code: "custom", path: ["side"], message: "半场方向缺失" });
 });
 
-export async function updateEventSeatsAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const input = eventAvailabilityInputSchema.parse(Object.fromEntries(formData));
-  await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ hallId: events.hallId, status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
-    if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
-    const [hallSeats, currentAvailable, reserved] = await Promise.all([
-      tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
-      tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
-      tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
-    ]);
-    const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds, reserved.map((item) => item.seatId));
-    await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
-    if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
-    await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
-    await tx.insert(eventAuditLogs).values({
-      eventId: input.id,
-      action: "seat_availability_changed",
-      details: { source: "manual", ...describeAvailabilityChange(currentAvailable.map((item) => item.seatId), availableSeatIds) },
-    });
-  });
-  revalidatePath(`/admin/events/${input.id}`);
-}
+export type SeatAvailabilitySaveState = { status: "idle" | "success" | "error"; message: string; submission: number };
 
-const halfLockInputSchema = z.object({
-  id: z.string().uuid(),
-  side: z.enum(["left", "right"]),
-});
-
-export async function toggleEventSeatHalfLockAction(formData: FormData): Promise<void> {
+export async function updateEventSeatsAction(_previousState: SeatAvailabilitySaveState, formData: FormData): Promise<SeatAvailabilitySaveState> {
   await requireAdmin();
-  const input = halfLockInputSchema.parse(Object.fromEntries(formData));
-  await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ hallId: events.hallId, status: events.status, centerAfterColumn: halls.centerAfterColumn }).from(events).innerJoin(halls, eq(events.hallId, halls.id)).where(eq(events.id, input.id)).limit(1).for("update");
-    if (!event || event.status !== "open") throw new Error("只有进行中的活动可以快速锁定半场");
-    const [hallSeats, available, reserved] = await Promise.all([
-      tx.select({ id: seats.id, columnIndex: seats.columnIndex, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
-      tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
-      tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
-    ]);
-    const beforeSeatIds = available.map((item) => item.seatId);
-    const result = toggleSeatHalfLock(hallSeats, beforeSeatIds, reserved.map((item) => item.seatId), input.side, event.centerAfterColumn);
-    const availableSeatIds = result.availableSeatIds;
-    await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
-    if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
-    await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
-    await tx.insert(eventAuditLogs).values({
-      eventId: input.id,
-      action: "seat_availability_changed",
-      details: { source: `half_${result.operation}`, side: input.side, previousSide: result.previousSide, activeSide: result.activeSide, ...describeAvailabilityChange(beforeSeatIds, availableSeatIds) },
+  const parsed = eventAvailabilityInputSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: "座位开放范围数据无效，请刷新页面后重试。", submission: Date.now() };
+  const input = parsed.data;
+  try {
+    await getDb().transaction(async (tx) => {
+      const [event] = await tx.select({ hallId: events.hallId, status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
+      if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
+      const [hallSeats, currentAvailable, reserved] = await Promise.all([
+        tx.select({ id: seats.id, kind: seats.kind, templateSelectable: seats.selectable }).from(seats).where(eq(seats.hallId, event.hallId)),
+        tx.select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, input.id)),
+        tx.select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, input.id)),
+      ]);
+      const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds, reserved.map((item) => item.seatId));
+      await tx.delete(eventSeats).where(eq(eventSeats.eventId, input.id));
+      if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
+      await tx.update(events).set({ version: sql`${events.version} + 1` }).where(eq(events.id, input.id));
+      await tx.insert(eventAuditLogs).values({
+        eventId: input.id,
+        action: "seat_availability_changed",
+        details: { source: input.changeSource, side: input.side, ...describeAvailabilityChange(currentAvailable.map((item) => item.seatId), availableSeatIds) },
+      });
     });
-  });
-  revalidatePath(`/admin/events/${input.id}`);
+    revalidatePath(`/admin/events/${input.id}`);
+    return { status: "success", message: "活动开放范围已保存。", submission: Date.now() };
+  } catch (error) {
+    console.error(JSON.stringify({ level: "error", message: "event_seat_availability_save_failed", eventId: input.id, error: error instanceof Error ? error.message : "Unknown error" }));
+    return { status: "error", message: "保存失败，请稍后重试。", submission: Date.now() };
+  }
 }
 
 export async function setEventStatusAction(formData: FormData): Promise<void> {
