@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
@@ -18,59 +11,24 @@ export function clampSeatGridScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
 
-export function pinchSeatGridScale(
-  startScale: number,
-  startDistance: number,
-  currentDistance: number,
-): number {
+export function pinchSeatGridScale(startScale: number, startDistance: number, currentDistance: number): number {
   if (startDistance <= 0 || currentDistance <= 0) return clampSeatGridScale(startScale);
-  return Math.round(clampSeatGridScale((startScale * currentDistance) / startDistance) * 100) / 100;
+  return Math.round(clampSeatGridScale(startScale * currentDistance / startDistance) * 100) / 100;
 }
 
-export function fitSeatGridScale(
-  viewportWidth: number,
-  viewportHeight: number,
-  gridWidth: number,
-  gridHeight: number,
-): number {
+export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, gridWidth: number, gridHeight: number): number {
   if (viewportWidth <= 0 || viewportHeight <= 0 || gridWidth <= 0 || gridHeight <= 0) return 1;
-  const fittedScale = clampSeatGridScale(
-    Math.min(
-      1,
-      (viewportWidth - VIEWPORT_PADDING) / gridWidth,
-      (viewportHeight - VIEWPORT_PADDING) / gridHeight,
-    ),
-  );
+  const fittedScale = clampSeatGridScale(Math.min(1, (viewportWidth - VIEWPORT_PADDING) / gridWidth, (viewportHeight - VIEWPORT_PADDING) / gridHeight));
   return Math.floor(fittedScale * 100) / 100;
 }
 
-export function SeatGridViewport({
-  children,
-  ariaLabel,
-  className = "",
-  onTouchCountChange,
-}: {
-  children: ReactNode;
-  ariaLabel: string;
-  className?: string;
-  onTouchCountChange?: (count: number) => void;
-}) {
+export function SeatGridViewport({ children, ariaLabel, className = "" }: { children: ReactNode; ariaLabel: string; className?: string }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
-  const onTouchCountChangeRef = useRef(onTouchCountChange);
-  const pinchRef = useRef<{
-    distance: number;
-    scale: number;
-    contentX: number;
-    contentY: number;
-  } | null>(null);
+  const pinchRef = useRef<{ distance: number; scale: number; contentX: number; contentY: number } | null>(null);
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
-
-  useLayoutEffect(() => {
-    onTouchCountChangeRef.current = onTouchCountChange;
-  }, [onTouchCountChange]);
 
   const measureGrid = useCallback(() => {
     const content = contentRef.current;
@@ -104,7 +62,6 @@ export function SeatGridViewport({
     }
 
     function beginPinch(event: TouchEvent) {
-      onTouchCountChangeRef.current?.(event.touches.length);
       if (event.touches.length !== 2) return;
       const geometry = touchGeometry(event);
       if (!geometry || geometry.distance <= 0) return;
@@ -139,7 +96,6 @@ export function SeatGridViewport({
     }
 
     function endPinch(event: TouchEvent) {
-      onTouchCountChangeRef.current?.(event.touches.length);
       if (event.touches.length < 2) pinchRef.current = null;
     }
 
@@ -164,14 +120,7 @@ export function SeatGridViewport({
   function fitGrid() {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    updateScale(
-      fitSeatGridScale(
-        viewport.clientWidth,
-        viewport.clientHeight,
-        gridSize.width,
-        gridSize.height,
-      ),
-    );
+    updateScale(fitSeatGridScale(viewport.clientWidth, viewport.clientHeight, gridSize.width, gridSize.height));
     viewport.scrollTo({ top: 0, left: 0 });
   }
 
@@ -184,39 +133,14 @@ export function SeatGridViewport({
   return (
     <section className={`seat-grid-viewport ${className}`.trim()} aria-label={ariaLabel}>
       <div className="seat-grid-viewport-toolbar" role="toolbar" aria-label="座位网格缩放">
-        <button
-          type="button"
-          aria-label="缩小座位网格"
-          disabled={scale <= MIN_SCALE}
-          onClick={() => updateScale(scale - SCALE_STEP)}
-        >
-          −
-        </button>
-        <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>
-          {Math.round(scale * 100)}%
-        </button>
-        <button
-          type="button"
-          aria-label="放大座位网格"
-          disabled={scale >= MAX_SCALE}
-          onClick={() => updateScale(scale + SCALE_STEP)}
-        >
-          ＋
-        </button>
-        <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>
-          显示完整
-        </button>
+        <button type="button" aria-label="缩小座位网格" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - SCALE_STEP)}>−</button>
+        <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>{Math.round(scale * 100)}%</button>
+        <button type="button" aria-label="放大座位网格" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + SCALE_STEP)}>＋</button>
+        <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>显示完整</button>
       </div>
-      <div
-        ref={viewportRef}
-        className="seat-grid-viewport-body"
-        tabIndex={0}
-        aria-label={`${ariaLabel}，可横向和纵向滚动`}
-      >
+      <div ref={viewportRef} className="seat-grid-viewport-body" tabIndex={0} aria-label={`${ariaLabel}，可横向和纵向滚动`}>
         <div className="seat-grid-viewport-canvas" style={canvasStyle}>
-          <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>
-            {children}
-          </div>
+          <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>{children}</div>
         </div>
       </div>
     </section>
