@@ -17,9 +17,9 @@ import { maskPhone } from "@/shared/phone";
 const schema = z.object({
   code: z.string().min(1).max(128),
   tail: z.string().regex(/^\d{4}$/),
-  fullPhone: z
+  phoneRemainder: z
     .string()
-    .regex(/^\d{7,15}$/)
+    .regex(/^\d{1,11}$/)
     .optional(),
   candidateToken: z.string().min(20).optional(),
 });
@@ -102,8 +102,11 @@ export async function POST(request: Request) {
       .where(and(eq(participants.eventId, event.id), eq(participants.phoneLast4, input.tail)));
     if (!candidates.length)
       throw new DomainError(errorCodes.identityMismatch, "No participant", 404);
-    const result = resolveIdentity(candidates, input.fullPhone);
-    if (input.fullPhone && result.status === "full-phone")
+    const result = resolveIdentity(
+      candidates,
+      input.phoneRemainder ? { digits: input.phoneRemainder, tail: input.tail } : undefined,
+    );
+    if (input.phoneRemainder && result.status === "full-phone")
       throw new DomainError(errorCodes.identityMismatch, "Full phone does not match", 404);
     if (result.status === "resolved")
       return Response.json({

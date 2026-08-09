@@ -16,11 +16,11 @@ describe("identity resolution", () => {
       status: "full-phone",
       tailOnlyCandidates: [],
     });
-    expect(resolveIdentity(fullCandidates, "13800008000")).toEqual({
+    expect(resolveIdentity(fullCandidates, { digits: "1380000", tail: "8000" })).toEqual({
       status: "resolved",
       participantId: "a",
     });
-    expect(resolveIdentity(fullCandidates, "13899998000")).toEqual({
+    expect(resolveIdentity(fullCandidates, { digits: "1389999", tail: "8000" })).toEqual({
       status: "full-phone",
       tailOnlyCandidates: [],
     });

@@ -9,7 +9,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
   const router = useRouter();
   const [step, setStep] = useState<Step>("tail");
   const [tail, setTail] = useState("");
-  const [fullPhone, setFullPhone] = useState("");
+  const [phoneRemainder, setPhoneRemainder] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -20,7 +20,12 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
       const response = await fetch("/api/identity/resolve", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, tail, fullPhone: fullPhone || undefined, candidateToken }),
+        body: JSON.stringify({
+          code,
+          tail,
+          phoneRemainder: phoneRemainder || undefined,
+          candidateToken,
+        }),
       });
       const result = (await response.json()) as {
         status?: string;
@@ -62,7 +67,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
           {step === "tail"
             ? "请输入报名时使用的手机尾号。"
             : step === "full-phone"
-              ? `尾号 ${tail} 对应完整手机号，请输入报名时使用的完整手机号码。`
+              ? "请输入报名时使用的手机号剩余部分。"
               : `尾号 ${tail} 有重复，请从清单中选择你的姓名。`}
         </p>
         {step === "tail" ? (
@@ -78,15 +83,21 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
         ) : null}
         {step === "full-phone" ? (
           <label>
-            完整手机号码
-            <input
-              autoFocus
-              inputMode="tel"
-              autoComplete="tel"
-              maxLength={15}
-              value={fullPhone}
-              onChange={(e) => setFullPhone(e.target.value.replace(/\D/g, ""))}
-            />
+            手机号
+            <span className="phone-remainder-field">
+              <input
+                autoFocus
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={11}
+                aria-label={`手机号尾号 ${tail} 前的剩余数字`}
+                value={phoneRemainder}
+                onChange={(e) => setPhoneRemainder(e.target.value.replace(/\D/g, ""))}
+              />
+              <span className="phone-tail" aria-hidden="true">
+                {tail}
+              </span>
+            </span>
           </label>
         ) : null}
         {step === "choice" || (step === "full-phone" && candidates.length > 0) ? (
@@ -121,7 +132,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
             disabled={
               busy ||
               (step === "tail" && tail.length !== 4) ||
-              (step === "full-phone" && fullPhone.length < 7)
+              (step === "full-phone" && phoneRemainder.length < 1)
             }
             onClick={() => void identify()}
           >

@@ -11,11 +11,15 @@ export type IdentityStep =
   | { status: "participant-choice"; candidates: IdentityCandidate[] }
   | { status: "resolved"; participantId: string };
 
-export function resolveIdentity(candidates: IdentityCandidate[], fullPhone?: string): IdentityStep {
+export function resolveIdentity(
+  candidates: IdentityCandidate[],
+  phoneRemainder?: { digits: string; tail: string },
+): IdentityStep {
   const fullPhoneCandidates = candidates.filter((candidate) => candidate.phoneIsFull);
   const tailOnlyCandidates = candidates.filter((candidate) => !candidate.phoneIsFull);
 
-  if (fullPhone) {
+  if (phoneRemainder) {
+    const fullPhone = `${phoneRemainder.digits}${phoneRemainder.tail}`;
     const matched = fullPhoneCandidates.find((candidate) => candidate.phoneDigits === fullPhone);
     if (matched) return { status: "resolved", participantId: matched.id };
   }
