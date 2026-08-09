@@ -109,7 +109,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
         </div>
       </div>
       <div className="label-editor">
-        <div><strong>行名称</strong>{rowLabels.map((label, i) => <input aria-label={`第${i + 1}行名称`} key={i} value={label} onChange={(e) => setRowLabels((old) => old.map((item, index) => index === i ? e.target.value : item))} />)}</div>
+        <div><strong>行名称</strong>{rowLabels.map((label, i) => <input aria-label={`第${i + 1}行名称`} key={i} value={label} maxLength={12} onChange={(e) => setRowLabels((old) => old.map((item, index) => index === i ? e.target.value : item))} />)}</div>
         <div><strong>座位号维护</strong><span className="muted">请在下方座位图中按实际顺序填充，或右键/长按单独编辑。</span></div>
       </div>
       <div className="tool-row" role="toolbar" aria-label="布局绘制工具"><strong>网格类型</strong>

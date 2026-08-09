@@ -3,7 +3,7 @@ import { z } from "zod";
 export const seatCellSchema = z.object({
   rowIndex: z.number().int().min(0).max(99),
   columnIndex: z.number().int().min(0).max(99),
-  rowLabel: z.string().trim().min(1).max(12),
+  rowLabel: z.string().trim().max(12),
   columnLabel: z.string().trim().max(12),
   kind: z.enum(["seat", "aisle", "empty"]),
   selectable: z.boolean(),

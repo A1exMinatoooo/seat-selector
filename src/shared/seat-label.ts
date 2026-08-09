@@ -9,5 +9,5 @@ export function displaySeatNumber(label: string): string {
 export function formatSeatLabel(rowLabel: string, columnLabel: string): string {
   const row = withoutSuffix(rowLabel, "排");
   const seat = displaySeatNumber(columnLabel);
-  return `${row}排${seat || "未编号"}座`;
+  return `${row ? `${row}排` : ""}${seat || "未编号"}座`;
 }

@@ -29,6 +29,8 @@ describe("nextSeatNumber", () => {
     expect(formatSeatLabel("A", "12")).toBe("A排12座");
     expect(formatSeatLabel("A排", "12座")).toBe("A排12座");
     expect(formatSeatLabel("A", "")).toBe("A排未编号座");
+    expect(formatSeatLabel("", "12")).toBe("12座");
+    expect(formatSeatLabel("", "")).toBe("未编号座");
   });
 
   it("generates labels independently for each row and skips non-seat cells", () => {
