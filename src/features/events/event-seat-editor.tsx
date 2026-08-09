@@ -249,6 +249,7 @@ export function EventSeatEditor({
               return;
             }
 
+            event.currentTarget.setPointerCapture(event.pointerId);
             const previousGesture = touchGesture.current;
             if (previousGesture.mode === "idle")
               touchSnapshot.current = { available: new Set(available), changeSource, changedSide };
