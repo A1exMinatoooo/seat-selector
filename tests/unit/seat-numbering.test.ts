@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextSeatNumber } from "@/features/venues/seat-numbering";
+import { generateSeatNumbers, nextSeatNumber } from "@/features/venues/seat-numbering";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 describe("nextSeatNumber", () => {
@@ -29,5 +29,23 @@ describe("nextSeatNumber", () => {
     expect(formatSeatLabel("A", "12")).toBe("A排12座");
     expect(formatSeatLabel("A排", "12座")).toBe("A排12座");
     expect(formatSeatLabel("A", "")).toBe("A排未编号座");
+  });
+
+  it("generates labels independently for each row and skips non-seat cells", () => {
+    expect(generateSeatNumbers([
+      { rowIndex: 0, columnIndex: 0, kind: "seat" },
+      { rowIndex: 0, columnIndex: 1, kind: "aisle" },
+      { rowIndex: 0, columnIndex: 2, kind: "seat" },
+      { rowIndex: 1, columnIndex: 0, kind: "empty" },
+      { rowIndex: 1, columnIndex: 1, kind: "seat" },
+    ], "numbers", "ascending")).toEqual({ "0:0": "1", "0:2": "2", "1:1": "1" });
+  });
+
+  it("supports descending alphabetic labels", () => {
+    expect(generateSeatNumbers([
+      { rowIndex: 0, columnIndex: 0, kind: "seat" },
+      { rowIndex: 0, columnIndex: 1, kind: "seat" },
+      { rowIndex: 0, columnIndex: 2, kind: "seat" },
+    ], "letters", "descending")).toEqual({ "0:0": "C", "0:1": "B", "0:2": "A" });
   });
 });

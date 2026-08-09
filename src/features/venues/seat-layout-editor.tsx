@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
-import { nextSeatNumber } from "./seat-numbering";
+import { generateSeatNumbers, nextSeatNumber } from "./seat-numbering";
 
 type LayoutTool = "seat" | "blocked" | "golden" | "aisle" | "empty";
 type Tool = LayoutTool | "number" | "clear-number";
@@ -24,6 +24,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
   const [rowStyle, setRowStyle] = useState<LabelStyle>("letters");
   const [rowDirection, setRowDirection] = useState<LabelDirection>("ascending");
   const [numberStyle, setNumberStyle] = useState<LabelStyle>("numbers");
+  const [numberDirection, setNumberDirection] = useState<LabelDirection>("ascending");
   const [tool, setTool] = useState<Tool>("seat");
   const [overrides, setOverrides] = useState<Record<string, LayoutTool>>(() => Object.fromEntries(initialLayout?.cells.map((cell) => [`${cell.rowIndex}:${cell.columnIndex}`, layoutTool(cell)]) ?? []));
   const [center, setCenter] = useState(initialLayout?.centerAfterColumn ?? 6);
@@ -39,6 +40,10 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
 
   function resizeRows(value: number) { setRowLabels((old) => Array.from({ length: value }, (_, i) => old[i] ?? generateSeatLabels(value, rowStyle, rowDirection)[i]!)); }
   function resizeColumns(value: number) { setColumns(value); }
+
+  function generateNumbers() {
+    setSeatNumbers(generateSeatNumbers(cells, numberStyle, numberDirection));
+  }
 
   function editSeatNumber(rowIndex: number, columnIndex: number) {
     const key = `${rowIndex}:${columnIndex}`;
@@ -94,7 +99,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       </div>
       <div className="label-presets">
         <div><strong>快速生成行名称</strong><select aria-label="行名称格式" value={rowStyle} onChange={(event) => setRowStyle(event.target.value as LabelStyle)}><option value="letters">字母</option><option value="numbers">数字</option></select><select aria-label="行名称顺序" value={rowDirection} onChange={(event) => setRowDirection(event.target.value as LabelDirection)}><option value="ascending">正序</option><option value="descending">倒序</option></select><button type="button" onClick={() => setRowLabels(generateSeatLabels(rowLabels.length, rowStyle, rowDirection))}>生成</button></div>
-        <div><strong>横排座位号类型</strong><select aria-label="横排座位号类型" value={numberStyle} onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}><option value="numbers">数字</option><option value="letters">字母</option></select><button className={tool === "number" ? "active" : ""} aria-pressed={tool === "number"} type="button" onClick={() => setTool((current) => current === "number" ? "seat" : "number")}>{tool === "number" ? "停止填充" : "开始填充"}</button><button className={tool === "clear-number" ? "active" : ""} aria-pressed={tool === "clear-number"} type="button" onClick={() => setTool((current) => current === "clear-number" ? "seat" : "clear-number")}>{tool === "clear-number" ? "停止清除" : "清除座位号"}</button></div>
+        <div><strong>横排座位号</strong><select aria-label="横排座位号类型" value={numberStyle} onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}><option value="numbers">数字</option><option value="letters">字母</option></select><select aria-label="横排座位号顺序" value={numberDirection} onChange={(event) => setNumberDirection(event.target.value as LabelDirection)}><option value="ascending">正序</option><option value="descending">倒序</option></select><button type="button" onClick={generateNumbers}>生成</button><button className={tool === "number" ? "active" : ""} aria-pressed={tool === "number"} type="button" onClick={() => setTool((current) => current === "number" ? "seat" : "number")}>{tool === "number" ? "停止填充" : "开始填充"}</button><button className={tool === "clear-number" ? "active" : ""} aria-pressed={tool === "clear-number"} type="button" onClick={() => setTool((current) => current === "clear-number" ? "seat" : "clear-number")}>{tool === "clear-number" ? "停止清除" : "清除座位号"}</button></div>
       </div>
       <div className="label-editor">
         <div><strong>行名称</strong>{rowLabels.map((label, i) => <input aria-label={`第${i + 1}行名称`} key={i} value={label} onChange={(e) => setRowLabels((old) => old.map((item, index) => index === i ? e.target.value : item))} />)}</div>
