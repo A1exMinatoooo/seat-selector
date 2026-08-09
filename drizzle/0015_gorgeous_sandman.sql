@@ -1,0 +1,1 @@
+DROP INDEX "participants_event_phone_uidx";

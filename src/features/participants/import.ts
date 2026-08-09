@@ -59,15 +59,13 @@ export function parseParticipantCsv(source: string, ticketTypes: TicketColumn[])
 }
 
 export function validateResolvable(rows: ParticipantImportRow[]): void {
-  const phones = new Set<string>();
+  const fullPhoneNames = new Set<string>();
   const groups = new Map<string, ParticipantImportRow[]>();
   for (const row of rows) {
-    if (phones.has(row.phoneDigits)) throw new Error(`手机号或尾号重复：${row.phoneLast4}`);
-    phones.add(row.phoneDigits);
+    const fullPhoneName = row.phoneIsFull ? `${row.phoneDigits}:${row.name}` : null;
+    if (fullPhoneName && fullPhoneNames.has(fullPhoneName)) throw new Error(`姓名和完整手机号重复：${row.name}`);
+    if (fullPhoneName) fullPhoneNames.add(fullPhoneName);
     const key = `${row.phoneLast4}:${row.nameFirst}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);
-  }
-  for (const group of groups.values()) {
-    if (group.length > 1 && group.some((row) => !row.phoneIsFull)) throw new Error(`尾号 ${group[0]?.phoneLast4 ?? ""} 与姓名首字仍冲突，请补录完整手机号`);
   }
 }

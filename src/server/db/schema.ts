@@ -133,10 +133,7 @@ export const participants = pgTable(
     locationExemptAt: timestamp("location_exempt_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("participants_event_phone_uidx").on(table.eventId, table.phoneDigits),
-    index("participants_event_last4_idx").on(table.eventId, table.phoneLast4),
-  ],
+  (table) => [index("participants_event_last4_idx").on(table.eventId, table.phoneLast4)],
 );
 
 export const lotteryDraws = pgTable(

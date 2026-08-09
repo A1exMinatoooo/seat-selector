@@ -10,8 +10,12 @@ describe("participant CSV", () => {
     expect(row?.phoneLast4).toBe("8000");
   });
 
-  it("rejects an unresolvable name-first and tail collision", () => {
-    expect(() => parseParticipantCsv("姓名,手机号或尾号,普通票,学生票\n张小明,8000,1,0\n张晓,8000,1,0", types)).toThrow(/补录完整手机号|重复/);
+  it("allows distinct full names to share a tail and name first character", () => {
+    expect(parseParticipantCsv("姓名,手机号或尾号,普通票,学生票\n张小明,8000,1,0\n张晓,8000,1,0", types)).toHaveLength(2);
+  });
+
+  it("rejects the same full name and full phone", () => {
+    expect(() => parseParticipantCsv("姓名,手机号或尾号,普通票,学生票\n张小明,13800138000,1,0\n张小明,13800138000,1,0", types)).toThrow(/姓名和完整手机号重复/);
   });
 
   it("creates a UTF-8 template with dynamic and escaped ticket columns", () => {

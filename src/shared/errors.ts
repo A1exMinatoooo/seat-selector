@@ -7,6 +7,8 @@ export const errorCodes = {
   eventConflict: "EVENT_CONFLICT",
   locationRequired: "LOCATION_REQUIRED",
   deviceBound: "DEVICE_ALREADY_BOUND",
+  identityMismatch: "IDENTITY_MISMATCH",
+  identityCandidateInvalid: "IDENTITY_CANDIDATE_INVALID",
   lotteryUnavailable: "LOTTERY_UNAVAILABLE",
 } as const;
 
