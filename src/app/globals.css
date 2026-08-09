@@ -84,7 +84,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .seat-grid-viewport-toolbar button { width: auto; min-width: 44px; min-height: 44px; flex: 0 0 auto; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: white; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .seat-grid-viewport-toolbar button:last-child { color: white; border-color: var(--green); background: var(--green); }
 .seat-grid-viewport-toolbar button:disabled { cursor: not-allowed; opacity: .45; }
-.seat-grid-viewport-body { position: relative; width: 100%; height: min(58svh, 680px); overflow: auto; padding: 12px; overscroll-behavior: contain; scrollbar-gutter: stable; background-image: radial-gradient(circle, rgba(101, 113, 109, .16) 1px, transparent 1px); background-size: 18px 18px; }
+.seat-grid-viewport-body { position: relative; width: 100%; height: min(58svh, 680px); overflow: auto; padding: 12px; overscroll-behavior: contain; scrollbar-gutter: stable; touch-action: pan-x pan-y; background-image: radial-gradient(circle, rgba(101, 113, 109, .16) 1px, transparent 1px); background-size: 18px 18px; }
 .seat-grid-viewport-body:focus-visible { outline: 3px solid rgba(23,79,66,.2); outline-offset: -3px; }
 .seat-grid-viewport-canvas { position: relative; margin-inline: auto; }
 .seat-grid-scaled-content { position: absolute; top: 0; left: 0; width: max-content; transform-origin: top left; }

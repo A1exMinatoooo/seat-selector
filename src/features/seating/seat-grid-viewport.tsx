@@ -11,6 +11,11 @@ export function clampSeatGridScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
 
+export function pinchSeatGridScale(startScale: number, startDistance: number, currentDistance: number): number {
+  if (startDistance <= 0 || currentDistance <= 0) return clampSeatGridScale(startScale);
+  return Math.round(clampSeatGridScale(startScale * currentDistance / startDistance) * 100) / 100;
+}
+
 export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, gridWidth: number, gridHeight: number): number {
   if (viewportWidth <= 0 || viewportHeight <= 0 || gridWidth <= 0 || gridHeight <= 0) return 1;
   const fittedScale = clampSeatGridScale(Math.min(1, (viewportWidth - VIEWPORT_PADDING) / gridWidth, (viewportHeight - VIEWPORT_PADDING) / gridHeight));
@@ -20,6 +25,8 @@ export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, 
 export function SeatGridViewport({ children, ariaLabel, className = "" }: { children: ReactNode; ariaLabel: string; className?: string }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
+  const pinchRef = useRef<{ distance: number; scale: number; contentX: number; contentY: number } | null>(null);
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
 
@@ -38,8 +45,76 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
     return () => observer.disconnect();
   }, [measureGrid]);
 
+  useLayoutEffect(() => {
+    const currentViewport = viewportRef.current;
+    if (!currentViewport) return;
+    const viewport: HTMLDivElement = currentViewport;
+
+    function touchGeometry(event: TouchEvent) {
+      const first = event.touches.item(0);
+      const second = event.touches.item(1);
+      if (!first || !second) return null;
+      return {
+        distance: Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY),
+        centerX: (first.clientX + second.clientX) / 2,
+        centerY: (first.clientY + second.clientY) / 2,
+      };
+    }
+
+    function beginPinch(event: TouchEvent) {
+      if (event.touches.length !== 2) return;
+      const geometry = touchGeometry(event);
+      if (!geometry || geometry.distance <= 0) return;
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const localX = geometry.centerX - rect.left;
+      const localY = geometry.centerY - rect.top;
+      pinchRef.current = {
+        distance: geometry.distance,
+        scale: scaleRef.current,
+        contentX: (viewport.scrollLeft + localX) / scaleRef.current,
+        contentY: (viewport.scrollTop + localY) / scaleRef.current,
+      };
+    }
+
+    function movePinch(event: TouchEvent) {
+      const pinch = pinchRef.current;
+      if (!pinch || event.touches.length !== 2) return;
+      const geometry = touchGeometry(event);
+      if (!geometry) return;
+      event.preventDefault();
+      const nextScale = pinchSeatGridScale(pinch.scale, pinch.distance, geometry.distance);
+      const rect = viewport.getBoundingClientRect();
+      const localX = geometry.centerX - rect.left;
+      const localY = geometry.centerY - rect.top;
+      scaleRef.current = nextScale;
+      setScale(nextScale);
+      requestAnimationFrame(() => {
+        viewport.scrollLeft = pinch.contentX * nextScale - localX;
+        viewport.scrollTop = pinch.contentY * nextScale - localY;
+      });
+    }
+
+    function endPinch(event: TouchEvent) {
+      if (event.touches.length < 2) pinchRef.current = null;
+    }
+
+    viewport.addEventListener("touchstart", beginPinch, { passive: false });
+    viewport.addEventListener("touchmove", movePinch, { passive: false });
+    viewport.addEventListener("touchend", endPinch);
+    viewport.addEventListener("touchcancel", endPinch);
+    return () => {
+      viewport.removeEventListener("touchstart", beginPinch);
+      viewport.removeEventListener("touchmove", movePinch);
+      viewport.removeEventListener("touchend", endPinch);
+      viewport.removeEventListener("touchcancel", endPinch);
+    };
+  }, []);
+
   function updateScale(nextScale: number) {
-    setScale(Math.round(clampSeatGridScale(nextScale) * 100) / 100);
+    const normalizedScale = Math.round(clampSeatGridScale(nextScale) * 100) / 100;
+    scaleRef.current = normalizedScale;
+    setScale(normalizedScale);
   }
 
   function fitGrid() {
