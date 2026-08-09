@@ -8,9 +8,14 @@ import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 import { generateSeatNumbers, nextSeatNumber } from "./seat-numbering";
 
 type LayoutTool = "seat" | "blocked" | "golden" | "aisle" | "empty";
-type Tool = LayoutTool | "number" | "clear-number";
+export type Tool = "navigate" | LayoutTool | "number" | "clear-number";
+const TOOL_LABELS = { seat: "可选", blocked: "不可选", golden: "黄金区", aisle: "过道", empty: "空白", number: "填充座位号", "clear-number": "清除座位号" } as const;
 export type LayoutCell = { rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
 export type EditableHallLayout = { rows: number; columns: number; centerAfterColumn: number | null; cells: LayoutCell[] };
+
+export function toggleSeatLayoutTool(current: Tool, next: "number" | "clear-number"): Tool {
+  return current === next ? "navigate" : next;
+}
 
 function layoutTool(cell: LayoutCell): LayoutTool {
   if (cell.kind === "aisle" || cell.kind === "empty") return cell.kind;
@@ -26,7 +31,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
   const [rowDirection, setRowDirection] = useState<LabelDirection>("ascending");
   const [numberStyle, setNumberStyle] = useState<LabelStyle>("numbers");
   const [numberDirection, setNumberDirection] = useState<LabelDirection>("ascending");
-  const [tool, setTool] = useState<Tool>("seat");
+  const [tool, setTool] = useState<Tool>("navigate");
   const [overrides, setOverrides] = useState<Record<string, LayoutTool>>(() => Object.fromEntries(initialLayout?.cells.map((cell) => [`${cell.rowIndex}:${cell.columnIndex}`, layoutTool(cell)]) ?? []));
   const [center, setCenter] = useState(initialLayout?.centerAfterColumn ?? 6);
   const painting = useRef(false);
@@ -55,6 +60,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
   }
 
   function applyTool(rowIndex: number, columnIndex: number) {
+    if (tool === "navigate") return;
     const key = `${rowIndex}:${columnIndex}`;
     if (painted.current.has(key)) return;
     painted.current.add(key);
@@ -106,7 +112,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
         <div className="label-preset">
           <div className="label-preset-heading"><strong>横排座位号</strong><span>自动生成或按顺序手动填充</span></div>
           <div className="label-preset-controls"><select aria-label="横排座位号类型" value={numberStyle} onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}><option value="numbers">数字</option><option value="letters">字母</option></select><select aria-label="横排座位号顺序" value={numberDirection} onChange={(event) => setNumberDirection(event.target.value as LabelDirection)}><option value="ascending">正序</option><option value="descending">倒序</option></select><button type="button" onClick={generateNumbers}>自动生成</button></div>
-          <div className="label-preset-actions"><button className={tool === "number" ? "active" : ""} aria-pressed={tool === "number"} type="button" onClick={() => setTool((current) => current === "number" ? "seat" : "number")}>{tool === "number" ? "停止填充" : "开始填充"}</button><button className={tool === "clear-number" ? "active" : ""} aria-pressed={tool === "clear-number"} type="button" onClick={() => setTool((current) => current === "clear-number" ? "seat" : "clear-number")}>{tool === "clear-number" ? "停止清除" : "清除座位号"}</button></div>
+          <div className="label-preset-actions"><button className={tool === "number" ? "active" : ""} aria-pressed={tool === "number"} type="button" onClick={() => setTool((current) => toggleSeatLayoutTool(current, "number"))}>{tool === "number" ? "停止填充" : "开始填充"}</button><button className={tool === "clear-number" ? "active" : ""} aria-pressed={tool === "clear-number"} type="button" onClick={() => setTool((current) => toggleSeatLayoutTool(current, "clear-number"))}>{tool === "clear-number" ? "停止清除" : "清除座位号"}</button></div>
         </div>
       </div>
       <div className="label-editor">
@@ -114,9 +120,10 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
         <div><strong>座位号维护</strong><span className="muted">请在下方座位图中按实际顺序填充，或右键/长按单独编辑。</span></div>
       </div>
       <div className="tool-row" role="toolbar" aria-label="布局绘制工具"><strong>网格类型</strong>
-        {(["seat", "blocked", "golden", "aisle", "empty"] as const).map((item) => <button className={tool === item ? "active" : ""} type="button" key={item} onClick={() => setTool(item)}>{({ seat: "可选", blocked: "不可选", golden: "黄金区", aisle: "过道", empty: "空白" } as const)[item]}</button>)}
+        <button className={tool === "navigate" ? "active" : ""} aria-pressed={tool === "navigate"} type="button" onClick={() => { stopPainting(); setTool("navigate"); }}>无修改</button>
+        {(["seat", "blocked", "golden", "aisle", "empty"] as const).map((item) => <button className={tool === item ? "active" : ""} aria-pressed={tool === item} type="button" key={item} onClick={() => setTool(item)}>{TOOL_LABELS[item]}</button>)}
       </div>
-      <SeatGridViewport ariaLabel="座位布局绘制区域" className="editor-grid-viewport">
+      <SeatGridViewport ariaLabel="座位布局绘制区域" className="editor-grid-viewport" gesturesEnabled={tool === "navigate"} interactionHint={<p className="grid-interaction-hint muted" role="status" aria-live="polite">{tool === "navigate" ? "当前为“无修改”模式：单指拖动可移动网格，双指可缩放；也可使用上方缩放按钮。" : `当前为“${TOOL_LABELS[tool]}”模式：点击或拖动会修改座位；如需移动或双指缩放，请切换到“无修改”。`}</p>}>
         <div className="seat-grid seat-grid-with-coordinates" style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} onPointerMove={(event) => {
         if (!painting.current) return;
         if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -126,16 +133,16 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       }} onPointerUp={stopPainting} onPointerCancel={stopPainting} onPointerLeave={(event) => { if (event.pointerType === "mouse") stopPainting(); }}>
         {rowLabels.map((rowLabel, rowIndex) => {
           const isEmptyRow = Array.from({ length: columns }, (_, columnIndex) => overrides[`${rowIndex}:${columnIndex}`] === "empty").every(Boolean);
-          return <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row"><span>{rowLabel}</span><button className="empty-row-toggle" type="button" aria-pressed={isEmptyRow} onClick={() => toggleEmptyRow(rowIndex)}>{isEmptyRow ? "恢复座位" : "设为空行"}</button></span>{cells.filter((cell) => cell.rowIndex === rowIndex).map((cell) => {
+          return <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row"><span>{rowLabel}</span><button className="empty-row-toggle" type="button" aria-pressed={isEmptyRow} aria-disabled={tool === "navigate" || undefined} tabIndex={tool === "navigate" ? -1 : undefined} onClick={() => { if (tool !== "navigate") toggleEmptyRow(rowIndex); }}>{isEmptyRow ? "恢复座位" : "设为空行"}</button></span>{cells.filter((cell) => cell.rowIndex === rowIndex).map((cell) => {
           const mode = overrides[`${cell.rowIndex}:${cell.columnIndex}`] ?? "seat";
-          return <button title={formatSeatLabel(cell.rowLabel, cell.columnLabel)} aria-label={`${formatSeatLabel(cell.rowLabel, cell.columnLabel)}：${mode}`} className={`editor-seat ${mode} ${center === cell.columnIndex ? "center-divider" : ""}`} type="button" key={`${cell.rowIndex}:${cell.columnIndex}`} data-layout-seat data-row-index={cell.rowIndex} data-column-index={cell.columnIndex} onContextMenu={(event) => { event.preventDefault(); if (cell.kind === "seat") editSeatNumber(cell.rowIndex, cell.columnIndex); }} onPointerDown={(event) => {
-            if (event.button === 2) return;
+          return <button title={formatSeatLabel(cell.rowLabel, cell.columnLabel)} aria-label={`${formatSeatLabel(cell.rowLabel, cell.columnLabel)}：${mode}`} aria-disabled={tool === "navigate" || undefined} tabIndex={tool === "navigate" ? -1 : undefined} className={`editor-seat ${mode} ${center === cell.columnIndex ? "center-divider" : ""}`} type="button" key={`${cell.rowIndex}:${cell.columnIndex}`} data-layout-seat data-row-index={cell.rowIndex} data-column-index={cell.columnIndex} onContextMenu={(event) => { if (tool === "navigate") return; event.preventDefault(); if (cell.kind === "seat") editSeatNumber(cell.rowIndex, cell.columnIndex); }} onPointerDown={(event) => {
+            if (tool === "navigate" || event.button === 2) return;
             event.preventDefault();
             painting.current = true;
             painted.current.clear();
             applyTool(cell.rowIndex, cell.columnIndex);
             if (cell.kind === "seat" && cell.columnLabel) longPressTimer.current = setTimeout(() => { stopPainting(); editSeatNumber(cell.rowIndex, cell.columnIndex); }, 550);
-          }} onPointerUp={stopPainting} onClick={(event) => { if (event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? displaySeatNumber(cell.columnLabel) : ""}</button>;
+          }} onPointerUp={stopPainting} onClick={(event) => { if (tool === "navigate" || event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? displaySeatNumber(cell.columnLabel) : ""}</button>;
         })}</div>;
         })}
         </div>

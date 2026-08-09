@@ -22,7 +22,7 @@ export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, 
   return Math.floor(fittedScale * 100) / 100;
 }
 
-export function SeatGridViewport({ children, ariaLabel, className = "" }: { children: ReactNode; ariaLabel: string; className?: string }) {
+export function SeatGridViewport({ children, ariaLabel, className = "", gesturesEnabled = true, interactionHint }: { children: ReactNode; ariaLabel: string; className?: string; gesturesEnabled?: boolean; interactionHint?: ReactNode }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
@@ -49,6 +49,7 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
     const currentViewport = viewportRef.current;
     if (!currentViewport) return;
     const viewport: HTMLDivElement = currentViewport;
+    if (!gesturesEnabled) pinchRef.current = null;
 
     function touchGeometry(event: TouchEvent) {
       const first = event.touches.item(0);
@@ -62,6 +63,7 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
     }
 
     function beginPinch(event: TouchEvent) {
+      if (!gesturesEnabled) return;
       if (event.touches.length !== 2) return;
       const geometry = touchGeometry(event);
       if (!geometry || geometry.distance <= 0) return;
@@ -78,6 +80,7 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
     }
 
     function movePinch(event: TouchEvent) {
+      if (!gesturesEnabled) return;
       const pinch = pinchRef.current;
       if (!pinch || event.touches.length !== 2) return;
       const geometry = touchGeometry(event);
@@ -109,7 +112,7 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
       viewport.removeEventListener("touchend", endPinch);
       viewport.removeEventListener("touchcancel", endPinch);
     };
-  }, []);
+  }, [gesturesEnabled]);
 
   function updateScale(nextScale: number) {
     const normalizedScale = Math.round(clampSeatGridScale(nextScale) * 100) / 100;
@@ -131,13 +134,14 @@ export function SeatGridViewport({ children, ariaLabel, className = "" }: { chil
   const contentStyle = { transform: `scale(${scale})` } satisfies CSSProperties;
 
   return (
-    <section className={`seat-grid-viewport ${className}`.trim()} aria-label={ariaLabel}>
+    <section className={`seat-grid-viewport ${gesturesEnabled ? "gestures-enabled" : "gestures-disabled"} ${className}`.trim()} aria-label={ariaLabel}>
       <div className="seat-grid-viewport-toolbar" role="toolbar" aria-label="座位网格缩放">
         <button type="button" aria-label="缩小座位网格" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - SCALE_STEP)}>−</button>
         <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>{Math.round(scale * 100)}%</button>
         <button type="button" aria-label="放大座位网格" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + SCALE_STEP)}>＋</button>
         <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>显示完整</button>
       </div>
+      {interactionHint}
       <div ref={viewportRef} className="seat-grid-viewport-body" tabIndex={0} aria-label={`${ariaLabel}，可横向和纵向滚动`}>
         <div className="seat-grid-viewport-canvas" style={canvasStyle}>
           <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>{children}</div>
