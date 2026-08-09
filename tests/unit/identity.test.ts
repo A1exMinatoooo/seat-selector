@@ -26,10 +26,10 @@ describe("identity resolution", () => {
     });
   });
 
-  it("requires the full phone even when its tail is unique", () => {
+  it("resolves a unique tail without asking for the rest of a full phone", () => {
     expect(resolveIdentity(fullCandidates.slice(0, 1))).toEqual({
-      status: "full-phone",
-      tailOnlyCandidates: [],
+      status: "resolved",
+      participantId: "a",
     });
   });
 

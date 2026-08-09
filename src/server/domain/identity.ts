@@ -15,6 +15,8 @@ export function resolveIdentity(
   candidates: IdentityCandidate[],
   phoneRemainder?: { digits: string; tail: string },
 ): IdentityStep {
+  if (candidates.length === 1) return { status: "resolved", participantId: candidates[0]!.id };
+
   const fullPhoneCandidates = candidates.filter((candidate) => candidate.phoneIsFull);
   const tailOnlyCandidates = candidates.filter((candidate) => !candidate.phoneIsFull);
 
