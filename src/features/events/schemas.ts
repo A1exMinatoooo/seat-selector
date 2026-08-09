@@ -21,6 +21,7 @@ const eventConfigurationFields = {
   timeZone: z.string().trim().min(1).max(64).refine(isSupportedTimeZone, "无效的时区"),
   locationCheckEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
   lotteryEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
+  lotteryPoolBonus: z.coerce.number().int().min(0).max(100_000).default(0),
   ticketTypes: z.array(ticketTypeSchema).min(1).max(20).refine((items) => new Set(items.map((item) => item.name)).size === items.length, "票种名称不能重复"),
   prizes: z.array(prizeSchema).max(100),
 };

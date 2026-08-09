@@ -35,7 +35,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
     const availableSeatIds = resolveEventAvailability(hallSeats, input.availableSeatIds);
     const [created] = await tx.insert(events).values({
       publicCode: randomToken(18), name: input.name, hallId: input.hallId, locationId: input.locationId,
-      radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled,
+      radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, lotteryPoolBonus: input.lotteryPoolBonus,
     }).returning({ id: events.id });
     if (!created) throw new Error("Event creation did not return an id");
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: created.id, seatId })));
@@ -89,9 +89,10 @@ export async function updateEventConfigurationAction(formData: FormData): Promis
       timeZone: input.timeZone,
       locationCheckEnabled: input.locationCheckEnabled,
       lotteryEnabled: input.lotteryEnabled,
+      lotteryPoolBonus: input.lotteryPoolBonus,
       version: sql`${events.version} + 1`,
     }).where(eq(events.id, input.id));
-    await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, prizeCount: input.prizes.length } });
+    await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, lotteryPoolBonus: input.lotteryPoolBonus, prizeCount: input.prizes.length } });
   });
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${input.id}`);
@@ -152,7 +153,7 @@ export async function setEventStatusAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const { id, status } = eventStatusInputSchema.parse(Object.fromEntries(formData));
   await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled }).from(events).where(eq(events.id, id)).limit(1).for("update");
+    const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled, lotteryPoolBonus: events.lotteryPoolBonus }).from(events).where(eq(events.id, id)).limit(1).for("update");
     if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
     if (!canChangeEventStatus(event.status, status)) throw new DomainError(errorCodes.eventConflict, "不允许的活动状态变更", 409);
     if (status === "open" && event.lotteryEnabled) {
@@ -160,7 +161,7 @@ export async function setEventStatusAction(formData: FormData): Promise<void> {
         tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true))),
         tx.select({ total: sql<number>`coalesce(sum(${lotteryPrizes.quantity}), 0)::int` }).from(lotteryPrizes).where(eq(lotteryPrizes.eventId, id)),
       ]);
-      if (Number(eligiblePool[0]?.total ?? 0) < Number(inventory[0]?.total ?? 0)) throw new Error("参与抽奖的票数少于奖品总数，请先补充参与者或调整活动奖品");
+      if (Number(eligiblePool[0]?.total ?? 0) + event.lotteryPoolBonus < Number(inventory[0]?.total ?? 0)) throw new Error("抽奖总奖池（资格票数加额外人数）少于奖品总数，请调整奖池或奖品");
     }
     await tx.update(events).set({ status, version: sql`${events.version} + 1` }).where(eq(events.id, id));
     await tx.insert(eventAuditLogs).values({ eventId: id, action: "event_status_changed", details: { from: event.status, to: status } });

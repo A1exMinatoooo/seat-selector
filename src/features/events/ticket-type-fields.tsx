@@ -20,10 +20,12 @@ export function TicketTypeFields({
   initialTypes = [{ name: "普通票", lotteryEligible: false }],
   initialLotteryEnabled = false,
   initialPrizes = [],
+  initialLotteryPoolBonus = 0,
 }: {
   initialTypes?: Array<{ id?: string; name: string; lotteryEligible: boolean }>;
   initialLotteryEnabled?: boolean;
   initialPrizes?: Array<{ name: string; quantity: number }>;
+  initialLotteryPoolBonus?: number;
 }) {
   const nextKey = useRef(1);
   const createKey = (prefix: string) => `${prefix}-${nextKey.current++}`;
@@ -50,6 +52,7 @@ export function TicketTypeFields({
       </label>
       {lotteryEnabled ? <>
         <p className="muted">只需录入实际奖品，系统会按参与抽奖的票数自动补足“未中奖”。</p>
+        <label>额外奖池人数 X<NumericInput name="lotteryPoolBonus" min={0} max={100000} defaultValue={initialLotteryPoolBonus} /><span className="muted">最终总奖池 = 抽奖资格票数 + X</span></label>
         <div className="prize-list">
           {prizes.map((prize, index) => <div key={prize.key}>
             <input aria-label={`奖品名 ${index + 1}`} placeholder="奖品名" required value={prize.name} onChange={(event) => setPrizes((current) => current.map((item) => item.key === prize.key ? { ...item, name: event.target.value } : item))} />
@@ -60,6 +63,7 @@ export function TicketTypeFields({
         <button className="button" type="button" onClick={() => setPrizes((current) => [...current, { key: createKey("prize"), name: "", quantity: 1 }])}>添加奖品</button>
       </> : null}
       <input type="hidden" name="prizes" value={JSON.stringify(lotteryEnabled ? prizes.map(({ name, quantity }) => ({ name, quantity })) : [])} />
+      {!lotteryEnabled ? <input type="hidden" name="lotteryPoolBonus" value="0" /> : null}
     </fieldset>
     <fieldset className="ticket-types">
       <legend>票种</legend>
