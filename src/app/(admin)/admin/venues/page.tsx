@@ -3,10 +3,11 @@ import { asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
 import { BlockedHallEditButton } from "@/features/venues/blocked-hall-edit-button";
 import { HallTemplateImportForm } from "@/features/venues/hall-template-import-form";
+import { HallTemplateDeleteButton } from "@/features/venues/hall-template-delete-button";
 import { HallLayoutPreviewDialog } from "@/features/venues/hall-layout-preview-dialog";
 import { getDb } from "@/server/db/client";
 import { cinemas, events, halls, seats } from "@/server/db/schema";
-import { canEditHallTemplate } from "@/server/domain/hall-template-edit";
+import { canDeleteHallTemplate, canEditHallTemplate } from "@/server/domain/hall-template-edit";
 import { requireAdmin } from "@/server/security/admin-session";
 import { createCinemaAction, createHallAction } from "./actions";
 
@@ -30,7 +31,9 @@ export default async function VenuesPage() {
         <section className="panel"><h2>新增影院</h2><form action={createCinemaAction} className="stack-form"><label>影院名称<input name="name" required placeholder="例如：百丽宫影城" /></label><button className="button primary" type="submit">保存影院</button></form></section>
         <section className="panel"><div className="section-header compact"><h2>已有模板</h2>{hallRows.length ? <a className="button" href="/api/admin/venues/export?scope=all">导出全部</a> : null}</div>{hallRows.length ? <ul className="record-list">{hallRows.map((hall) => {
           const editable = canEditHallTemplate(eventRows.filter((event) => event.hallId === hall.id).map((event) => event.status));
-          return <li key={hall.id}><div><strong>{hall.cinemaName} · {hall.name}</strong><span>{hall.seatCount} 个网格单元</span></div><div className="row-actions"><HallLayoutPreviewDialog label={`${hall.cinemaName} · ${hall.name}`} cells={seatRows.filter((seat) => seat.hallId === hall.id)} centerAfterColumn={hall.centerAfterColumn} /><a href={`/api/admin/venues/export?scope=hall&id=${hall.id}`}>导出</a>{editable ? <Link className="text-button" href={`/admin/venues/${hall.id}/edit`}>编辑</Link> : <BlockedHallEditButton />}</div></li>;
+          const label = `${hall.cinemaName} · ${hall.name}`;
+          const linkedStatuses = eventRows.filter((event) => event.hallId === hall.id).map((event) => event.status);
+          return <li key={hall.id}><div><strong>{label}</strong><span>{hall.seatCount} 个网格单元</span></div><div className="row-actions"><HallLayoutPreviewDialog label={label} cells={seatRows.filter((seat) => seat.hallId === hall.id)} centerAfterColumn={hall.centerAfterColumn} /><a href={`/api/admin/venues/export?scope=hall&id=${hall.id}`}>导出</a>{editable ? <Link className="text-button" href={`/admin/venues/${hall.id}/edit`}>编辑</Link> : <BlockedHallEditButton />}{canDeleteHallTemplate(linkedStatuses) ? <HallTemplateDeleteButton id={hall.id} label={label} /> : null}</div></li>;
         })}</ul> : <p className="muted">还没有影厅模板。</p>}<div className="cinema-export-list">{cinemaRows.filter((cinema) => hallRows.some((hall) => hall.cinemaId === cinema.id)).map((cinema) => <a className="button" href={`/api/admin/venues/export?scope=cinema&id=${cinema.id}`} key={cinema.id}>导出 {cinema.name}</a>)}</div></section>
       </div>
       <section className="panel wide"><h2>导入影厅模板</h2><p className="muted">支持导入单个影厅、单个影院或全部影院导出的 JSON 文件。同名影院会复用，影厅模板会新增，不覆盖已有模板。</p><HallTemplateImportForm /></section>

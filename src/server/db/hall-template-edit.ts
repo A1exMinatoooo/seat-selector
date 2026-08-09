@@ -23,3 +23,14 @@ export async function replaceHallTemplate(input: { id: string; name: string; lay
     return replacement.id;
   });
 }
+
+export async function archiveHallTemplate(id: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const [hall] = await tx.select({ id: halls.id, archivedAt: halls.archivedAt }).from(halls).where(eq(halls.id, id)).limit(1).for("update");
+    if (!hall || hall.archivedAt) return false;
+    const linkedEvents = await tx.select({ id: events.id }).from(events).where(eq(events.hallId, id));
+    if (linkedEvents.length > 0) throw new HallTemplateInUseError("Hall template has associated events");
+    await tx.update(halls).set({ archivedAt: new Date() }).where(eq(halls.id, id));
+    return true;
+  });
+}

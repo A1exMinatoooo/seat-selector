@@ -8,12 +8,13 @@ import { cinemas, halls, seats } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
 import { hallLayoutSchema } from "@/features/venues/schemas";
 import { importHallTemplates } from "@/server/db/hall-template-transfer";
-import { HallTemplateInUseError, replaceHallTemplate } from "@/server/db/hall-template-edit";
+import { archiveHallTemplate, HallTemplateInUseError, replaceHallTemplate } from "@/server/db/hall-template-edit";
 import { parseHallTemplateBundle } from "@/server/domain/hall-template-transfer";
 import { postgresErrorInfo } from "@/shared/postgres-error";
 
 export type HallTemplateImportState = { status: "idle" | "success" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE_FILE" | "IMPORT_FAILED" };
 export type HallTemplateUpdateState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE" | "HALL_TEMPLATE_IN_USE" | "UPDATE_FAILED" };
+export type HallTemplateDeleteState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_HALL_TEMPLATE" | "HALL_TEMPLATE_IN_USE" | "HALL_TEMPLATE_NOT_FOUND" | "DELETE_FAILED" };
 
 export async function createCinemaAction(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -64,6 +65,21 @@ export async function updateHallAction(_previousState: HallTemplateUpdateState, 
   }
   revalidatePath("/admin/venues");
   redirect("/admin/venues");
+}
+
+export async function archiveHallAction(_previousState: HallTemplateDeleteState, formData: FormData): Promise<HallTemplateDeleteState> {
+  await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid() }).safeParse({ id: formData.get("id") });
+  if (!parsed.success) return { status: "error", message: "模板标识无效，请刷新后重试。", submission: Date.now(), code: "INVALID_HALL_TEMPLATE" };
+  try {
+    if (!(await archiveHallTemplate(parsed.data.id))) return { status: "error", message: "模板不存在或已被删除。", submission: Date.now(), code: "HALL_TEMPLATE_NOT_FOUND" };
+  } catch (error) {
+    if (error instanceof HallTemplateInUseError) return { status: "error", message: "该模板已有活动关联，不能删除。", submission: Date.now(), code: "HALL_TEMPLATE_IN_USE" };
+    console.error(JSON.stringify({ level: "error", message: "hall_template_archive_failed", hallId: parsed.data.id, error: error instanceof Error ? error.message : "Unknown error" }));
+    return { status: "error", message: "模板删除失败，请稍后重试。", submission: Date.now(), code: "DELETE_FAILED" };
+  }
+  revalidatePath("/admin/venues");
+  return { status: "idle", message: "", submission: Date.now() };
 }
 
 export async function importHallTemplatesAction(_previousState: HallTemplateImportState, formData: FormData): Promise<HallTemplateImportState> {
