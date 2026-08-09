@@ -130,7 +130,7 @@ export function EventSeatEditor({
               title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : ""}`}
               aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
               aria-pressed={isAvailable}
-              className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
+              className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${seat.golden && isAvailable ? "golden" : ""} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
               onPointerDown={(event) => {
                 if (structural || isLocked) return;
                 event.preventDefault();
