@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { NumericInput } from "@/features/forms/numeric-input";
+import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 import { generateSeatNumbers, nextSeatNumber } from "./seat-numbering";
@@ -115,7 +116,8 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       <div className="tool-row" role="toolbar" aria-label="布局绘制工具"><strong>网格类型</strong>
         {(["seat", "blocked", "golden", "aisle", "empty"] as const).map((item) => <button className={tool === item ? "active" : ""} type="button" key={item} onClick={() => setTool(item)}>{({ seat: "可选", blocked: "不可选", golden: "黄金区", aisle: "过道", empty: "空白" } as const)[item]}</button>)}
       </div>
-      <div className="seat-grid seat-grid-with-coordinates" style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} onPointerMove={(event) => {
+      <SeatGridViewport ariaLabel="座位布局绘制区域" className="editor-grid-viewport">
+        <div className="seat-grid seat-grid-with-coordinates" style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} onPointerMove={(event) => {
         if (!painting.current) return;
         if (longPressTimer.current) clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
@@ -136,7 +138,8 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
           }} onPointerUp={stopPainting} onClick={(event) => { if (event.detail !== 0) return; painted.current.clear(); applyTool(cell.rowIndex, cell.columnIndex); painted.current.clear(); }}>{cell.kind === "seat" ? displaySeatNumber(cell.columnLabel) : ""}</button>;
         })}</div>;
         })}
-      </div>
+        </div>
+      </SeatGridViewport>
       <div className="layout-help"><strong>横排座位号说明</strong><p>每排默认不编号。选择数字或字母后点击“开始填充”，按钮高亮表示功能已启用，再次点击可停止；随后按实际顺序点击或拖过座位，跨过空位后会接着上次的号码继续。“清除座位号”同样会在启用时高亮。清除中间某个号码不会改变其他号码，只有末尾号码被清除后，下次才从当前最后一个号码续编。右键单击或长按已有座位号可单独编辑。</p></div>
       <input type="hidden" name="layout" value={payload} />
     </fieldset>

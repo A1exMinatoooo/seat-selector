@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { detectLockedSeatHalf, toggleSeatHalfLock, type SeatHalf } from "@/server/domain/event-seat-availability";
+import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 export type EventSeat = {
@@ -105,18 +106,19 @@ export function EventSeatEditor({
         <button type="button" onClick={() => { setAvailable(new Set(lockedSeatIds)); markManualChange(); }}>全部关闭</button>
         <span>{available.size} 个座位开放</span>
       </div>
-      <div
-        className="seat-grid event-seat-grid"
-        style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }}
-        onPointerMove={(event) => {
-          if (painting.current === null) return;
-          const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-event-seat-id]");
-          if (target?.dataset.eventSeatId) paint(target.dataset.eventSeatId);
-        }}
-        onPointerUp={() => { painting.current = null; }}
-        onPointerCancel={() => { painting.current = null; }}
-        onPointerLeave={(event) => { if (event.pointerType === "mouse") painting.current = null; }}
-      >
+      <SeatGridViewport ariaLabel="活动座位开放区域" className="editor-grid-viewport">
+        <div
+          className="seat-grid event-seat-grid"
+          style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }}
+          onPointerMove={(event) => {
+            if (painting.current === null) return;
+            const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-event-seat-id]");
+            if (target?.dataset.eventSeatId) paint(target.dataset.eventSeatId);
+          }}
+          onPointerUp={() => { painting.current = null; }}
+          onPointerCancel={() => { painting.current = null; }}
+          onPointerLeave={(event) => { if (event.pointerType === "mouse") painting.current = null; }}
+        >
         {rowIndexes.map((rowIndex) => <div className="seat-coordinate-row" style={{ gridColumn: `1 / span ${columns + 1}`, gridTemplateColumns: `max-content repeat(${columns}, 36px)` }} key={`row:${rowIndex}`}><span className="seat-coordinate row">{hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1}</span>{hall.seats.filter((seat) => seat.rowIndex === rowIndex).map((seat) => {
           const structural = seat.kind !== "seat" || !seat.selectable;
           const isLocked = locked.has(seat.id);
@@ -148,7 +150,8 @@ export function EventSeatEditor({
             </button>
           );
         })}</div>)}
-      </div>
+        </div>
+      </SeatGridViewport>
       <input type="hidden" name="availableSeatIds" value={JSON.stringify([...available])} />
       <input type="hidden" name="changeSource" value={changeSource} />
       {changedSide ? <input type="hidden" name="side" value={changedSide} /> : null}
