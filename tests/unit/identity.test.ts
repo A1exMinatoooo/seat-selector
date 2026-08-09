@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveIdentity } from "@/features/entry/identity";
+import { resolveIdentity } from "@/server/domain/identity";
 
 const fullCandidates = [
   { id: "a", name: "张小明", nameFirst: "张", phoneDigits: "13800008000", phoneIsFull: true },
@@ -11,20 +11,46 @@ const tailOnlyCandidates = [
 ];
 
 describe("identity resolution", () => {
-  it("prioritizes a full phone prefix when duplicate-tail candidates have full phones", () => {
-    expect(resolveIdentity(fullCandidates).status).toBe("phone-prefix");
-    expect(resolveIdentity(fullCandidates, undefined, "138")).toEqual({ status: "resolved", participantId: "a" });
+  it("requires an exact full phone when full numbers were recorded", () => {
+    expect(resolveIdentity(fullCandidates)).toEqual({
+      status: "full-phone",
+      tailOnlyCandidates: [],
+    });
+    expect(resolveIdentity(fullCandidates, "13800008000")).toEqual({
+      status: "resolved",
+      participantId: "a",
+    });
+    expect(resolveIdentity(fullCandidates, "13899998000")).toEqual({
+      status: "full-phone",
+      tailOnlyCandidates: [],
+    });
   });
 
-  it("asks for a name first when duplicate-tail candidates only have tail phones", () => {
-    expect(resolveIdentity(tailOnlyCandidates).status).toBe("name-first");
+  it("requires the full phone even when its tail is unique", () => {
+    expect(resolveIdentity(fullCandidates.slice(0, 1))).toEqual({
+      status: "full-phone",
+      tailOnlyCandidates: [],
+    });
   });
 
-  it("returns candidates when the name first character is still ambiguous", () => {
-    expect(resolveIdentity(tailOnlyCandidates, "张")).toEqual({ status: "participant-choice", candidates: tailOnlyCandidates });
+  it("returns every matching participant when only tails were recorded", () => {
+    expect(resolveIdentity(tailOnlyCandidates)).toEqual({
+      status: "participant-choice",
+      candidates: tailOnlyCandidates,
+    });
   });
 
-  it("resolves a unique name first character after the phone prefix narrowed the group", () => {
-    expect(resolveIdentity(fullCandidates, "张", "138")).toEqual({ status: "resolved", participantId: "a" });
+  it("does not require a choice for one tail-only participant", () => {
+    expect(resolveIdentity(tailOnlyCandidates.slice(0, 1))).toEqual({
+      status: "resolved",
+      participantId: "a",
+    });
+  });
+
+  it("keeps full-phone verification separate from tail-only choices", () => {
+    expect(resolveIdentity([...fullCandidates, ...tailOnlyCandidates])).toEqual({
+      status: "full-phone",
+      tailOnlyCandidates,
+    });
   });
 });

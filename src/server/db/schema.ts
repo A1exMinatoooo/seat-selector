@@ -14,6 +14,7 @@ import {
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
+export const auditLevel = pgEnum("audit_level", ["info", "warn", "error"]);
 export const auditAction = pgEnum("audit_action", [
   "event_created",
   "event_configuration_changed",
@@ -31,6 +32,7 @@ export const auditAction = pgEnum("audit_action", [
   "location_verified",
   "location_rejected",
   "lottery_drawn",
+  "identity_tail_choice_required",
 ]);
 
 export const cinemas = pgTable("cinemas", {
@@ -41,7 +43,9 @@ export const cinemas = pgTable("cinemas", {
 
 export const halls = pgTable("halls", {
   id: uuid("id").primaryKey().defaultRandom(),
-  cinemaId: uuid("cinema_id").notNull().references(() => cinemas.id, { onDelete: "cascade" }),
+  cinemaId: uuid("cinema_id")
+    .notNull()
+    .references(() => cinemas.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   centerAfterColumn: integer("center_after_column"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -52,7 +56,9 @@ export const seats = pgTable(
   "seats",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    hallId: uuid("hall_id").notNull().references(() => halls.id, { onDelete: "cascade" }),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id, { onDelete: "cascade" }),
     rowIndex: integer("row_index").notNull(),
     columnIndex: integer("column_index").notNull(),
     rowLabel: text("row_label").notNull(),
@@ -61,7 +67,9 @@ export const seats = pgTable(
     selectable: boolean("selectable").notNull().default(true),
     golden: boolean("golden").notNull().default(false),
   },
-  (table) => [uniqueIndex("seats_hall_position_uidx").on(table.hallId, table.rowIndex, table.columnIndex)],
+  (table) => [
+    uniqueIndex("seats_hall_position_uidx").on(table.hallId, table.rowIndex, table.columnIndex),
+  ],
 );
 
 export const locationPresets = pgTable("location_presets", {
@@ -79,8 +87,12 @@ export const events = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     publicCode: text("public_code").notNull().unique(),
     name: text("name").notNull(),
-    hallId: uuid("hall_id").notNull().references(() => halls.id),
-    locationId: uuid("location_id").notNull().references(() => locationPresets.id),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    locationId: uuid("location_id")
+      .notNull()
+      .references(() => locationPresets.id),
     radiusMeters: integer("radius_meters").notNull(),
     status: eventStatus("status").notNull().default("draft"),
     version: integer("version").notNull().default(1),
@@ -102,7 +114,9 @@ export const ticketTypes = pgTable(
   "ticket_types",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     sortOrder: integer("sort_order").notNull(),
     lotteryEligible: boolean("lottery_eligible").notNull().default(false),
@@ -114,7 +128,9 @@ export const lotteryPrizes = pgTable(
   "lottery_prizes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     quantity: integer("quantity").notNull(),
     sortOrder: integer("sort_order").notNull(),
@@ -126,7 +142,9 @@ export const participants = pgTable(
   "participants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     nameFirst: text("name_first").notNull(),
     phoneDigits: text("phone_digits").notNull(),
@@ -145,8 +163,12 @@ export const lotteryDraws = pgTable(
   "lottery_draws",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
     drawIndex: integer("draw_index").notNull(),
     prizeId: uuid("prize_id").references(() => lotteryPrizes.id),
     prizeName: text("prize_name"),
@@ -162,22 +184,38 @@ export const lotteryDraws = pgTable(
 export const participantTickets = pgTable(
   "participant_tickets",
   {
-    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
-    ticketTypeId: uuid("ticket_type_id").notNull().references(() => ticketTypes.id),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    ticketTypeId: uuid("ticket_type_id")
+      .notNull()
+      .references(() => ticketTypes.id),
     quantity: integer("quantity").notNull(),
   },
-  (table) => [uniqueIndex("participant_tickets_participant_type_uidx").on(table.participantId, table.ticketTypeId)],
+  (table) => [
+    uniqueIndex("participant_tickets_participant_type_uidx").on(
+      table.participantId,
+      table.ticketTypeId,
+    ),
+  ],
 );
 
 export const eventAuditLogs = pgTable(
   "event_audit_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    participantId: uuid("participant_id").references(() => participants.id, { onDelete: "set null" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id").references(() => participants.id, {
+      onDelete: "set null",
+    }),
     action: auditAction("action").notNull(),
+    level: auditLevel("level").notNull().default("info"),
     details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
-    occurredAt: timestamp("occurred_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("event_audit_logs_event_time_idx").on(table.eventId, table.occurredAt),
@@ -189,18 +227,28 @@ export const reservations = pgTable(
   "reservations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    participantId: uuid("participant_id").notNull().references(() => participants.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("reservations_event_participant_uidx").on(table.eventId, table.participantId)],
+  (table) => [
+    uniqueIndex("reservations_event_participant_uidx").on(table.eventId, table.participantId),
+  ],
 );
 
 export const eventSeats = pgTable(
   "event_seats",
   {
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    seatId: uuid("seat_id").notNull().references(() => seats.id),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => seats.id),
   },
   (table) => [
     uniqueIndex("event_seats_event_seat_uidx").on(table.eventId, table.seatId),
@@ -211,9 +259,15 @@ export const eventSeats = pgTable(
 export const reservationSeats = pgTable(
   "reservation_seats",
   {
-    reservationId: uuid("reservation_id").notNull().references(() => reservations.id, { onDelete: "cascade" }),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    seatId: uuid("seat_id").notNull().references(() => seats.id),
+    reservationId: uuid("reservation_id")
+      .notNull()
+      .references(() => reservations.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => seats.id),
   },
   (table) => [
     uniqueIndex("reservation_seats_event_seat_uidx").on(table.eventId, table.seatId),
