@@ -1,12 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const qrRefreshIntervalMs = 1_000;
 type QrData = { image: string; expiresIn: number; serverTime: string };
 
-export function QrBoard({ eventId, eventName }: { eventId: string; eventName: string }) {
+export function QrBoard({ eventId, eventName, backHref }: { eventId: string; eventName: string; backHref: string }) {
   const [data, setData] = useState<QrData>();
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function QrBoard({ eventId, eventName }: { eventId: string; eventName: st
 
   return (
     <main className="qr-screen">
-      <div><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>
+      <div><Link className="qr-back-button" href={backHref}>← 返回活动详情</Link><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>
       {data ? (
         <div className="qr-frame">
           <Image unoptimized width={720} height={720} src={data.image} alt={`${eventName} 动态入场二维码`} />

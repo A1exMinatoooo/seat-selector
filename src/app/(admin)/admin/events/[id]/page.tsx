@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { EventSeatManagementForm } from "@/features/events/event-seat-management-form";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { EventStatusForm } from "@/features/events/event-status-form";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
@@ -22,6 +23,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const localStart = formatLocalDateTime(event.startsAt, event.timeZone);
   return (
     <main className="admin-shell">
+      <AdminBackButton href="/admin/events" label="活动" />
       <nav className="crumbs"><Link href="/admin/events">活动</Link><span>/</span><strong>{event.name}</strong></nav>
       <header className="section-header">
         <div><p className="eyebrow">{event.status === "draft" ? "草稿" : event.status === "open" ? "开放中" : "已结束"}</p><h1>{event.name}</h1></div>

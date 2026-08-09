@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, and, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { HallTemplateEditForm } from "@/features/venues/hall-template-edit-form";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { getDb } from "@/server/db/client";
 import { cinemas, events, halls, seats } from "@/server/db/schema";
 import { canEditHallTemplate } from "@/server/domain/hall-template-edit";
@@ -23,6 +24,7 @@ export default async function EditHallTemplatePage({ params }: { params: Promise
   const columns = Math.max(...seatRows.map((seat) => seat.columnIndex), 0) + 1;
   return (
     <main className="admin-shell">
+      <AdminBackButton href="/admin/venues" label="影厅模板" />
       <nav className="crumbs"><Link href="/admin/venues">影厅模板</Link><span>/</span><strong>编辑</strong></nav>
       <header className="section-header"><div><p className="eyebrow">{hall.cinemaName}</p><h1>{hall.name}</h1></div></header>
       {editable ? <HallTemplateEditForm id={hall.id} name={hall.name} layout={{ rows, columns, centerAfterColumn: hall.centerAfterColumn, cells: seatRows }} /> : <section className="panel"><h2>暂时不能编辑</h2><p className="form-error">该影厅模板仍有关联的草稿或进行中活动。请先结束相关活动，再编辑模板。</p><Link className="button" href="/admin/venues">返回影厅模板</Link></section>}

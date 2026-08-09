@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { notFound } from "next/navigation";
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, events, participants } from "@/server/db/schema";
@@ -93,6 +94,7 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
 
   return (
     <main className="admin-shell">
+      <AdminBackButton href={`/admin/events/${id}`} label="活动详情" />
       <nav className="crumbs"><Link href={`/admin/events/${id}`}>{event.name}</Link><span>/</span><strong>审计日志</strong></nav>
       <header className="section-header"><div><p className="eyebrow">活动审计</p><h1>审计日志</h1></div><span>最近 {logs.length} 条 · 时间精确到毫秒</span></header>
       <section className="panel wide">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { NumericInput } from "@/features/forms/numeric-input";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { getDb } from "@/server/db/client";
 import { events, participants, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -35,6 +36,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
 
   return (
     <main className="admin-shell">
+      <AdminBackButton href={`/admin/events/${id}`} label="活动详情" />
       <nav className="crumbs"><Link href={`/admin/events/${id}`}>{event.name}</Link><span>/</span><strong>参与者</strong></nav>
       <header className="section-header">
         <div><p className="eyebrow">参与清单</p><h1>{people.length} 位参与者</h1></div>
