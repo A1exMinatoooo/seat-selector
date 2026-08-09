@@ -31,7 +31,7 @@ export default async function VenuesPage() {
       <header className="section-header"><div><p className="eyebrow">场地基础资料</p><h1>影院与影厅</h1></div><span>{hallRows.length} 个影厅模板</span></header>
       <div className="admin-grid">
         <section className="panel"><h2>新增影院</h2><form action={createCinemaAction} className="stack-form"><label>影院名称<input name="name" required placeholder="例如：百丽宫影城" /></label><button className="button primary" type="submit">保存影院</button></form></section>
-        <section className="panel"><div className="section-header compact"><h2>已有模板</h2>{hallRows.length ? <a className="button" href="/api/admin/venues/export?scope=all">导出全部</a> : null}</div>{hallRows.length ? <ul className="record-list">{hallRows.map((hall) => {
+        <section className="panel"><div className="section-header compact"><h2>已有模板</h2>{hallRows.length ? <a className="button" href="/api/admin/venues/export?scope=all">导出全部</a> : null}</div>{hallRows.length ? <ul className="record-list actionable-record-list">{hallRows.map((hall) => {
           const editable = canEditHallTemplate(eventRows.filter((event) => event.hallId === hall.id).map((event) => event.status));
           const label = `${hall.cinemaName} · ${hall.name}`;
           const linkedStatuses = eventRows.filter((event) => event.hallId === hall.id).map((event) => event.status);
