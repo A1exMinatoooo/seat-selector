@@ -1,15 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { userFacingErrorMessage } from "@/shared/error-message";
 type Step = "tail" | "name" | "prefix" | "choice";
 type Candidate = { name: string; phone: string; token: string };
-
-function errorMessage(code: string | undefined): string {
-  if (code === "DEVICE_ALREADY_BOUND") return "该参与者已绑定其他设备，请联系管理员解绑。";
-  if (code === "IDENTITY_MISMATCH") return "没有找到匹配的参与者，请检查输入信息。";
-  if (code === "IDENTITY_CANDIDATE_INVALID") return "身份选项已失效，请重新输入手机号尾号。";
-  return "验证失败，请检查信息或重新扫描二维码。";
-}
 
 export function ParticipantEntry({ code, eventName }: { code: string; eventName: string }) {
   const router = useRouter();
@@ -26,7 +20,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
       if (!bound.ok) { const body = await bound.json().catch(() => ({})) as { error?: string }; throw new Error(body.error ?? "DEVICE_ALREADY_BOUND"); }
       router.refresh();
     }
-  } catch (cause) { setError(errorMessage(cause instanceof Error ? cause.message : undefined)); } finally { setBusy(false); } }
+  } catch (cause) { setError(userFacingErrorMessage(cause instanceof Error ? cause.message : undefined)); } finally { setBusy(false); } }
   return <main className="participant-shell"><section className="participant-card"><p className="eyebrow">{eventName}</p><h1>确认参与身份</h1><p>{step === "tail" ? "请输入报名时使用的手机尾号。" : step === "name" ? `尾号 ${tail} 有重复，请输入姓名的第一个字。` : step === "prefix" ? `已输入手机尾号 ${tail}，请确认手机前 ${prefixLength} 位。` : `已输入手机尾号 ${tail}，请选择你的姓名。`}</p>
     {step === "tail" ? <label>手机尾号<input inputMode="numeric" maxLength={4} value={tail} onChange={(e) => setTail(e.target.value.replace(/\D/g, ""))} /></label> : null}
     {step === "name" ? <label>姓名第一个字<input autoFocus maxLength={2} value={nameFirst} onCompositionStart={() => setComposing(true)} onCompositionEnd={(e) => { setComposing(false); setNameFirst(Array.from(e.currentTarget.value)[0] ?? ""); }} onChange={(e) => { if (!composing) setNameFirst(Array.from(e.target.value)[0] ?? ""); }} /></label> : null}

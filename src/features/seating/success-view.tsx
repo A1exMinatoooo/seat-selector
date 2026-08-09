@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { responseErrorMessage } from "@/shared/error-message";
 
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
@@ -28,13 +29,13 @@ export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTi
         fetch(`/api/events/${code}/lottery`, { method: "POST", headers: { "content-type": "application/json" } }),
         new Promise((resolve) => setTimeout(resolve, delay)),
       ]);
-      if (!response.ok) throw new Error(`Lottery failed with ${response.status}`);
+      if (!response.ok) throw new Error(await responseErrorMessage(response));
       const body = await response.json() as { results: LotteryResult[] };
       setLotteryResults(body.results);
       setLotteryPhase("result");
     } catch (error) {
       console.error("Lottery failed", error);
-      setLotteryError("抽奖暂时无法完成，请重试。已完成的结果不会重复抽取。");
+      setLotteryError(error instanceof Error ? error.message : "抽奖暂时无法完成，请重试。已完成的结果不会重复抽取。");
       setLotteryPhase("prompt");
     }
   }

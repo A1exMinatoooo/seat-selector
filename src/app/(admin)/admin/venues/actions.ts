@@ -10,6 +10,7 @@ import { hallLayoutSchema } from "@/features/venues/schemas";
 import { importHallTemplates } from "@/server/db/hall-template-transfer";
 import { HallTemplateInUseError, replaceHallTemplate } from "@/server/db/hall-template-edit";
 import { parseHallTemplateBundle } from "@/server/domain/hall-template-transfer";
+import { postgresErrorInfo } from "@/shared/postgres-error";
 
 export type HallTemplateImportState = { status: "idle" | "success" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE_FILE" | "IMPORT_FAILED" };
 export type HallTemplateUpdateState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_TEMPLATE" | "HALL_TEMPLATE_IN_USE" | "UPDATE_FAILED" };
@@ -17,7 +18,8 @@ export type HallTemplateUpdateState = { status: "idle" | "error"; message: strin
 export async function createCinemaAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
-  await getDb().insert(cinemas).values({ name });
+  try { await getDb().insert(cinemas).values({ name }); }
+  catch (error) { if (postgresErrorInfo(error).code === "23505") throw new Error("影院名称已存在，请使用其他名称。", { cause: error }); throw new Error("影院保存失败，请稍后重试。", { cause: error }); }
   revalidatePath("/admin/venues");
 }
 
@@ -31,7 +33,7 @@ export async function createHallAction(formData: FormData): Promise<void> {
     }).pipe(hallLayoutSchema),
   }).parse({ cinemaId: formData.get("cinemaId"), name: formData.get("name"), layout: formData.get("layout") });
 
-  await getDb().transaction(async (tx) => {
+  try { await getDb().transaction(async (tx) => {
     const [hall] = await tx.insert(halls).values({
       cinemaId: input.cinemaId,
       name: input.name,
@@ -39,7 +41,7 @@ export async function createHallAction(formData: FormData): Promise<void> {
     }).returning({ id: halls.id });
     if (!hall) throw new Error("Hall creation did not return an id");
     await tx.insert(seats).values(input.layout.cells.map((cell) => ({ hallId: hall.id, ...cell })));
-  });
+  }); } catch (error) { throw new Error(error instanceof Error && error.message.includes("Hall creation") ? "影厅创建失败，请检查座位模板后重试。" : "影厅保存失败，请稍后重试。", { cause: error }); }
   revalidatePath("/admin/venues");
 }
 

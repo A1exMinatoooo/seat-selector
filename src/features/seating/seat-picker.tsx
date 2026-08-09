@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { reportBrowserLocationFailure } from "./location-audit";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 import { centerDividerOffset } from "./public-seat-layout";
+import { responseErrorMessage } from "@/shared/error-message";
 
 export type SeatDto = { id: string; rowIndex: number; columnIndex: number; rowLabel: string; columnLabel: string; kind: "seat" | "aisle" | "empty"; selectable: boolean; golden: boolean };
 
@@ -120,7 +121,7 @@ export function SeatPicker({ code, eventName, seats, initialAvailable, initialOc
     setBusy(false);
     if (response.ok) router.refresh();
     else {
-      showToast(response.status === 409 ? "部分座位已被抢先确认，请重新选择。" : "确认失败，请稍后重试。");
+      showToast(await responseErrorMessage(response));
       await refresh();
     }
   }

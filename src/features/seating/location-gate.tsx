@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
+import { responseErrorMessage } from "@/shared/error-message";
 
 export function LocationGate({ code, eventName }: { code: string; eventName: string }) {
   const router = useRouter();
@@ -16,7 +17,7 @@ export function LocationGate({ code, eventName }: { code: string; eventName: str
       const response = await fetch("/api/location/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: position.timestamp }) });
       setBusy(false);
       if (response.ok) router.refresh();
-      else setError("当前位置不在活动范围内，或定位精度不足。");
+      else setError(await responseErrorMessage(response));
     }, (locationError) => {
       setBusy(false);
       setError("无法获取定位，请开启权限后重试。");
