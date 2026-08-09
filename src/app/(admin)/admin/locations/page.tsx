@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { LocationDeleteButton } from "@/features/locations/location-delete-button";
 import { listLocationPresets } from "@/server/db/location-presets";
@@ -11,6 +12,7 @@ export default async function LocationsPage() {
   await requireAdmin();
   const locations = await listLocationPresets();
   return <main className="admin-shell">
+    <AdminBackButton href="/admin" label="控制台" />
     <nav className="crumbs"><Link href="/admin">控制台</Link><span>/</span><strong>地点库</strong></nav>
     <header className="section-header"><div><p className="eyebrow">现场定位</p><h1>活动地点</h1></div><span>{locations.length} 个地点</span></header>
     <div className="admin-grid">

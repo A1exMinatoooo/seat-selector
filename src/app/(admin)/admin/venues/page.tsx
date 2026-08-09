@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
 import { BlockedHallEditButton } from "@/features/venues/blocked-hall-edit-button";
 import { HallTemplateImportForm } from "@/features/venues/hall-template-import-form";
@@ -25,6 +26,7 @@ export default async function VenuesPage() {
   ]) : [[], []];
   return (
     <main className="admin-shell">
+      <AdminBackButton href="/admin" label="控制台" />
       <nav className="crumbs"><Link href="/admin">控制台</Link><span>/</span><strong>影厅模板</strong></nav>
       <header className="section-header"><div><p className="eyebrow">场地基础资料</p><h1>影院与影厅</h1></div><span>{hallRows.length} 个影厅模板</span></header>
       <div className="admin-grid">
