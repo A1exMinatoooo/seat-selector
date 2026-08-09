@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { locationPresetSchema, locationPresetUpdateSchema } from "@/features/locations/schemas";
-import { createLocationPreset, updateLocationPreset } from "@/server/db/location-presets";
+import { createLocationPreset, deleteLocationPreset, updateLocationPreset } from "@/server/db/location-presets";
+import { LocationInUseError } from "@/server/domain/location-preset";
 import { requireAdmin } from "@/server/security/admin-session";
 import { postgresErrorInfo } from "@/shared/postgres-error";
 
 export type LocationUpdateState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_LOCATION" | "LOCATION_NOT_FOUND" | "LOCATION_NAME_CONFLICT" | "UPDATE_FAILED" };
+export type LocationDeleteState = { status: "idle" | "error"; message: string; submission: number; code?: "INVALID_LOCATION" | "LOCATION_IN_USE" | "LOCATION_NOT_FOUND" | "DELETE_FAILED" };
 
 export async function createLocationAction(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -31,4 +34,20 @@ export async function updateLocationAction(_previousState: LocationUpdateState, 
   revalidatePath("/admin/locations");
   revalidatePath("/admin/events");
   redirect("/admin/locations");
+}
+
+export async function deleteLocationAction(_previousState: LocationDeleteState, formData: FormData): Promise<LocationDeleteState> {
+  await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: "地点标识无效，请刷新后重试。", submission: Date.now(), code: "INVALID_LOCATION" };
+  try {
+    if (!(await deleteLocationPreset(parsed.data.id))) return { status: "error", message: "地点不存在或已被删除。", submission: Date.now(), code: "LOCATION_NOT_FOUND" };
+  } catch (error) {
+    if (error instanceof LocationInUseError) return { status: "error", message: "该地点已有活动关联，不能删除。", submission: Date.now(), code: "LOCATION_IN_USE" };
+    console.error(JSON.stringify({ level: "error", message: "location_preset_delete_failed", locationId: parsed.data.id, error: error instanceof Error ? error.message : "Unknown error" }));
+    return { status: "error", message: "地点删除失败，请稍后重试。", submission: Date.now(), code: "DELETE_FAILED" };
+  }
+  revalidatePath("/admin/locations");
+  revalidatePath("/admin/events");
+  return { status: "idle", message: "", submission: Date.now() };
 }
