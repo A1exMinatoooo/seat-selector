@@ -40,7 +40,7 @@ export function QrBoard({ eventId, eventName, backHref }: { eventId: string; eve
 
   return (
     <main className="qr-screen">
-      <div><Link className="qr-back-button" href={backHref}>← 返回活动详情</Link><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>
+      <div><aside className="qr-scan-notice" role="note">建议使用微信扫描二维码，后续可在同一微信中查看今日选座记录。</aside><Link className="qr-back-button" href={backHref}>← 返回活动详情</Link><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>
       {data ? (
         <div className="qr-frame">
           <Image unoptimized width={720} height={720} src={data.image} alt={`${eventName} 动态入场二维码`} />
