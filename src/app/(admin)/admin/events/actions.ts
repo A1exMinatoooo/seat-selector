@@ -8,7 +8,7 @@ import { eventConfigurationInputSchema, eventInputSchema } from "@/features/even
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
-import { canChangeEventStatus, hasSufficientLotteryPool } from "@/server/domain/event-status";
+import { canChangeEventStatus, hasSufficientLotteryPool, lotteryPoolSize } from "@/server/domain/event-status";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 import { DomainError, errorCodes } from "@/shared/errors";
@@ -169,8 +169,11 @@ export async function setEventStatusAction(_previousState: EventStatusSaveState,
       if (status === "open" && event.lotteryEnabled) {
         const eligiblePool = await tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true)));
         const inventory = await tx.select({ total: sql<number>`coalesce(sum(${lotteryPrizes.quantity}), 0)::int` }).from(lotteryPrizes).where(eq(lotteryPrizes.eventId, id));
-        if (!hasSufficientLotteryPool(Number(eligiblePool[0]?.total ?? 0), event.lotteryPoolBonus, Number(inventory[0]?.total ?? 0))) {
-          return { status: "error", message: "抽奖总奖池（资格票数加额外人数）少于奖品总数，请调整奖池或奖品。", submission: Date.now(), code: "LOTTERY_POOL_TOO_SMALL" };
+        const eligibleTicketCount = Number(eligiblePool[0]?.total ?? 0);
+        const prizeCount = Number(inventory[0]?.total ?? 0);
+        const totalPoolCount = lotteryPoolSize(eligibleTicketCount, event.lotteryPoolBonus);
+        if (!hasSufficientLotteryPool(eligibleTicketCount, event.lotteryPoolBonus, prizeCount)) {
+          return { status: "error", message: `当前总奖池人数为 ${totalPoolCount}（参与抽奖票数 ${eligibleTicketCount} + 额外奖池人数 ${event.lotteryPoolBonus}），奖品总数为 ${prizeCount}。奖品总数必须小于等于总奖池人数，请先录入参与者或调整数量。`, submission: Date.now(), code: "LOTTERY_POOL_TOO_SMALL" };
         }
       }
       await tx.update(events).set({ status, version: sql`${events.version} + 1` }).where(eq(events.id, id));

@@ -51,8 +51,8 @@ export function TicketTypeFields({
         <span>开启活动抽奖</span>
       </label>
       {lotteryEnabled ? <>
-        <p className="muted">只需录入实际奖品，系统会按参与抽奖的票数自动补足“未中奖”。</p>
-        <label>额外奖池人数 X<NumericInput name="lotteryPoolBonus" min={0} max={100000} defaultValue={initialLotteryPoolBonus} /><span className="muted">最终总奖池 = 抽奖资格票数 + X</span></label>
+        <p className="muted">开放选座前，请先在“参与者清单”录入参与者及其票数。总奖池人数 = “参与抽奖”的票数 + 额外奖池人数 X；奖品总数必须小于等于总奖池人数，总奖池人数减去奖品总数的部分为“未中奖”。</p>
+        <label>额外奖池人数 X<NumericInput name="lotteryPoolBonus" min={0} max={100000} defaultValue={initialLotteryPoolBonus} /><span className="muted">总奖池人数 = 参与抽奖票数 + 额外奖池人数 X</span></label>
         <div className="prize-list">
           {prizes.map((prize, index) => <div key={prize.key}>
             <input aria-label={`奖品名 ${index + 1}`} placeholder="奖品名" required value={prize.name} onChange={(event) => setPrizes((current) => current.map((item) => item.key === prize.key ? { ...item, name: event.target.value } : item))} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canChangeEventStatus, hasSufficientLotteryPool } from "@/server/domain/event-status";
+import { canChangeEventStatus, hasSufficientLotteryPool, lotteryPoolSize } from "@/server/domain/event-status";
 
 describe("event status transitions", () => {
   it.each([
@@ -20,6 +20,10 @@ describe("event status transitions", () => {
 });
 
 describe("event lottery pool validation", () => {
+  it("calculates the total pool from eligible tickets and bonus people", () => {
+    expect(lotteryPoolSize(10, 5)).toBe(15);
+  });
+
   it.each([
     [2, 1, 3],
     [4, 0, 3],
