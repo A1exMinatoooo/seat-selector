@@ -100,9 +100,35 @@ location / {
 
 外部代理必须覆盖而不是追加不可信客户端传入的转发头，并负责 HTTPS 和证书续期。
 
+### 使用 GHCR 镜像部署
+
+`Publish Docker release` GitHub Actions 工作流会在发布版本时将 amd64/arm64 多架构镜像推送到 GHCR。Docker 会在拉取时自动选择服务器对应的架构。稳定版本同时发布版本标签和 `latest`，预发布版本（例如 `v1.2.3-rc.1`）只发布自己的版本标签。
+
+拉取并固定到指定版本：
+
+```bash
+docker pull ghcr.io/a1exminatoooo/seat-selector:v1.2.3
+```
+
+在 `.env` 中指定镜像：
+
+```dotenv
+APP_IMAGE=ghcr.io/a1exminatoooo/seat-selector:v1.2.3
+```
+
+将 Compose 文件、Caddy 配置和 `.env` 放到服务器后，拉取并启动服务：
+
+```bash
+docker compose -f compose.yaml -f compose.caddy.yaml pull app migrate
+docker compose -f compose.yaml -f compose.caddy.yaml up -d --no-build
+docker compose -f compose.yaml -f compose.caddy.yaml ps
+```
+
+使用已有反向代理时，将第二个 Compose 文件替换为 `compose.external-proxy.yaml`。GHCR 容器包首次发布后，需要在 GitHub Packages 设置中将可见性改为 Public，之后服务器无需登录即可拉取。
+
 ### 使用 Docker tar 包部署
 
-仓库的 `Build Docker tar packages` GitHub Actions 工作流支持两种发布方式：
+仓库的 `Publish Docker release` GitHub Actions 工作流同时保留离线 tar 包，支持两种发布方式：
 
 - 推送 `v*` 标签时，构建产物会自动发布到该标签对应的 GitHub Release。
 - 手动运行时必须输入尚不存在的版本标签（例如 `v1.0.0`）；工作流会在所选提交上创建并推送标签，再创建对应的 GitHub Release。
