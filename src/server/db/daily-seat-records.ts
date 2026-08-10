@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import type { DailySeatRecordSource } from "@/server/domain/daily-seat-records";
 import { getDb } from "./client";
 import { cinemas, events, halls, lotteryDraws, participants, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "./schema";
@@ -49,4 +49,13 @@ export async function findDailySeatRecordRows(deviceHash: string, start: Date, e
   ]);
 
   return { reservations: reservationRows, seats: seatRows, tickets: ticketRows, lotteryResults: lotteryRows };
+}
+
+export async function countDailySeatRecordsByDevice(deviceHash: string, start: Date, end: Date): Promise<number> {
+  const [row] = await getDb()
+    .select({ value: count() })
+    .from(reservations)
+    .innerJoin(participants, and(eq(participants.id, reservations.participantId), eq(participants.eventId, reservations.eventId)))
+    .where(and(eq(participants.deviceHash, deviceHash), gte(reservations.confirmedAt, start), lt(reservations.confirmedAt, end)));
+  return Number(row?.value ?? 0);
 }

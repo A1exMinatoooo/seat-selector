@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { responseErrorMessage } from "@/shared/error-message";
 
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
 
-export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults }: { code: string; eventName: string; phoneLast4: string; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[] }) {
+export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
   const [nowIso, setNowIso] = useState(serverTime);
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
   const lotteryChances = lotteryEnabled ? tickets.filter((ticket) => ticket.lotteryEligible).reduce((sum, ticket) => sum + ticket.quantity, 0) : 0;
@@ -50,6 +51,7 @@ export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTi
     <div className="ticket-summary">{tickets.map((ticket) => <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>)}</div>
     {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<strong>{result.prizeName ?? "未中奖"}</strong></li>)}</ol></section> : null}
     <p className="confirmed-at">手机尾号 {phoneLast4}<br />确认时间 {new Date(confirmedAt).toLocaleString("zh-CN", { hour12: false })}</p>
+    {showTodayRecordsLink ? <Link className="button success-records-link" href="/records/today">查看今日选座记录</Link> : null}
 
     {lotteryPhase !== "closed" ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="lottery-title"><div className="lottery-modal">
       {lotteryPhase === "prompt" ? <><p className="eyebrow">抽奖机会</p><h2 id="lottery-title">您可参与 {lotteryChances} 次抽奖</h2><p>确认后将立即从本活动奖池中抽取。</p>{lotteryError ? <p className="form-error" role="alert">{lotteryError}</p> : null}<button className="button primary" type="button" onClick={() => void startLottery()}>确定，开始抽奖</button></> : null}
