@@ -43,6 +43,7 @@ export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTi
   const now = new Date(nowIso);
   const won = lotteryResults.some((result) => result.prizeName !== null);
   return <main className="success-page">
+    <aside className="success-notice" role="note">请截图保存本页，方便后续核对座位。</aside>
     <header className="success-heading"><p className="eyebrow">选座成功</p><h1>{eventName}</h1></header>
     <div className="live-time"><span>当前时间</span><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>
     <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
