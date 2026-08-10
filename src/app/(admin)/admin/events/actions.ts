@@ -8,7 +8,7 @@ import { eventConfigurationInputSchema, eventInputSchema } from "@/features/even
 import { getDb } from "@/server/db/client";
 import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
-import { canChangeEventStatus } from "@/server/domain/event-status";
+import { canChangeEventStatus, hasSufficientLotteryPool } from "@/server/domain/event-status";
 import { requireAdmin } from "@/server/security/admin-session";
 import { randomToken } from "@/server/security/crypto";
 import { DomainError, errorCodes } from "@/shared/errors";
@@ -149,23 +149,40 @@ const eventStatusInputSchema = z.object({
   status: z.enum(["open", "ended"]),
 });
 
-export async function setEventStatusAction(formData: FormData): Promise<void> {
+export type EventStatusSaveState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  submission: number;
+  code: "INVALID_EVENT_STATUS" | "EVENT_NOT_FOUND" | "EVENT_STATUS_CONFLICT" | "LOTTERY_POOL_TOO_SMALL" | "UPDATE_FAILED" | null;
+};
+
+export async function setEventStatusAction(_previousState: EventStatusSaveState, formData: FormData): Promise<EventStatusSaveState> {
   await requireAdmin();
-  const { id, status } = eventStatusInputSchema.parse(Object.fromEntries(formData));
-  await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled, lotteryPoolBonus: events.lotteryPoolBonus }).from(events).where(eq(events.id, id)).limit(1).for("update");
-    if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
-    if (!canChangeEventStatus(event.status, status)) throw new DomainError(errorCodes.eventConflict, "不允许的活动状态变更", 409);
-    if (status === "open" && event.lotteryEnabled) {
-      const [eligiblePool, inventory] = await Promise.all([
-        tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true))),
-        tx.select({ total: sql<number>`coalesce(sum(${lotteryPrizes.quantity}), 0)::int` }).from(lotteryPrizes).where(eq(lotteryPrizes.eventId, id)),
-      ]);
-      if (Number(eligiblePool[0]?.total ?? 0) + event.lotteryPoolBonus < Number(inventory[0]?.total ?? 0)) throw new Error("抽奖总奖池（资格票数加额外人数）少于奖品总数，请调整奖池或奖品");
-    }
-    await tx.update(events).set({ status, version: sql`${events.version} + 1` }).where(eq(events.id, id));
-    await tx.insert(eventAuditLogs).values({ eventId: id, action: "event_status_changed", details: { from: event.status, to: status } });
-  });
+  const parsed = eventStatusInputSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: "活动状态数据无效，请刷新页面后重试。", submission: Date.now(), code: "INVALID_EVENT_STATUS" };
+  const { id, status } = parsed.data;
+  try {
+    const failure = await getDb().transaction(async (tx): Promise<EventStatusSaveState | null> => {
+      const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled, lotteryPoolBonus: events.lotteryPoolBonus }).from(events).where(eq(events.id, id)).limit(1).for("update");
+      if (!event) return { status: "error", message: "活动不存在或已被删除。", submission: Date.now(), code: "EVENT_NOT_FOUND" };
+      if (!canChangeEventStatus(event.status, status)) return { status: "error", message: "活动状态已发生变化，请刷新页面后重试。", submission: Date.now(), code: "EVENT_STATUS_CONFLICT" };
+      if (status === "open" && event.lotteryEnabled) {
+        const eligiblePool = await tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true)));
+        const inventory = await tx.select({ total: sql<number>`coalesce(sum(${lotteryPrizes.quantity}), 0)::int` }).from(lotteryPrizes).where(eq(lotteryPrizes.eventId, id));
+        if (!hasSufficientLotteryPool(Number(eligiblePool[0]?.total ?? 0), event.lotteryPoolBonus, Number(inventory[0]?.total ?? 0))) {
+          return { status: "error", message: "抽奖总奖池（资格票数加额外人数）少于奖品总数，请调整奖池或奖品。", submission: Date.now(), code: "LOTTERY_POOL_TOO_SMALL" };
+        }
+      }
+      await tx.update(events).set({ status, version: sql`${events.version} + 1` }).where(eq(events.id, id));
+      await tx.insert(eventAuditLogs).values({ eventId: id, action: "event_status_changed", details: { from: event.status, to: status } });
+      return null;
+    });
+    if (failure) return failure;
+  } catch (error) {
+    console.error(JSON.stringify({ level: "error", message: "event_status_save_failed", eventId: id, error: error instanceof Error ? error.message : "Unknown error" }));
+    return { status: "error", message: "活动状态更新失败，请稍后重试。", submission: Date.now(), code: "UPDATE_FAILED" };
+  }
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${id}`);
+  return { status: "success", message: status === "open" ? "活动已开放。" : "活动已结束。", submission: Date.now(), code: null };
 }
