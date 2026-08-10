@@ -102,7 +102,7 @@ location / {
 
 ### 使用 GHCR 镜像部署
 
-`Publish Docker release` GitHub Actions 工作流会在发布版本时将 amd64/arm64 多架构镜像推送到 GHCR。Docker 会在拉取时自动选择服务器对应的架构。稳定版本同时发布版本标签和 `latest`，预发布版本（例如 `v1.2.3-rc.1`）只发布自己的版本标签。
+`Publish Docker release` GitHub Actions 工作流会在发布版本时将 amd64 镜像推送到 GHCR，适用于常见 Intel/AMD x86-64 服务器。稳定版本同时发布版本标签和 `latest`，预发布版本（例如 `v1.2.3-rc.1`）只发布自己的版本标签。
 
 拉取并固定到指定版本：
 
@@ -133,10 +133,7 @@ docker compose -f compose.yaml -f compose.caddy.yaml ps
 - 推送 `v*` 标签时，构建产物会自动发布到该标签对应的 GitHub Release。
 - 手动运行时必须输入尚不存在的版本标签（例如 `v1.0.0`）；工作流会在所选提交上创建并推送标签，再创建对应的 GitHub Release。
 
-版本标签必须采用 `v1.0.0` 或 `v1.0.0-rc.1` 形式。每次发布分别生成以下构建产物：
-
-- `amd64`：用于常见 Intel/AMD x86-64 服务器。
-- `arm64`：用于 ARM64/AArch64 服务器。
+版本标签必须采用 `v1.0.0` 或 `v1.0.0-rc.1` 形式。每次发布生成用于常见 Intel/AMD x86-64 服务器的 `amd64` 构建产物。
 
 在 GitHub Releases 页面下载与服务器架构对应的 tar 包，然后导入镜像：
 
@@ -145,7 +142,7 @@ docker load --input pick-your-seat-v1.0.0-amd64.tar
 docker image inspect pick-your-seat:latest --format '{{.Os}}/{{.Architecture}}'
 ```
 
-ARM64 服务器将文件名替换为 `pick-your-seat-v1.0.0-arm64.tar`。将仓库中的 Compose 文件、Caddy 配置和 `.env` 一并放到服务器后，无需在服务器安装 Node.js 或 pnpm 即可启动：
+将仓库中的 Compose 文件、Caddy 配置和 `.env` 一并放到服务器后，无需在服务器安装 Node.js 或 pnpm 即可启动：
 
 ```bash
 docker compose -f compose.yaml -f compose.caddy.yaml up -d --no-build

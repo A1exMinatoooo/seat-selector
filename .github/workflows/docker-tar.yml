@@ -79,24 +79,13 @@ jobs:
           git push origin "refs/tags/$RELEASE_TAG"
 
   build:
-    name: Build ${{ matrix.arch }} image
+    name: Build amd64 image
     needs: prepare
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            platform: linux/amd64
-          - arch: arm64
-            platform: linux/arm64
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -106,26 +95,26 @@ jobs:
         with:
           context: .
           target: runner
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
           tags: |
             pick-your-seat:latest
             pick-your-seat:${{ needs.prepare.outputs.tag }}
             pick-your-seat:${{ github.sha }}
-          outputs: type=docker,dest=/tmp/pick-your-seat-${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}.tar
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          outputs: type=docker,dest=/tmp/pick-your-seat-${{ needs.prepare.outputs.tag }}-amd64.tar
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
 
       - name: Upload Docker tar package
         uses: actions/upload-artifact@v4
         with:
-          name: pick-your-seat-${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
-          path: /tmp/pick-your-seat-${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}.tar
+          name: pick-your-seat-${{ needs.prepare.outputs.tag }}-amd64
+          path: /tmp/pick-your-seat-${{ needs.prepare.outputs.tag }}-amd64.tar
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
 
   publish:
-    name: Publish multi-platform image to GHCR
+    name: Publish amd64 image to GHCR
     needs: [prepare, build]
     runs-on: ubuntu-latest
     permissions:
@@ -134,9 +123,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -161,19 +147,16 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
 
-      - name: Build and push multi-platform image
+      - name: Build and push amd64 image
         uses: docker/build-push-action@v7
         with:
           context: .
           target: runner
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-          cache-from: |
-            type=gha,scope=amd64
-            type=gha,scope=arm64
-          cache-to: type=gha,mode=max,scope=multiarch
+          cache-from: type=gha,scope=amd64
 
   release:
     name: Publish GitHub Release
@@ -197,8 +180,8 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           mapfile -t packages < <(find dist -type f -name '*.tar' -print | sort)
-          if [[ "${#packages[@]}" -ne 2 ]]; then
-            echo "Expected two Docker tar packages, found ${#packages[@]}." >&2
+          if [[ "${#packages[@]}" -ne 1 ]]; then
+            echo "Expected one Docker tar package, found ${#packages[@]}." >&2
             exit 1
           fi
 
