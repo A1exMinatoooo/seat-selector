@@ -1,0 +1,1 @@
+CREATE INDEX "participants_device_hash_idx" ON "participants" USING btree ("device_hash") WHERE "participants"."device_hash" is not null;

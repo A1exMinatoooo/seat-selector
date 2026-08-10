@@ -16,6 +16,7 @@ export default async function AdminDashboardPage() {
         <Link className="dashboard-card featured" href="/admin/venues"><span>01</span><h2>影厅模板</h2><p>录入影院、座位布局、中线与黄金观影区。</p></Link>
         <Link className="dashboard-card" href="/admin/locations"><span>02</span><h2>活动地点</h2><p>预录坐标与默认定位范围。</p></Link>
         <Link className="dashboard-card" href="/admin/events"><span>03</span><h2>活动管理</h2><p>创建票种、参与者名单和现场入口。</p></Link>
+        <Link className="dashboard-card" href="/admin/records/qr"><span>04</span><h2>今日选座记录二维码</h2><p>展示参与者当日多场活动选座记录的安全入口。</p></Link>
       </section>
     </main>
   );

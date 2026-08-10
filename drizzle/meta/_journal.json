@@ -127,6 +127,13 @@
       "when": 1786280471231,
       "tag": "0017_big_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786327258942,
+      "tag": "0018_daily-seat-records",
+      "breakpoints": true
     }
   ]
 }

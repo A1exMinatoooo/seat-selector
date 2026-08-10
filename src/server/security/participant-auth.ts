@@ -8,22 +8,28 @@ import { getParticipantClaim, setParticipantClaim } from "./participant-session"
 import { DomainError, errorCodes } from "@/shared/errors";
 
 export const participantEventCodeSchema = z.string().min(10).max(80);
+const deviceTokenSchema = z.string().min(20).max(512);
+
+export async function getCurrentDeviceHash(): Promise<string | null> {
+  const parsed = deviceTokenSchema.safeParse((await cookies()).get("ps_device")?.value);
+  return parsed.success ? tokenHash(parsed.data) : null;
+}
 
 export async function requireParticipantForEvent(code: string) {
   const parsedCode = participantEventCodeSchema.safeParse(code);
   const claim = await getParticipantClaim();
-  const device = (await cookies()).get("ps_device")?.value;
-  if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !device) throw new DomainError(errorCodes.unauthorized, "Participant session required", 401);
-  const row = await findClaimedParticipant(parsedCode.data, claim.participantId, tokenHash(device));
+  const deviceHash = await getCurrentDeviceHash();
+  if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !deviceHash) throw new DomainError(errorCodes.unauthorized, "Participant session required", 401);
+  const row = await findClaimedParticipant(parsedCode.data, claim.participantId, deviceHash);
   if (!row) throw new DomainError(errorCodes.unauthorized, "Device binding invalid", 401);
   return row;
 }
 
 export async function findRestorableParticipantForEvent(code: string) {
   const parsedCode = participantEventCodeSchema.safeParse(code);
-  const device = (await cookies()).get("ps_device")?.value;
-  if (!parsedCode.success || !device) return null;
-  return uniqueDeviceParticipant(await findOpenParticipantsByDevice(parsedCode.data, tokenHash(device)));
+  const deviceHash = await getCurrentDeviceHash();
+  if (!parsedCode.success || !deviceHash) return null;
+  return uniqueDeviceParticipant(await findOpenParticipantsByDevice(parsedCode.data, deviceHash));
 }
 
 export async function restoreParticipantForEvent(code: string) {

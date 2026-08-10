@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
@@ -156,7 +157,12 @@ export const participants = pgTable(
     locationExemptAt: timestamp("location_exempt_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("participants_event_last4_idx").on(table.eventId, table.phoneLast4)],
+  (table) => [
+    index("participants_event_last4_idx").on(table.eventId, table.phoneLast4),
+    index("participants_device_hash_idx")
+      .on(table.deviceHash)
+      .where(sql`${table.deviceHash} is not null`),
+  ],
 );
 
 export const lotteryDraws = pgTable(
