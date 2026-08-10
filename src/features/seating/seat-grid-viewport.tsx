@@ -22,10 +22,32 @@ export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, 
   return Math.floor(fittedScale * 100) / 100;
 }
 
-export function SeatGridViewport({ children, ariaLabel, className = "", gesturesEnabled = true, interactionHint }: { children: ReactNode; ariaLabel: string; className?: string; gesturesEnabled?: boolean; interactionHint?: ReactNode }) {
+export function fitSeatGridHeightScale(viewportHeight: number, gridHeight: number): number {
+  if (viewportHeight <= 0 || gridHeight <= 0) return 1;
+  const fittedScale = clampSeatGridScale(Math.min(1, (viewportHeight - VIEWPORT_PADDING) / gridHeight));
+  return Math.floor(fittedScale * 100) / 100;
+}
+
+export function centeredSeatGridScrollLeft(viewportWidth: number, scrollWidth: number, focusOffsetX: number): number {
+  const maximumScroll = Math.max(0, scrollWidth - viewportWidth);
+  return Math.min(maximumScroll, Math.max(0, focusOffsetX - viewportWidth / 2));
+}
+
+type SeatGridViewportProps = {
+  children: ReactNode;
+  ariaLabel: string;
+  className?: string;
+  gesturesEnabled?: boolean;
+  interactionHint?: ReactNode;
+  initialView?: { fit: "height"; focusX: number };
+};
+
+export function SeatGridViewport({ children, ariaLabel, className = "", gesturesEnabled = true, interactionHint, initialView }: SeatGridViewportProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
+  const initialViewAppliedRef = useRef(false);
   const pinchRef = useRef<{ distance: number; scale: number; contentX: number; contentY: number } | null>(null);
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
@@ -44,6 +66,23 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
     observer.observe(content);
     return () => observer.disconnect();
   }, [measureGrid]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!initialView || initialViewAppliedRef.current || !viewport || gridSize.width <= 0 || gridSize.height <= 0) return;
+    const initialScale = fitSeatGridHeightScale(viewport.clientHeight, gridSize.height);
+    initialViewAppliedRef.current = true;
+    scaleRef.current = initialScale;
+    setScale(initialScale);
+    requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      viewport.scrollTo({
+        top: 0,
+        left: centeredSeatGridScrollLeft(viewport.clientWidth, viewport.scrollWidth, canvas.offsetLeft + initialView.focusX * initialScale),
+      });
+    });
+  }, [gridSize, initialView]);
 
   useLayoutEffect(() => {
     const currentViewport = viewportRef.current;
@@ -143,7 +182,7 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
       </div>
       {interactionHint}
       <div ref={viewportRef} className="seat-grid-viewport-body" tabIndex={0} aria-label={`${ariaLabel}，可横向和纵向滚动`}>
-        <div className="seat-grid-viewport-canvas" style={canvasStyle}>
+        <div ref={canvasRef} className="seat-grid-viewport-canvas" style={canvasStyle}>
           <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>{children}</div>
         </div>
       </div>
