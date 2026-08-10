@@ -63,7 +63,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .panel.wide { margin-top: 18px; }
 .stack-form, .stack-form label { display: grid; gap: 10px; }
 .stack-form { min-width: 0; gap: 20px; }
-.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }.form-row > label { align-content: start; }
 .record-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .record-list li { display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .record-list span { color: var(--muted); font-size: 14px; }
