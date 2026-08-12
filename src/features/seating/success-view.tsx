@@ -8,6 +8,14 @@ import { responseErrorMessage } from "@/shared/error-message";
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
 
+function InlineBrandIcon({ className = "" }: { className?: string }) {
+  return <span className={`inline-brand-icon ${className}`.trim()} aria-hidden="true"><Image unoptimized width={512} height={512} src="/icon.svg" alt="" /></span>;
+}
+
+function LotteryPrizeName({ prizeName }: { prizeName: string | null }) {
+  return <strong className="lottery-prize-name">{prizeName ?? "未中奖"}{prizeName ? <InlineBrandIcon className="lottery-prize-icon" /> : null}</strong>;
+}
+
 export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; showPhoneLast4?: boolean; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
   const [nowIso, setNowIso] = useState(serverTime);
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
@@ -44,19 +52,19 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
   const now = new Date(nowIso);
   const won = lotteryResults.some((result) => result.prizeName !== null);
   return <main className="success-page">
-    <aside className="success-notice" role="note"><Image className="success-notice-icon" unoptimized width={18} height={18} src="/icon.svg" alt="" aria-hidden="true" />请截图保存本页，方便后续核对座位。<Image className="success-notice-icon" unoptimized width={18} height={18} src="/icon.svg" alt="" aria-hidden="true" /></aside>
+    <aside className="success-notice" role="note"><InlineBrandIcon className="success-notice-icon" />请截图保存本页，方便后续核对座位。</aside>
     <header className="success-heading"><p className="eyebrow">选座成功</p><h1>{eventName}</h1></header>
     <div className="live-time"><span>当前时间</span><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>
     <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
     <div className="ticket-summary">{tickets.map((ticket) => <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>)}</div>
-    {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<strong>{result.prizeName ?? "未中奖"}</strong></li>)}</ol></section> : null}
+    {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<LotteryPrizeName prizeName={result.prizeName} /></li>)}</ol></section> : null}
     <p className="confirmed-at">{showPhoneLast4 ? <>手机尾号 {phoneLast4}<br /></> : null}确认时间 {new Date(confirmedAt).toLocaleString("zh-CN", { hour12: false })}</p>
     {showTodayRecordsLink ? <Link className="button success-records-link" href="/records/today">查看今日选座记录</Link> : null}
 
     {lotteryPhase !== "closed" ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="lottery-title"><div className="lottery-modal">
       {lotteryPhase === "prompt" ? <><p className="eyebrow">抽奖机会</p><h2 id="lottery-title">您可参与 {lotteryChances} 次抽奖</h2><p>确认后将立即从本活动奖池中抽取。</p>{lotteryError ? <p className="form-error" role="alert">{lotteryError}</p> : null}<button className="button primary" type="button" onClick={() => void startLottery()}>确定，开始抽奖</button></> : null}
       {lotteryPhase === "drawing" ? <><Image src="/assets/images/loading.gif" unoptimized width={220} height={220} alt="抽奖中" priority /><h2 id="lottery-title">抽奖中…</h2><p>好运正在赶来，请稍候。</p></> : null}
-      {lotteryPhase === "result" ? <><Image src={won ? "/assets/images/atari.png" : "/assets/images/hazure.png"} width={220} height={220} alt={won ? "中奖啦" : "未中奖"} priority /><h2 id="lottery-title">{won ? "中奖啦！" : "本次未中奖"}</h2><ol className="lottery-result-list">{lotteryResults.map((result) => <li key={result.drawIndex}><span>第 {result.drawIndex + 1} 次</span><strong>{result.prizeName ?? "未中奖"}</strong></li>)}</ol><button className="button primary" type="button" onClick={() => setLotteryPhase("closed")}>确认</button></> : null}
+      {lotteryPhase === "result" ? <><Image src={won ? "/assets/images/atari.png" : "/assets/images/hazure.png"} width={220} height={220} alt={won ? "中奖啦" : "未中奖"} priority /><h2 id="lottery-title">{won ? "中奖啦！" : "本次未中奖"}</h2><ol className="lottery-result-list">{lotteryResults.map((result) => <li key={result.drawIndex}><span>第 {result.drawIndex + 1} 次</span><LotteryPrizeName prizeName={result.prizeName} /></li>)}</ol><button className="button primary" type="button" onClick={() => setLotteryPhase("closed")}>确认</button></> : null}
     </div></div> : null}
   </main>;
 }
