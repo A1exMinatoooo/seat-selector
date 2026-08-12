@@ -19,7 +19,7 @@ describe("success view", () => {
     }));
 
     expect(markup).toContain('class="success-notice" role="note"');
-    expect(markup).toContain("请截图保存本页，方便后续核对座位。");
+    expect(markup).toContain("请截图保存本页，方便后续核对座位");
     expect(markup.match(/success-notice-icon/g)).toHaveLength(1);
     expect(markup).toContain('<header class="success-heading"><p class="eyebrow">选座成功</p><h1>夏日放映</h1></header>');
     expect(markup).toContain('<h2 class="confirmed-seats"><span class="confirmed-seat">A1</span><span class="confirmed-seat">A2</span></h2>');
