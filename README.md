@@ -64,6 +64,9 @@ pnpm admin:hash 'replace-with-a-strong-password'
 - `APP_SECRET`：至少 32 个随机字符。
 - `ADMIN_PASSWORD_HASH`：密码哈希完整值；在 `.env` 中用单引号包裹，防止 `$` 被 Compose 展开。
 - `TRUSTED_PROXY_COUNT`：内置 Caddy 和单层外部反代均设置为 `1`。
+- `ICP_FILING_NUMBER`：可选的 ICP 备案显示文本；配置后链接到工信部备案系统。
+- `PUBLIC_SECURITY_FILING_NUMBER`：可选的公安备案显示文本。
+- `PUBLIC_SECURITY_FILING_URL`：可选的公安备案详情链接；留空时只显示备案文字。
 
 PostgreSQL 数据默认保存在 `compose.yaml` 同级的 `./pgdata` 目录。该目录不会提交到 Git，也不应在 PostgreSQL 运行时直接复制作为备份；请使用后文的逻辑备份命令。
 
