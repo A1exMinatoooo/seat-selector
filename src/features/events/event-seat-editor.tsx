@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   detectLockedSeatHalf,
+  quickOpenSeatRectangle,
   toggleSeatHalfLock,
   type SeatHalf,
 } from "@/server/domain/event-seat-availability";
@@ -27,6 +34,34 @@ export type EventHallLayout = {
 };
 
 const EMPTY_SEAT_IDS: string[] = [];
+type Rectangle = { left: number; top: number; right: number; bottom: number };
+type SeatRectangle = Rectangle & { id: string; eligible: boolean };
+
+export function gridPointerPosition(
+  clientX: number,
+  clientY: number,
+  gridRect: Rectangle,
+  gridWidth: number,
+  gridHeight: number,
+) {
+  return {
+    x: ((clientX - gridRect.left) * gridWidth) / (gridRect.right - gridRect.left),
+    y: ((clientY - gridRect.top) * gridHeight) / (gridRect.bottom - gridRect.top),
+  };
+}
+
+export function seatsIntersectingRectangle(selection: Rectangle, seats: SeatRectangle[]): string[] {
+  return seats
+    .filter(
+      (seat) =>
+        seat.eligible &&
+        seat.right >= selection.left &&
+        seat.left <= selection.right &&
+        seat.bottom >= selection.top &&
+        seat.top <= selection.bottom,
+    )
+    .map((seat) => seat.id);
+}
 
 export function EventSeatEditor({
   halls,
@@ -36,6 +71,7 @@ export function EventSeatEditor({
   includeHallSelect = false,
   enableHalfLockControls = false,
   centerAfterColumn = null,
+  planningToolsEnabled = false,
 }: {
   halls: EventHallLayout[];
   initialHallId: string;
@@ -44,6 +80,7 @@ export function EventSeatEditor({
   includeHallSelect?: boolean;
   enableHalfLockControls?: boolean;
   centerAfterColumn?: number | null;
+  planningToolsEnabled?: boolean;
 }) {
   const [hallId, setHallId] = useState(initialHallId);
   const hall = halls.find((item) => item.id === hallId) ?? halls[0];
@@ -57,13 +94,26 @@ export function EventSeatEditor({
   const [available, setAvailable] = useState(
     () => new Set(initialAvailableSeatIds ?? defaultSeatIds),
   );
-  const [interactionMode, setInteractionMode] = useState<"navigate" | "edit">("navigate");
+  const [interactionMode, setInteractionMode] = useState<"navigate" | "edit" | "rectangle">(
+    "navigate",
+  );
   const [changeSource, setChangeSource] = useState<
-    "manual" | "half_lock" | "half_unlock" | "half_switch"
+    "manual" | "half_lock" | "half_unlock" | "half_switch" | "quick_count" | "rectangle_add"
   >("manual");
   const [changedSide, setChangedSide] = useState<SeatHalf | "">("");
   const locked = useMemo(() => new Set(lockedSeatIds), [lockedSeatIds]);
   const painting = useRef<boolean | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const rectangleStart = useRef<{ x: number; y: number } | null>(null);
+  const [rectangle, setRectangle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [quickOpenVisible, setQuickOpenVisible] = useState(false);
+  const [quickOpenCount, setQuickOpenCount] = useState(1);
+  const [quickOpenError, setQuickOpenError] = useState("");
   const columns = Math.max(...(hall?.seats.map((seat) => seat.columnIndex) ?? [0])) + 1;
   const rowIndexes = [...new Set(hall?.seats.map((seat) => seat.rowIndex) ?? [])];
   const positionedSeats = useMemo(
@@ -76,6 +126,17 @@ export function EventSeatEditor({
     locked,
     centerAfterColumn,
   );
+
+  useEffect(() => {
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        rectangleStart.current = null;
+        setRectangle(null);
+      }
+    };
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, []);
 
   function markManualChange() {
     setChangeSource("manual");
@@ -98,6 +159,106 @@ export function EventSeatEditor({
     setAvailable(new Set(result.availableSeatIds));
     setChangeSource(`half_${result.operation}`);
     setChangedSide(side);
+  }
+
+  function localPointer(event: ReactPointerEvent<HTMLDivElement>) {
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const rect = grid.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return gridPointerPosition(
+      event.clientX,
+      event.clientY,
+      { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      grid.offsetWidth,
+      grid.offsetHeight,
+    );
+  }
+
+  function updateRectangle(point: { x: number; y: number }) {
+    const start = rectangleStart.current;
+    if (!start) return;
+    setRectangle({
+      left: Math.min(start.x, point.x),
+      top: Math.min(start.y, point.y),
+      width: Math.abs(point.x - start.x),
+      height: Math.abs(point.y - start.y),
+    });
+  }
+
+  function beginRectangle(event: ReactPointerEvent<HTMLDivElement>) {
+    if (interactionMode !== "rectangle") return;
+    const point = localPointer(event);
+    if (!point) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    rectangleStart.current = point;
+    setRectangle({ left: point.x, top: point.y, width: 0, height: 0 });
+  }
+
+  function finishRectangle(event: ReactPointerEvent<HTMLDivElement>) {
+    const grid = gridRef.current;
+    const start = rectangleStart.current;
+    if (interactionMode !== "rectangle" || !grid || !start) return;
+    const point = localPointer(event);
+    rectangleStart.current = null;
+    setRectangle(null);
+    if (!point) return;
+    const selection = {
+      left: Math.min(start.x, point.x),
+      top: Math.min(start.y, point.y),
+      right: Math.max(start.x, point.x),
+      bottom: Math.max(start.y, point.y),
+    };
+    const gridRect = grid.getBoundingClientRect();
+    const scaleX = gridRect.width / grid.offsetWidth;
+    const scaleY = gridRect.height / grid.offsetHeight;
+    const seatRectangles = [...grid.querySelectorAll<HTMLElement>("[data-event-seat-id]")].flatMap(
+      (seat): SeatRectangle[] => {
+        const rect = seat.getBoundingClientRect();
+        const left = (rect.left - gridRect.left) / scaleX;
+        const top = (rect.top - gridRect.top) / scaleY;
+        const right = left + rect.width / scaleX;
+        const bottom = top + rect.height / scaleY;
+        return seat.dataset.eventSeatId
+          ? [
+              {
+                id: seat.dataset.eventSeatId,
+                eligible: seat.dataset.eventSeatEligible === "true",
+                left,
+                top,
+                right,
+                bottom,
+              },
+            ]
+          : [];
+      },
+    );
+    const selectedIds = seatsIntersectingRectangle(selection, seatRectangles);
+    if (!selectedIds.length) return;
+    setAvailable((current) => new Set([...current, ...selectedIds]));
+    setChangeSource("rectangle_add");
+    setChangedSide("");
+  }
+
+  function applyQuickOpen() {
+    try {
+      const result = quickOpenSeatRectangle(
+        hall!.seats.map((seat) => ({
+          ...seat,
+          templateSelectable: seat.kind === "seat" && seat.selectable,
+        })),
+        quickOpenCount,
+        centerAfterColumn,
+      );
+      setAvailable(new Set([...result.availableSeatIds, ...lockedSeatIds]));
+      setChangeSource("quick_count");
+      setChangedSide("");
+      setQuickOpenError("");
+      setQuickOpenVisible(false);
+    } catch {
+      setQuickOpenError(`请输入 1 到 ${defaultSeatIds.length} 之间的整数。`);
+    }
   }
 
   if (!hall) return null;
@@ -182,6 +343,19 @@ export function EventSeatEditor({
           全部关闭
         </button>
         <span>{available.size} 个座位开放</span>
+        {planningToolsEnabled ? (
+          <button
+            type="button"
+            disabled={defaultSeatIds.length === 0}
+            onClick={() => {
+              setQuickOpenCount(Math.min(Math.max(1, available.size), defaultSeatIds.length));
+              setQuickOpenError("");
+              setQuickOpenVisible(true);
+            }}
+          >
+            按数量开放
+          </button>
+        ) : null}
       </div>
       <div className="tool-row" role="toolbar" aria-label="活动座位网格操作模式">
         <strong>网格操作</strong>
@@ -191,6 +365,8 @@ export function EventSeatEditor({
           type="button"
           onClick={() => {
             painting.current = null;
+            rectangleStart.current = null;
+            setRectangle(null);
             setInteractionMode("navigate");
           }}
         >
@@ -200,10 +376,27 @@ export function EventSeatEditor({
           className={interactionMode === "edit" ? "active" : ""}
           aria-pressed={interactionMode === "edit"}
           type="button"
-          onClick={() => setInteractionMode("edit")}
+          onClick={() => {
+            rectangleStart.current = null;
+            setRectangle(null);
+            setInteractionMode("edit");
+          }}
         >
           调整可选区域
         </button>
+        {planningToolsEnabled ? (
+          <button
+            className={interactionMode === "rectangle" ? "active" : ""}
+            aria-pressed={interactionMode === "rectangle"}
+            type="button"
+            onClick={() => {
+              painting.current = null;
+              setInteractionMode("rectangle");
+            }}
+          >
+            矩形框选开放
+          </button>
+        ) : null}
       </div>
       <SeatGridViewport
         ariaLabel="活动座位开放区域"
@@ -213,30 +406,45 @@ export function EventSeatEditor({
           <p className="grid-interaction-hint muted" role="status" aria-live="polite">
             {interactionMode === "navigate"
               ? "当前为“无修改”模式：单指拖动可移动网格，双指可缩放；也可使用上方缩放按钮。"
-              : "当前为“调整可选区域”模式：点击或拖动可开放、关闭座位；如需移动或双指缩放，请切换到“无修改”。"}
+              : interactionMode === "rectangle"
+                ? "当前为“矩形框选开放”模式：在座位区域拖出矩形，框内可选座位会追加开放，框外状态不变；按 Esc 可取消未完成框选。"
+                : "当前为“调整可选区域”模式：点击或拖动可开放、关闭座位；如需移动或双指缩放，请切换到“无修改”。"}
           </p>
         }
       >
         <div
+          ref={gridRef}
           className="seat-grid event-seat-grid"
           style={{ gridTemplateColumns: `max-content repeat(${columns}, 36px)` }}
           onPointerMove={(event) => {
+            if (interactionMode === "rectangle") {
+              const point = localPointer(event);
+              if (point) updateRectangle(point);
+              return;
+            }
             if (painting.current === null) return;
             const target = document
               .elementFromPoint(event.clientX, event.clientY)
               ?.closest<HTMLElement>("[data-event-seat-id]");
             if (target?.dataset.eventSeatId) paint(target.dataset.eventSeatId);
           }}
-          onPointerUp={() => {
+          onPointerDownCapture={beginRectangle}
+          onPointerUp={(event) => {
+            if (interactionMode === "rectangle") return finishRectangle(event);
             painting.current = null;
           }}
           onPointerCancel={() => {
+            rectangleStart.current = null;
+            setRectangle(null);
             painting.current = null;
           }}
           onPointerLeave={(event) => {
             if (event.pointerType === "mouse") painting.current = null;
           }}
         >
+          {rectangle ? (
+            <span className="seat-selection-rectangle" style={rectangle} aria-hidden="true" />
+          ) : null}
           {rowIndexes.map((rowIndex) => (
             <div
               className="seat-coordinate-row"
@@ -248,7 +456,9 @@ export function EventSeatEditor({
             >
               <span
                 className="seat-coordinate row"
-                data-seat-row-coordinate={hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1}
+                data-seat-row-coordinate={
+                  hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1
+                }
                 data-seat-row-key={`event:${rowIndex}`}
               >
                 {hall.seats.find((seat) => seat.rowIndex === rowIndex)?.rowLabel ?? rowIndex + 1}
@@ -264,6 +474,7 @@ export function EventSeatEditor({
                       key={seat.id}
                       type="button"
                       data-event-seat-id={seat.id}
+                      data-event-seat-eligible={structural ? "false" : "true"}
                       disabled={structural || isLocked}
                       title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : ""}`}
                       aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
@@ -298,6 +509,48 @@ export function EventSeatEditor({
           ))}
         </div>
       </SeatGridViewport>
+      {quickOpenVisible ? (
+        <div
+          className="lottery-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quick-open-title"
+        >
+          <div className="lottery-modal quick-open-modal">
+            <p className="eyebrow">快速规划</p>
+            <h2 id="quick-open-title">按数量开放座位</h2>
+            <p>将从最后一排中间开始，按约 4:3 的矩形向上开放；其他座位会关闭。</p>
+            <label>
+              想开放的座位数量
+              <input
+                type="number"
+                min={1}
+                max={defaultSeatIds.length}
+                step={1}
+                value={quickOpenCount}
+                onChange={(event) => {
+                  const nextCount = event.currentTarget.valueAsNumber;
+                  setQuickOpenCount(Number.isNaN(nextCount) ? 0 : nextCount);
+                }}
+              />
+            </label>
+            <small>最多可开放 {defaultSeatIds.length} 个模板可选座位。</small>
+            {quickOpenError ? (
+              <p className="form-error" role="alert">
+                {quickOpenError}
+              </p>
+            ) : null}
+            <div className="header-actions">
+              <button className="button" type="button" onClick={() => setQuickOpenVisible(false)}>
+                取消
+              </button>
+              <button className="button primary" type="button" onClick={applyQuickOpen}>
+                确认并预览
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <input type="hidden" name="availableSeatIds" value={JSON.stringify([...available])} />
       <input type="hidden" name="changeSource" value={changeSource} />
       {changedSide ? <input type="hidden" name="side" value={changedSide} /> : null}

@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateEventSeatsAction, type SeatAvailabilitySaveState } from "@/app/(admin)/admin/events/actions";
+import {
+  updateEventSeatsAction,
+  type SeatAvailabilitySaveState,
+} from "@/app/(admin)/admin/events/actions";
 import { EventSeatEditor, type EventHallLayout } from "./event-seat-editor";
 
 const initialState: SeatAvailabilitySaveState = { status: "idle", message: "", submission: 0 };
@@ -14,6 +17,7 @@ export function EventSeatManagementForm({
   lockedSeatIds,
   centerAfterColumn,
   enableHalfLockControls,
+  planningToolsEnabled,
 }: {
   eventId: string;
   version: number;
@@ -22,6 +26,7 @@ export function EventSeatManagementForm({
   lockedSeatIds: string[];
   centerAfterColumn: number | null;
   enableHalfLockControls: boolean;
+  planningToolsEnabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(updateEventSeatsAction, initialState);
   return (
@@ -36,10 +41,21 @@ export function EventSeatManagementForm({
           lockedSeatIds={lockedSeatIds}
           centerAfterColumn={centerAfterColumn}
           enableHalfLockControls={enableHalfLockControls}
+          planningToolsEnabled={planningToolsEnabled}
         />
-        <button className="button primary" type="submit" disabled={pending}>{pending ? "正在保存…" : "保存活动开放范围"}</button>
+        <button className="button primary" type="submit" disabled={pending}>
+          {pending ? "正在保存…" : "保存活动开放范围"}
+        </button>
       </form>
-      {state.status !== "idle" ? <div key={state.submission} className={`toast admin-save-toast ${state.status}`} role={state.status === "error" ? "alert" : "status"}>{state.message}</div> : null}
+      {state.status !== "idle" ? (
+        <div
+          key={state.submission}
+          className={`toast admin-save-toast ${state.status}`}
+          role={state.status === "error" ? "alert" : "status"}
+        >
+          {state.message}
+        </div>
+      ) : null}
     </>
   );
 }
