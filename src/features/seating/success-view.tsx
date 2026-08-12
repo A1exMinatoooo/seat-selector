@@ -8,6 +8,14 @@ import { responseErrorMessage } from "@/shared/error-message";
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
 
+const theaterManners = [
+  { icon: "/assets/images/theater-manner/phone-off.png", text: "请将手机调至静音或震动状态，并调低亮度" },
+  { icon: "/assets/images/theater-manner/no-recording.png", text: "龙标出现至结尾字幕结束，禁止录音/拍照/摄像" },
+  { icon: "/assets/images/theater-manner/no-talking.png", text: "观影途中请保持安静，不要大声喧哗" },
+  { icon: "/assets/images/theater-manner/no-late-entry.png", text: "请预留充足时间提前到场，避免在正片开始后入场" },
+  { icon: "/assets/images/theater-manner/no-seat-pushing.png", text: "请勿踢碰或推挤前排座椅" },
+] as const;
+
 function InlineBrandIcon({ className = "" }: { className?: string }) {
   return <span className={`inline-brand-icon ${className}`.trim()} aria-hidden="true"><Image unoptimized width={512} height={512} src="/icon.svg" alt="" /></span>;
 }
@@ -16,12 +24,35 @@ function LotteryPrizeName({ prizeName }: { prizeName: string | null }) {
   return <strong className="lottery-prize-name">{prizeName ?? "未中奖"}{prizeName ? <InlineBrandIcon className="lottery-prize-icon" /> : null}</strong>;
 }
 
+function TheaterMannersDialog({ onConfirm }: { onConfirm: () => void }) {
+  const [secondsRemaining, setSecondsRemaining] = useState(5);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSecondsRemaining((current) => {
+      if (current <= 1) {
+        window.clearInterval(timer);
+        return 0;
+      }
+      return current - 1;
+    }), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return <div className="lottery-backdrop theater-manners-backdrop" role="dialog" aria-modal="true" aria-labelledby="theater-manners-title" aria-describedby="theater-manners-description"><div className="lottery-modal theater-manners-modal">
+    <header className="theater-manners-heading"><p className="eyebrow">观影礼仪</p><h2 id="theater-manners-title">文明观影须知</h2><p id="theater-manners-description">请共同维护安全、舒适的观影环境</p></header>
+    <ul className="theater-manners-list">{theaterManners.map((item) => <li key={item.icon}><Image src={item.icon} width={180} height={180} alt="" /><span>{item.text}</span></li>)}</ul>
+    <button className="button primary theater-manners-confirm" type="button" disabled={secondsRemaining > 0} onClick={onConfirm} aria-live="polite">{secondsRemaining > 0 ? `我已知晓并同意 (${secondsRemaining})` : "我已知晓并同意"}</button>
+  </div></div>;
+}
+
 export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; showPhoneLast4?: boolean; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
   const [nowIso, setNowIso] = useState(serverTime);
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
   const lotteryChances = lotteryEnabled ? tickets.filter((ticket) => ticket.lotteryEligible).reduce((sum, ticket) => sum + ticket.quantity, 0) : 0;
-  const [lotteryPhase, setLotteryPhase] = useState<"prompt" | "drawing" | "result" | "closed">(lotteryChances > 0 && initialLotteryResults.length === 0 ? "prompt" : "closed");
+  const hasPendingLottery = lotteryChances > 0 && initialLotteryResults.length === 0;
+  const [lotteryPhase, setLotteryPhase] = useState<"prompt" | "drawing" | "result" | "closed">(hasPendingLottery ? "prompt" : "closed");
   const [lotteryError, setLotteryError] = useState("");
+  const [showTheaterManners, setShowTheaterManners] = useState(!hasPendingLottery);
 
   useEffect(() => {
     const offset = new Date(serverTime).getTime() - Date.now();
@@ -64,7 +95,8 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
     {lotteryPhase !== "closed" ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="lottery-title"><div className="lottery-modal">
       {lotteryPhase === "prompt" ? <><p className="eyebrow">抽奖机会</p><h2 id="lottery-title">您可参与 {lotteryChances} 次抽奖</h2><p>确认后将立即从本活动奖池中抽取。</p>{lotteryError ? <p className="form-error" role="alert">{lotteryError}</p> : null}<button className="button primary" type="button" onClick={() => void startLottery()}>确定，开始抽奖</button></> : null}
       {lotteryPhase === "drawing" ? <><Image src="/assets/images/loading.gif" unoptimized width={220} height={220} alt="抽奖中" priority /><h2 id="lottery-title">抽奖中…</h2><p>好运正在赶来，请稍候。</p></> : null}
-      {lotteryPhase === "result" ? <><Image src={won ? "/assets/images/atari.png" : "/assets/images/hazure.png"} width={220} height={220} alt={won ? "中奖啦" : "未中奖"} priority /><h2 id="lottery-title">{won ? "中奖啦！" : "本次未中奖"}</h2><ol className="lottery-result-list">{lotteryResults.map((result) => <li key={result.drawIndex}><span>第 {result.drawIndex + 1} 次</span><LotteryPrizeName prizeName={result.prizeName} /></li>)}</ol><button className="button primary" type="button" onClick={() => setLotteryPhase("closed")}>确认</button></> : null}
+      {lotteryPhase === "result" ? <><Image src={won ? "/assets/images/atari.png" : "/assets/images/hazure.png"} width={220} height={220} alt={won ? "中奖啦" : "未中奖"} priority /><h2 id="lottery-title">{won ? "中奖啦！" : "本次未中奖"}</h2><ol className="lottery-result-list">{lotteryResults.map((result) => <li key={result.drawIndex}><span>第 {result.drawIndex + 1} 次</span><LotteryPrizeName prizeName={result.prizeName} /></li>)}</ol><button className="button primary" type="button" onClick={() => { setLotteryPhase("closed"); setShowTheaterManners(true); }}>确认</button></> : null}
     </div></div> : null}
+    {showTheaterManners ? <TheaterMannersDialog onConfirm={() => setShowTheaterManners(false)} /> : null}
   </main>;
 }

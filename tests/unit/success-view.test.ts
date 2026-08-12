@@ -24,6 +24,13 @@ describe("success view", () => {
     expect(markup).toContain('<header class="success-heading"><p class="eyebrow">选座成功</p><h1>夏日放映</h1></header>');
     expect(markup).toContain('<h2 class="confirmed-seats"><span class="confirmed-seat">A1</span><span class="confirmed-seat">A2</span></h2>');
     expect(markup).not.toContain("查看今日选座记录");
+    expect(markup).toContain("文明观影须知");
+    expect(markup).toContain("请将手机调至静音或震动状态，并调低亮度");
+    expect(markup).toContain("龙标出现至结尾字幕结束，禁止录音/拍照/摄像");
+    expect(markup).toContain("观影途中请保持安静，不要大声喧哗");
+    expect(markup).toContain('disabled=""');
+    expect(markup).toContain("我已知晓并同意 (5)");
+    expect(markup).not.toContain("秒后可确认");
   });
 
   it("links to today's records when the device has at least two confirmations", () => {
@@ -60,5 +67,24 @@ describe("success view", () => {
     expect(markup.match(/lottery-prize-icon/g)).toHaveLength(1);
     expect(markup).toContain('<strong class="lottery-prize-name">未中奖</strong>');
     expect(markup).toMatch(/爆米花.*lottery-prize-icon/);
+    expect(markup).toContain("文明观影须知");
+  });
+
+  it("shows the lottery prompt before theater manners when a draw is pending", () => {
+    const markup = renderToStaticMarkup(createElement(SuccessView, {
+      code: "summer-screening",
+      eventName: "夏日放映",
+      phoneLast4: "8000",
+      confirmedAt: "2026-08-07T10:00:00.000Z",
+      serverTime: "2026-08-07T10:00:00.000Z",
+      seats: ["A1"],
+      tickets: [{ name: "普通票", quantity: 1, lotteryEligible: true }],
+      lotteryEnabled: true,
+      initialLotteryResults: [],
+      showTodayRecordsLink: false,
+    }));
+
+    expect(markup).toContain("您可参与 1 次抽奖");
+    expect(markup).not.toContain("文明观影须知");
   });
 });
