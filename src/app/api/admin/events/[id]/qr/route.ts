@@ -4,7 +4,7 @@ import { getOrCreateQrToken } from "@/server/domain/qr-entry";
 import { createTicketIssue, ticketIssueStatus } from "@/server/domain/ticket-issue";
 import { env } from "@/server/env";
 import { hasAdminSession } from "@/server/security/admin-session";
-import { apiFailure, assertSameOrigin } from "@/server/security/request";
+import { apiFailure } from "@/server/security/request";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await hasAdminSession())) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -21,7 +21,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await hasAdminSession())) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
-    assertSameOrigin(request);
     const { allocation } = z.object({ allocation: z.array(z.object({ ticketTypeId: z.string().uuid(), quantity: z.number().int() })) }).parse(await request.json());
     const issue = await createTicketIssue((await params).id, allocation);
     const url = `${env().APP_URL}/e/${issue.publicCode}/join?t=${encodeURIComponent(issue.token)}`;
