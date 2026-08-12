@@ -21,6 +21,12 @@ const eventConfigurationFields = {
   timeZone: z.string().trim().min(1).max(64).refine(isSupportedTimeZone, "无效的时区"),
   locationCheckEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
   lotteryEnabled: z.preprocess((value) => value === true || value === "on" || value === "true", z.boolean()),
+  participationMode: z.enum(["onsite", "preregistered"]).default("onsite"),
+  maxTicketsPerIssue: z.coerce.number().int().min(1).max(20).default(3),
+  expectedLotteryTickets: z.preprocess(
+    (value) => value === "" || value === undefined || value === null ? undefined : value,
+    z.coerce.number().int().min(1).max(100_000).optional(),
+  ),
   lotteryPoolBonus: z.coerce.number().int().min(0).max(100_000).default(0),
   ticketTypes: z.array(ticketTypeSchema).min(1).max(20).refine((items) => new Set(items.map((item) => item.name)).size === items.length, "票种名称不能重复"),
   prizes: z.array(prizeSchema).max(100),
@@ -30,6 +36,7 @@ function validateEventConfiguration(input: z.infer<z.ZodObject<typeof eventConfi
   if (input.lotteryEnabled && input.prizes.length === 0) context.addIssue({ code: "custom", path: ["prizes"], message: "开启抽奖时至少需要一项奖品" });
   if (input.lotteryEnabled && !input.ticketTypes.some((type) => type.lotteryEligible)) context.addIssue({ code: "custom", path: ["ticketTypes"], message: "开启抽奖时至少需要一个参与抽奖的票种" });
   if (!input.lotteryEnabled && input.ticketTypes.some((type) => type.lotteryEligible)) context.addIssue({ code: "custom", path: ["ticketTypes"], message: "未开启抽奖时票种不能参与抽奖" });
+  if (input.lotteryEnabled && input.participationMode === "onsite" && !input.expectedLotteryTickets) context.addIssue({ code: "custom", path: ["expectedLotteryTickets"], message: "现场发行模式开启抽奖时必须填写预计可抽奖票数" });
   if (new Set(input.prizes.map((prize) => prize.name)).size !== input.prizes.length) context.addIssue({ code: "custom", path: ["prizes"], message: "奖品名称不能重复" });
   if (!localDateTimeToDate(input.startDate, input.startTime, input.timeZone)) context.addIssue({ code: "custom", path: ["startTime"], message: "活动开始时间无效" });
 }

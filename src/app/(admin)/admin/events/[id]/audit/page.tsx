@@ -29,6 +29,9 @@ const actionLabels: Record<AuditAction, string> = {
   location_rejected: "定位失败",
   lottery_drawn: "完成抽奖",
   identity_tail_choice_required: "尾号重复选择身份",
+  ticket_issue_created: "发行二维码",
+  ticket_issue_claimed: "领取现场票",
+  ticket_issue_replaced: "替换现场票",
 };
 
 const statusLabels: Record<string, string> = { draft: "草稿", open: "开放中", ended: "已结束" };
@@ -80,6 +83,9 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
   if (action === "participants_imported")
     return `导入 ${String(details.count ?? 0)} 人，共 ${String(details.ticketTotal ?? 0)} 张票`;
   if (action === "participant_added") return `购买 ${String(details.ticketTotal ?? 0)} 张票`;
+  if (action === "ticket_issue_created") return `发行 ${String(details.ticketTotal ?? 0)} 张票`;
+  if (action === "ticket_issue_claimed") return `领取 ${String(details.ticketTotal ?? 0)} 张票`;
+  if (action === "ticket_issue_replaced") return `替换为 ${String(details.ticketTotal ?? 0)} 张票`;
   if (action === "device_reset") return "管理员解除设备绑定";
   if (action === "location_exemption_changed")
     return details.enabled === true ? "启用定位豁免" : "取消定位豁免";

@@ -15,6 +15,8 @@ import { sql } from "drizzle-orm";
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
+export const eventParticipationMode = pgEnum("event_participation_mode", ["onsite", "preregistered"]);
+export const participantSource = pgEnum("participant_source", ["onsite", "preregistered"]);
 export const auditLevel = pgEnum("audit_level", ["info", "warn", "error"]);
 export const auditAction = pgEnum("audit_action", [
   "event_created",
@@ -34,6 +36,9 @@ export const auditAction = pgEnum("audit_action", [
   "location_rejected",
   "lottery_drawn",
   "identity_tail_choice_required",
+  "ticket_issue_created",
+  "ticket_issue_claimed",
+  "ticket_issue_replaced",
 ]);
 
 export const cinemas = pgTable("cinemas", {
@@ -101,6 +106,10 @@ export const events = pgTable(
     timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
     locationCheckEnabled: boolean("location_check_enabled").notNull().default(true),
     lotteryEnabled: boolean("lottery_enabled").notNull().default(false),
+    participationMode: eventParticipationMode("participation_mode").notNull().default("onsite"),
+    maxTicketsPerIssue: integer("max_tickets_per_issue").notNull().default(3),
+    expectedLotteryTickets: integer("expected_lottery_tickets"),
+    nextIssueNumber: integer("next_issue_number").notNull().default(1),
     qrTokenNonce: text("qr_token_nonce"),
     qrTokenHash: text("qr_token_hash"),
     qrTokenIssuedAt: timestamp("qr_token_issued_at", { withTimezone: true }),
@@ -152,6 +161,8 @@ export const participants = pgTable(
     phoneLast4: text("phone_last4").notNull(),
     phoneIsFull: boolean("phone_is_full").notNull(),
     ticketTotal: integer("ticket_total").notNull(),
+    source: participantSource("source").notNull().default("preregistered"),
+    issueNumber: integer("issue_number"),
     deviceHash: text("device_hash"),
     deviceBoundAt: timestamp("device_bound_at", { withTimezone: true }),
     locationExemptAt: timestamp("location_exempt_at", { withTimezone: true }),
@@ -162,6 +173,34 @@ export const participants = pgTable(
     index("participants_device_hash_idx")
       .on(table.deviceHash)
       .where(sql`${table.deviceHash} is not null`),
+    uniqueIndex("participants_event_issue_number_uidx")
+      .on(table.eventId, table.issueNumber)
+      .where(sql`${table.issueNumber} is not null`),
+  ],
+);
+
+export type TicketIssueAllocation = { ticketTypeId: string; quantity: number };
+
+export const ticketIssues = pgTable(
+  "ticket_issues",
+  {
+    id: uuid("id").primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    tokenNonce: text("token_nonce").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    allocation: jsonb("allocation").$type<TicketIssueAllocation[]>().notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true, precision: 3 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }).notNull(),
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true, precision: 3 }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, precision: 3 }),
+    participantId: uuid("participant_id").references(() => participants.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    uniqueIndex("ticket_issues_token_hash_uidx").on(table.tokenHash),
+    index("ticket_issues_event_issued_idx").on(table.eventId, table.issuedAt),
+    index("ticket_issues_participant_idx").on(table.participantId),
   ],
 );
 

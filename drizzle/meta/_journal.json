@@ -134,6 +134,13 @@
       "when": 1786327258942,
       "tag": "0018_daily-seat-records",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786517062759,
+      "tag": "0019_plain_doctor_strange",
+      "breakpoints": true
     }
   ]
 }

@@ -21,19 +21,35 @@ export function TicketTypeFields({
   initialLotteryEnabled = false,
   initialPrizes = [],
   initialLotteryPoolBonus = 0,
+  initialParticipationMode = "onsite",
+  initialMaxTicketsPerIssue = 3,
+  initialExpectedLotteryTickets,
 }: {
   initialTypes?: Array<{ id?: string; name: string; lotteryEligible: boolean }>;
   initialLotteryEnabled?: boolean;
   initialPrizes?: Array<{ name: string; quantity: number }>;
   initialLotteryPoolBonus?: number;
+  initialParticipationMode?: "onsite" | "preregistered";
+  initialMaxTicketsPerIssue?: number;
+  initialExpectedLotteryTickets?: number | null;
 }) {
   const nextKey = useRef(1);
   const createKey = (prefix: string) => `${prefix}-${nextKey.current++}`;
   const [types, setTypes] = useState<TicketTypeValue[]>(() => initialTypes.map((type, index) => ({ ...type, key: type.id ?? `ticket-initial-${index}` })));
   const [lotteryEnabled, setLotteryEnabled] = useState(initialLotteryEnabled);
+  const [participationMode, setParticipationMode] = useState(initialParticipationMode);
   const [prizes, setPrizes] = useState<PrizeValue[]>(() => (initialPrizes.length ? initialPrizes : [{ name: "", quantity: 1 }]).map((prize, index) => ({ ...prize, key: `prize-initial-${index}` })));
 
   return <>
+    <fieldset className="participation-mode-fields">
+      <legend>参与方式</legend>
+      <div className="segmented-control" role="radiogroup" aria-label="活动参与方式">
+        <label><input type="radio" name="participationMode" value="onsite" checked={participationMode === "onsite"} onChange={() => setParticipationMode("onsite")} /><span>现场发行</span></label>
+        <label><input type="radio" name="participationMode" value="preregistered" checked={participationMode === "preregistered"} onChange={() => setParticipationMode("preregistered")} /><span>预录参与者</span></label>
+      </div>
+      <p className="muted">{participationMode === "onsite" ? "现场选择票种和张数后发行单次二维码，无需预录姓名和手机号。" : "提前录入参与者、手机号及其购买票数，扫码后验证身份。"}</p>
+      {participationMode === "onsite" ? <label>单次最多发行张数<NumericInput name="maxTicketsPerIssue" min={1} max={20} defaultValue={initialMaxTicketsPerIssue} /></label> : <input type="hidden" name="maxTicketsPerIssue" value={initialMaxTicketsPerIssue} />}
+    </fieldset>
     <fieldset className="lottery-fields">
       <legend>抽奖设置</legend>
       <label className="switch-label">
@@ -51,7 +67,8 @@ export function TicketTypeFields({
         <span>开启活动抽奖</span>
       </label>
       {lotteryEnabled ? <>
-        <p className="muted">开放选座前，请先在“参与者清单”录入参与者及其票数。总奖池人数 = “参与抽奖”的票数 + 额外奖池人数 X；奖品总数必须小于等于总奖池人数，总奖池人数减去奖品总数的部分为“未中奖”。</p>
+        <p className="muted">{participationMode === "onsite" ? "总奖池人数 = 预计可抽奖票数 + 额外奖池人数 X；预计额度在扫码领取时占用。" : "开放选座前，请先在“参与者清单”录入参与者及其票数。总奖池人数 = “参与抽奖”的票数 + 额外奖池人数 X。"} 奖品总数必须小于等于总奖池人数，其余为“未中奖”。</p>
+        {participationMode === "onsite" ? <label>预计可抽奖票数<NumericInput name="expectedLotteryTickets" min={1} max={100000} defaultValue={initialExpectedLotteryTickets ?? undefined} /><span className="muted">所有已领取的参与抽奖票累计不得超过此数量。</span></label> : <input type="hidden" name="expectedLotteryTickets" value="" />}
         <label>额外奖池人数 X<NumericInput name="lotteryPoolBonus" min={0} max={100000} defaultValue={initialLotteryPoolBonus} /><span className="muted">总奖池人数 = 参与抽奖票数 + 额外奖池人数 X</span></label>
         <div className="prize-list">
           {prizes.map((prize, index) => <div key={prize.key}>
@@ -64,6 +81,7 @@ export function TicketTypeFields({
       </> : null}
       <input type="hidden" name="prizes" value={JSON.stringify(lotteryEnabled ? prizes.map(({ name, quantity }) => ({ name, quantity })) : [])} />
       {!lotteryEnabled ? <input type="hidden" name="lotteryPoolBonus" value="0" /> : null}
+      {!lotteryEnabled ? <input type="hidden" name="expectedLotteryTickets" value="" /> : null}
     </fieldset>
     <fieldset className="ticket-types">
       <legend>票种</legend>

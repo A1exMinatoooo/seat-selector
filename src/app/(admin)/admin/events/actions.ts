@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eventConfigurationInputSchema, eventInputSchema } from "@/features/events/schemas";
 import { getDb } from "@/server/db/client";
-import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import { eventAuditLogs, eventSeats, events, halls, lotteryPrizes, participants, participantTickets, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
 import { describeAvailabilityChange, resolveEventAvailability } from "@/server/domain/event-seat-availability";
 import { canChangeEventStatus, hasSufficientLotteryPool, lotteryPoolSize } from "@/server/domain/event-status";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -36,6 +36,7 @@ export async function createEventAction(formData: FormData): Promise<void> {
     const [created] = await tx.insert(events).values({
       publicCode: randomToken(18), name: input.name, hallId: input.hallId, locationId: input.locationId,
       radiusMeters: input.radiusMeters, startsAt: input.startsAt, timeZone: input.timeZone, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, lotteryPoolBonus: input.lotteryPoolBonus,
+      participationMode: input.participationMode, maxTicketsPerIssue: input.maxTicketsPerIssue, expectedLotteryTickets: input.lotteryEnabled ? input.expectedLotteryTickets ?? null : null,
     }).returning({ id: events.id });
     if (!created) throw new Error("Event creation did not return an id");
     if (availableSeatIds.length) await tx.insert(eventSeats).values(availableSeatIds.map((seatId) => ({ eventId: created.id, seatId })));
@@ -56,9 +57,13 @@ export async function updateEventConfigurationAction(formData: FormData): Promis
   });
 
   await getDb().transaction(async (tx) => {
-    const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
+    const [event] = await tx.select({ status: events.status, participationMode: events.participationMode }).from(events).where(eq(events.id, input.id)).limit(1).for("update");
     if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
     if (event.status !== "draft") throw new DomainError(errorCodes.eventConflict, "只有草稿活动可以修改配置", 409);
+    if (event.participationMode !== input.participationMode) {
+      const [existingParticipant] = await tx.select({ id: participants.id }).from(participants).where(eq(participants.eventId, input.id)).limit(1);
+      if (existingParticipant) throw new DomainError(errorCodes.eventConflict, "已有参与者，不能切换参与方式", 409);
+    }
 
     const existingTypes = await tx.select({ id: ticketTypes.id }).from(ticketTypes).where(eq(ticketTypes.eventId, input.id));
     const existingTypeIds = new Set(existingTypes.map((type) => type.id));
@@ -90,6 +95,9 @@ export async function updateEventConfigurationAction(formData: FormData): Promis
       locationCheckEnabled: input.locationCheckEnabled,
       lotteryEnabled: input.lotteryEnabled,
       lotteryPoolBonus: input.lotteryPoolBonus,
+      participationMode: input.participationMode,
+      maxTicketsPerIssue: input.maxTicketsPerIssue,
+      expectedLotteryTickets: input.lotteryEnabled ? input.expectedLotteryTickets ?? null : null,
       version: sql`${events.version} + 1`,
     }).where(eq(events.id, input.id));
     await tx.insert(eventAuditLogs).values({ eventId: input.id, action: "event_configuration_changed", details: { ticketTypeCount: input.ticketTypes.length, locationCheckEnabled: input.locationCheckEnabled, lotteryEnabled: input.lotteryEnabled, lotteryPoolBonus: input.lotteryPoolBonus, prizeCount: input.prizes.length } });
@@ -163,17 +171,19 @@ export async function setEventStatusAction(_previousState: EventStatusSaveState,
   const { id, status } = parsed.data;
   try {
     const failure = await getDb().transaction(async (tx): Promise<EventStatusSaveState | null> => {
-      const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled, lotteryPoolBonus: events.lotteryPoolBonus }).from(events).where(eq(events.id, id)).limit(1).for("update");
+      const [event] = await tx.select({ status: events.status, lotteryEnabled: events.lotteryEnabled, lotteryPoolBonus: events.lotteryPoolBonus, participationMode: events.participationMode, expectedLotteryTickets: events.expectedLotteryTickets }).from(events).where(eq(events.id, id)).limit(1).for("update");
       if (!event) return { status: "error", message: "活动不存在或已被删除。", submission: Date.now(), code: "EVENT_NOT_FOUND" };
       if (!canChangeEventStatus(event.status, status)) return { status: "error", message: "活动状态已发生变化，请刷新页面后重试。", submission: Date.now(), code: "EVENT_STATUS_CONFLICT" };
       if (status === "open" && event.lotteryEnabled) {
-        const eligiblePool = await tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true)));
+        const eligiblePool = event.participationMode === "onsite"
+          ? [{ total: event.expectedLotteryTickets ?? 0 }]
+          : await tx.select({ total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int` }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(and(eq(ticketTypes.eventId, id), eq(ticketTypes.lotteryEligible, true)));
         const inventory = await tx.select({ total: sql<number>`coalesce(sum(${lotteryPrizes.quantity}), 0)::int` }).from(lotteryPrizes).where(eq(lotteryPrizes.eventId, id));
         const eligibleTicketCount = Number(eligiblePool[0]?.total ?? 0);
         const prizeCount = Number(inventory[0]?.total ?? 0);
         const totalPoolCount = lotteryPoolSize(eligibleTicketCount, event.lotteryPoolBonus);
         if (!hasSufficientLotteryPool(eligibleTicketCount, event.lotteryPoolBonus, prizeCount)) {
-          return { status: "error", message: `当前总奖池人数为 ${totalPoolCount}（参与抽奖票数 ${eligibleTicketCount} + 额外奖池人数 ${event.lotteryPoolBonus}），奖品总数为 ${prizeCount}。奖品总数必须小于等于总奖池人数，请先录入参与者或调整数量。`, submission: Date.now(), code: "LOTTERY_POOL_TOO_SMALL" };
+          return { status: "error", message: `当前总奖池人数为 ${totalPoolCount}（${event.participationMode === "onsite" ? "预计可抽奖票数" : "参与抽奖票数"} ${eligibleTicketCount} + 额外奖池人数 ${event.lotteryPoolBonus}），奖品总数为 ${prizeCount}。奖品总数必须小于等于总奖池人数，请调整数量。`, submission: Date.now(), code: "LOTTERY_POOL_TOO_SMALL" };
         }
       }
       await tx.update(events).set({ status, version: sql`${events.version} + 1` }).where(eq(events.id, id));
