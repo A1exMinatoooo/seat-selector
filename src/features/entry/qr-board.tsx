@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { BrandedQrCode } from "@/features/entry/branded-qr-code";
 import { responseErrorMessage } from "@/shared/error-message";
 
 const qrRefreshIntervalMs = 1_000;
@@ -23,7 +23,7 @@ function RotatingQrBoard({ eventId, eventName, backHref }: { eventId: string; ev
     void load(); const timer = window.setInterval(() => void load(), qrRefreshIntervalMs);
     return () => { active = false; controller.abort(); window.clearInterval(timer); };
   }, [eventId]);
-  return <main className="qr-screen"><div><aside className="qr-scan-notice" role="note">建议使用微信扫描二维码，后续可在同一微信中查看今日选座记录。</aside><Link className="qr-back-button" href={backHref}>← 返回活动详情</Link><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>{data ? <div className="qr-frame"><Image unoptimized width={720} height={720} src={data.image} alt={`${eventName} 动态入场二维码`} /><strong>二维码将在 {data.expiresIn} 秒内更新</strong><time>{new Date(data.serverTime).toLocaleString("zh-CN")}</time></div> : <div className="qr-frame loading">正在生成安全二维码…</div>}</main>;
+  return <main className="qr-screen"><div><aside className="qr-scan-notice" role="note">建议使用微信扫描二维码，后续可在同一微信中查看今日选座记录。</aside><Link className="qr-back-button" href={backHref}>← 返回活动详情</Link><p className="eyebrow">现场扫码入场</p><h1>{eventName}</h1><p>二维码动态更新，请在现场完成定位与身份验证</p></div>{data ? <div className="qr-frame"><BrandedQrCode src={data.image} alt={`${eventName} 动态入场二维码`} /><strong>二维码将在 {data.expiresIn} 秒内更新</strong><time>{new Date(data.serverTime).toLocaleString("zh-CN")}</time></div> : <div className="qr-frame loading">正在生成安全二维码…</div>}</main>;
 }
 
 function OnsiteIssueBoard({ eventId, eventName, backHref, maxTicketsPerIssue, ticketTypes }: { eventId: string; eventName: string; backHref: string; maxTicketsPerIssue: number; ticketTypes: TicketType[] }) {
@@ -68,6 +68,6 @@ function OnsiteIssueBoard({ eventId, eventName, backHref, maxTicketsPerIssue, ti
       <div className="issue-actions"><strong>本次合计 {total}/{maxTicketsPerIssue} 张</strong><button className="button primary" type="button" disabled={busy || total < 1 || total > maxTicketsPerIssue} onClick={() => void createIssue()}>{busy ? "正在发行…" : "发行二维码"}</button></div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
     </section>
-    {issue ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="issue-dialog-title"><div className="lottery-modal issue-modal"><p className="eyebrow">单次领取二维码</p><h2 id="issue-dialog-title">{status === "active" ? "等待参与者扫码" : status === "claimed" ? "领取成功" : status === "expired" ? "二维码已过期" : "二维码已被新发行替换"}</h2>{status === "active" ? <Image unoptimized width={720} height={720} src={issue.image} alt={`${eventName} 单次领取二维码`} /> : null}<div className="ticket-summary">{issue.allocation.map((item) => <span key={item.id}>{item.name} × {item.quantity}</span>)}</div><strong>{status === "active" ? `剩余 ${remaining} 秒` : "本二维码已失效"}</strong>{status !== "active" ? <button className="button primary" type="button" onClick={() => setIssue(undefined)}>关闭</button> : <button className="button" type="button" onClick={() => setIssue(undefined)}>取消显示</button>}</div></div> : null}
+    {issue ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="issue-dialog-title"><div className="lottery-modal issue-modal"><p className="eyebrow">单次领取二维码</p><h2 id="issue-dialog-title">{status === "active" ? "等待参与者扫码" : status === "claimed" ? "领取成功" : status === "expired" ? "二维码已过期" : "二维码已被新发行替换"}</h2>{status === "active" ? <BrandedQrCode src={issue.image} alt={`${eventName} 单次领取二维码`} /> : null}<div className="ticket-summary">{issue.allocation.map((item) => <span key={item.id}>{item.name} × {item.quantity}</span>)}</div><strong>{status === "active" ? `剩余 ${remaining} 秒` : "本二维码已失效"}</strong>{status !== "active" ? <button className="button primary" type="button" onClick={() => setIssue(undefined)}>关闭</button> : <button className="button" type="button" onClick={() => setIssue(undefined)}>取消显示</button>}</div></div> : null}
   </main>;
 }
