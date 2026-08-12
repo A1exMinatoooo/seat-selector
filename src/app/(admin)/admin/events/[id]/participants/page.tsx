@@ -37,13 +37,13 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
   return (
     <main className="admin-shell">
       <AdminBackButton href={`/admin/events/${id}`} label="活动详情" />
-      <nav className="crumbs"><Link href={`/admin/events/${id}`}>{event.name}</Link><span>/</span><strong>参与者</strong></nav>
+      <nav className="crumbs"><Link href={`/admin/events/${id}`}>{event.name}</Link><span>/</span><strong>{event.participationMode === "onsite" ? "发行记录" : "参与者"}</strong></nav>
       <header className="section-header">
-        <div><p className="eyebrow">参与清单</p><h1>{people.length} 位参与者</h1></div>
+        <div><p className="eyebrow">{event.participationMode === "onsite" ? "现场领取" : "参与清单"}</p><h1>{people.length} {event.participationMode === "onsite" ? "笔发行记录" : "位参与者"}</h1></div>
         <a className="button" href={`/api/admin/events/${id}/export.csv`}>导出选座记录</a>
       </header>
 
-      <div className="admin-grid participant-entry-grid">
+      {event.participationMode === "preregistered" ? <div className="admin-grid participant-entry-grid">
         <section className="panel">
           <h2>CSV 批量导入</h2>
           <p className="muted">模板会按当前票种生成列：姓名、手机号或尾号、{types.map((type) => `${type.name}${type.lotteryEligible ? "（参与抽奖）" : ""}`).join("、")}。</p>
@@ -80,18 +80,18 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
             </form>
           ) : <p className="muted">活动已结束，不能继续增加参与者。</p>}
         </section>
-      </div>
+      </div> : null}
 
       <section className="panel wide">
-        <h2>参与者</h2>
+        <h2>{event.participationMode === "onsite" ? "发行记录" : "参与者"}</h2>
         {people.length ? (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>姓名</th><th>手机</th><th>票种</th><th>座位</th><th>选座确认时间</th><th>设备</th><th>管理操作</th></tr></thead>
+              <thead><tr><th>{event.participationMode === "onsite" ? "编号" : "姓名"}</th>{event.participationMode === "preregistered" ? <th>手机</th> : null}<th>票种</th><th>座位</th><th>选座确认时间</th><th>设备</th><th>管理操作</th></tr></thead>
               <tbody>{people.map((person) => (
                 <tr key={person.id}>
                   <td>{person.name}</td>
-                  <td>{maskPhone(person.phoneDigits, person.phoneIsFull)}</td>
+                  {event.participationMode === "preregistered" ? <td>{maskPhone(person.phoneDigits, person.phoneIsFull)}</td> : null}
                   <td>{(byPerson.get(person.id) ?? []).map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</td>
                   <td>{(seatMap.get(person.id) ?? []).map((seat) => formatSeatLabel(seat.rowLabel, seat.columnLabel)).join("、") || "未选"}</td>
                   <td>{confirmationTime(reservationMap.get(person.id)?.confirmedAt, event.timeZone)}</td>
@@ -105,7 +105,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
               ))}</tbody>
             </table>
           </div>
-        ) : <p className="muted">尚未添加参与者，可使用上方模板批量导入或手动增加。</p>}
+        ) : <p className="muted">{event.participationMode === "onsite" ? "尚无扫码领取记录。" : "尚未添加参与者，可使用上方模板批量导入或手动增加。"}</p>}
       </section>
     </main>
   );

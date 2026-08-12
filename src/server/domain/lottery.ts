@@ -22,7 +22,7 @@ export async function drawLottery(eventId: string, participantId: string): Promi
     try {
       return await getDb().transaction(async (tx) => {
         const [event, reservation, participantDrawCount] = await Promise.all([
-          tx.select({ enabled: events.lotteryEnabled, status: events.status, lotteryPoolBonus: events.lotteryPoolBonus }).from(events).where(eq(events.id, eventId)).limit(1),
+          tx.select({ enabled: events.lotteryEnabled, status: events.status, lotteryPoolBonus: events.lotteryPoolBonus, participationMode: events.participationMode, expectedLotteryTickets: events.expectedLotteryTickets }).from(events).where(eq(events.id, eventId)).limit(1),
           tx.select({ id: reservations.id }).from(reservations).where(and(eq(reservations.eventId, eventId), eq(reservations.participantId, participantId))).limit(1),
           tx.select({ value: count() }).from(lotteryDraws).where(and(eq(lotteryDraws.eventId, eventId), eq(lotteryDraws.participantId, participantId))),
         ]);
@@ -37,7 +37,8 @@ export async function drawLottery(eventId: string, participantId: string): Promi
           tx.select({ prizeId: lotteryDraws.prizeId, value: count() }).from(lotteryDraws).where(and(eq(lotteryDraws.eventId, eventId), sql`${lotteryDraws.prizeId} is not null`)).groupBy(lotteryDraws.prizeId),
         ]);
         const drawCount = Number(eligibleForParticipant[0]?.total ?? 0);
-        const totalPool = Number(eligibleForEvent[0]?.total ?? 0) + (event[0]?.lotteryPoolBonus ?? 0);
+        const eligiblePoolSize = event[0]?.participationMode === "onsite" ? event[0].expectedLotteryTickets ?? 0 : Number(eligibleForEvent[0]?.total ?? 0);
+        const totalPool = eligiblePoolSize + (event[0]?.lotteryPoolBonus ?? 0);
         let remainingPool = totalPool - Number(allDraws[0]?.value ?? 0);
         if (drawCount < 1 || remainingPool < drawCount) throw new DomainError(errorCodes.lotteryUnavailable, "No lottery chances available", 409);
 

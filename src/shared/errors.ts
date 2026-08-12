@@ -10,6 +10,10 @@ export const errorCodes = {
   identityMismatch: "IDENTITY_MISMATCH",
   identityCandidateInvalid: "IDENTITY_CANDIDATE_INVALID",
   lotteryUnavailable: "LOTTERY_UNAVAILABLE",
+  ticketIssueExpired: "TICKET_ISSUE_EXPIRED",
+  ticketIssueClaimed: "TICKET_ISSUE_CLAIMED",
+  ticketIssueCapacity: "TICKET_ISSUE_CAPACITY_EXCEEDED",
+  ticketIssueSelectionExists: "TICKET_ISSUE_SELECTION_EXISTS",
 } as const;
 
 export type ErrorCode = (typeof errorCodes)[keyof typeof errorCodes];

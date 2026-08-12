@@ -10,6 +10,10 @@ const messages: Record<string, string> = {
   IDENTITY_MISMATCH: "没有找到匹配的参与者，请检查输入信息。",
   IDENTITY_CANDIDATE_INVALID: "身份选项已失效，请重新输入信息。",
   LOTTERY_UNAVAILABLE: "抽奖暂时不可用，已完成的结果不会重复抽取。",
+  TICKET_ISSUE_EXPIRED: "二维码已过期，请让发起者重新发行。",
+  TICKET_ISSUE_CLAIMED: "二维码已被领取或失效，请让发起者重新发行。",
+  TICKET_ISSUE_CAPACITY_EXCEEDED: "预计可抽奖票数额度不足，请调整活动设置。",
+  TICKET_ISSUE_SELECTION_EXISTS: "本设备已完成选座，不能再次领取。",
   RATE_LIMITED: "操作过于频繁，请稍后再试。",
   INTERNAL_ERROR: "系统暂时遇到问题，请稍后重试。",
 };

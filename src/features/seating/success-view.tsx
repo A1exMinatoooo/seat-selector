@@ -8,7 +8,7 @@ import { responseErrorMessage } from "@/shared/error-message";
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
 
-export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
+export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; showPhoneLast4?: boolean; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
   const [nowIso, setNowIso] = useState(serverTime);
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
   const lotteryChances = lotteryEnabled ? tickets.filter((ticket) => ticket.lotteryEligible).reduce((sum, ticket) => sum + ticket.quantity, 0) : 0;
@@ -50,7 +50,7 @@ export function SuccessView({ code, eventName, phoneLast4, confirmedAt, serverTi
     <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
     <div className="ticket-summary">{tickets.map((ticket) => <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>)}</div>
     {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<strong>{result.prizeName ?? "未中奖"}</strong></li>)}</ol></section> : null}
-    <p className="confirmed-at">手机尾号 {phoneLast4}<br />确认时间 {new Date(confirmedAt).toLocaleString("zh-CN", { hour12: false })}</p>
+    <p className="confirmed-at">{showPhoneLast4 ? <>手机尾号 {phoneLast4}<br /></> : null}确认时间 {new Date(confirmedAt).toLocaleString("zh-CN", { hour12: false })}</p>
     {showTodayRecordsLink ? <Link className="button success-records-link" href="/records/today">查看今日选座记录</Link> : null}
 
     {lotteryPhase !== "closed" ? <div className="lottery-backdrop" role="dialog" aria-modal="true" aria-labelledby="lottery-title"><div className="lottery-modal">

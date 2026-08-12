@@ -30,8 +30,8 @@ export async function importParticipantsAction(formData: FormData): Promise<void
   const eventId = String(formData.get("eventId"));
   const file = formData.get("csv");
   if (!(file instanceof File) || file.size > 2_000_000) throw new Error("请选择小于 2MB 的 CSV 文件");
-  const [event] = await getDb().select({ status: events.status }).from(events).where(eq(events.id, eventId)).limit(1);
-  if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
+  const [event] = await getDb().select({ status: events.status, participationMode: events.participationMode }).from(events).where(eq(events.id, eventId)).limit(1);
+  if (!event || event.status === "ended" || event.participationMode === "onsite") throw new Error("活动不存在、已结束或不允许预录参与者");
   const types = await eventTicketTypes(eventId);
   await insertRows(eventId, parseParticipantCsv(await file.text(), types), "csv");
   revalidatePath(`/admin/events/${eventId}/participants`);
@@ -40,8 +40,8 @@ export async function importParticipantsAction(formData: FormData): Promise<void
 export async function addParticipantAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const eventId = String(formData.get("eventId"));
-  const [event] = await getDb().select({ status: events.status }).from(events).where(eq(events.id, eventId)).limit(1);
-  if (!event || event.status === "ended") throw new Error("活动不存在或已结束");
+  const [event] = await getDb().select({ status: events.status, participationMode: events.participationMode }).from(events).where(eq(events.id, eventId)).limit(1);
+  if (!event || event.status === "ended" || event.participationMode === "onsite") throw new Error("活动不存在、已结束或不允许预录参与者");
   const types = await eventTicketTypes(eventId);
   const quantities = Object.fromEntries(types.map((type) => [type.id, formData.get(`ticket:${type.id}`)]));
   const row = parseParticipantInput({ name: formData.get("name"), phone: formData.get("phone"), quantities }, types);
