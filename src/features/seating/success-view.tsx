@@ -44,7 +44,7 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
   const now = new Date(nowIso);
   const won = lotteryResults.some((result) => result.prizeName !== null);
   return <main className="success-page">
-    <aside className="success-notice" role="note">请截图保存本页，方便后续核对座位。</aside>
+    <aside className="success-notice" role="note"><Image className="success-notice-icon" unoptimized width={18} height={18} src="/icon.svg" alt="" aria-hidden="true" />请截图保存本页，方便后续核对座位。<Image className="success-notice-icon" unoptimized width={18} height={18} src="/icon.svg" alt="" aria-hidden="true" /></aside>
     <header className="success-heading"><p className="eyebrow">选座成功</p><h1>{eventName}</h1></header>
     <div className="live-time"><span>当前时间</span><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>
     <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
