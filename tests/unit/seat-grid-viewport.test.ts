@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centeredSeatGridScrollLeft, clampSeatGridScale, fitSeatGridHeightScale, fitSeatGridScale, pinchSeatGridScale } from "@/features/seating/seat-grid-viewport";
+import { centeredSeatGridScrollLeft, clampSeatGridScale, fitSeatGridHeightScale, fitSeatGridScale, frozenSeatCoordinateTop, pinchSeatGridScale } from "@/features/seating/seat-grid-viewport";
 
 describe("seat grid viewport scale", () => {
   it("fits both grid dimensions inside the viewport without enlarging small grids", () => {
@@ -30,5 +30,10 @@ describe("seat grid viewport scale", () => {
     expect(pinchSeatGridScale(1, 100, 150)).toBe(1.5);
     expect(pinchSeatGridScale(0.5, 100, 50)).toBe(0.25);
     expect(pinchSeatGridScale(1.5, 100, 200)).toBe(2);
+  });
+
+  it("projects row coordinates into the fixed viewport overlay", () => {
+    expect(frozenSeatCoordinateTop(248.375, 100.125)).toBe(148.25);
+    expect(frozenSeatCoordinateTop(80, 100)).toBe(-20);
   });
 });

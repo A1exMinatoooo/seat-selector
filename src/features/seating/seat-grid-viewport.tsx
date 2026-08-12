@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
@@ -11,26 +18,51 @@ export function clampSeatGridScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
 
-export function pinchSeatGridScale(startScale: number, startDistance: number, currentDistance: number): number {
+export function pinchSeatGridScale(
+  startScale: number,
+  startDistance: number,
+  currentDistance: number,
+): number {
   if (startDistance <= 0 || currentDistance <= 0) return clampSeatGridScale(startScale);
-  return Math.round(clampSeatGridScale(startScale * currentDistance / startDistance) * 100) / 100;
+  return Math.round(clampSeatGridScale((startScale * currentDistance) / startDistance) * 100) / 100;
 }
 
-export function fitSeatGridScale(viewportWidth: number, viewportHeight: number, gridWidth: number, gridHeight: number): number {
+export function fitSeatGridScale(
+  viewportWidth: number,
+  viewportHeight: number,
+  gridWidth: number,
+  gridHeight: number,
+): number {
   if (viewportWidth <= 0 || viewportHeight <= 0 || gridWidth <= 0 || gridHeight <= 0) return 1;
-  const fittedScale = clampSeatGridScale(Math.min(1, (viewportWidth - VIEWPORT_PADDING) / gridWidth, (viewportHeight - VIEWPORT_PADDING) / gridHeight));
+  const fittedScale = clampSeatGridScale(
+    Math.min(
+      1,
+      (viewportWidth - VIEWPORT_PADDING) / gridWidth,
+      (viewportHeight - VIEWPORT_PADDING) / gridHeight,
+    ),
+  );
   return Math.floor(fittedScale * 100) / 100;
 }
 
 export function fitSeatGridHeightScale(viewportHeight: number, gridHeight: number): number {
   if (viewportHeight <= 0 || gridHeight <= 0) return 1;
-  const fittedScale = clampSeatGridScale(Math.min(1, (viewportHeight - VIEWPORT_PADDING) / gridHeight));
+  const fittedScale = clampSeatGridScale(
+    Math.min(1, (viewportHeight - VIEWPORT_PADDING) / gridHeight),
+  );
   return Math.floor(fittedScale * 100) / 100;
 }
 
-export function centeredSeatGridScrollLeft(viewportWidth: number, scrollWidth: number, focusOffsetX: number): number {
+export function centeredSeatGridScrollLeft(
+  viewportWidth: number,
+  scrollWidth: number,
+  focusOffsetX: number,
+): number {
   const maximumScroll = Math.max(0, scrollWidth - viewportWidth);
   return Math.min(maximumScroll, Math.max(0, focusOffsetX - viewportWidth / 2));
+}
+
+export function frozenSeatCoordinateTop(elementTop: number, viewportTop: number): number {
+  return Math.round((elementTop - viewportTop) * 100) / 100;
 }
 
 type SeatGridViewportProps = {
@@ -42,15 +74,65 @@ type SeatGridViewportProps = {
   initialView?: { fit: "height"; focusX: number };
 };
 
-export function SeatGridViewport({ children, ariaLabel, className = "", gesturesEnabled = true, interactionHint, initialView }: SeatGridViewportProps) {
+type FrozenCoordinate = { key: string; label: string; top: number; height: number };
+
+function sameCoordinates(left: FrozenCoordinate[], right: FrozenCoordinate[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        item.key === other.key &&
+        item.label === other.label &&
+        item.top === other.top &&
+        item.height === other.height
+      );
+    })
+  );
+}
+
+export function SeatGridViewport({
+  children,
+  ariaLabel,
+  className = "",
+  gesturesEnabled = true,
+  interactionHint,
+  initialView,
+}: SeatGridViewportProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
   const initialViewAppliedRef = useRef(false);
-  const pinchRef = useRef<{ distance: number; scale: number; contentX: number; contentY: number } | null>(null);
+  const pinchRef = useRef<{
+    distance: number;
+    scale: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
+  const [frozenCoordinates, setFrozenCoordinates] = useState<FrozenCoordinate[]>([]);
+
+  const measureCoordinates = useCallback(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const next = [...content.querySelectorAll<HTMLElement>("[data-seat-row-coordinate]")].map(
+      (element, index) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          key: element.dataset.seatRowKey ?? String(index),
+          label: element.dataset.seatRowCoordinate ?? "",
+          top: frozenSeatCoordinateTop(rect.top, viewportRect.top),
+          height: Math.round(rect.height * 100) / 100,
+        };
+      },
+    );
+    setFrozenCoordinates((current) => (sameCoordinates(current, next) ? current : next));
+  }, []);
 
   const measureGrid = useCallback(() => {
     const content = contentRef.current;
@@ -69,7 +151,34 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
-    if (!initialView || initialViewAppliedRef.current || !viewport || gridSize.width <= 0 || gridSize.height <= 0) return;
+    if (!viewport) return;
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measureCoordinates);
+    };
+    schedule();
+    viewport.addEventListener("scroll", schedule, { passive: true });
+    const observer = new ResizeObserver(schedule);
+    observer.observe(viewport);
+    if (contentRef.current) observer.observe(contentRef.current);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("scroll", schedule);
+      observer.disconnect();
+    };
+  }, [measureCoordinates, scale]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (
+      !initialView ||
+      initialViewAppliedRef.current ||
+      !viewport ||
+      gridSize.width <= 0 ||
+      gridSize.height <= 0
+    )
+      return;
     const initialScale = fitSeatGridHeightScale(viewport.clientHeight, gridSize.height);
     initialViewAppliedRef.current = true;
     scaleRef.current = initialScale;
@@ -79,7 +188,11 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
       if (!canvas) return;
       viewport.scrollTo({
         top: 0,
-        left: centeredSeatGridScrollLeft(viewport.clientWidth, viewport.scrollWidth, canvas.offsetLeft + initialView.focusX * initialScale),
+        left: centeredSeatGridScrollLeft(
+          viewport.clientWidth,
+          viewport.scrollWidth,
+          canvas.offsetLeft + initialView.focusX * initialScale,
+        ),
       });
     });
   }, [gridSize, initialView]);
@@ -162,7 +275,14 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
   function fitGrid() {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    updateScale(fitSeatGridScale(viewport.clientWidth, viewport.clientHeight, gridSize.width, gridSize.height));
+    updateScale(
+      fitSeatGridScale(
+        viewport.clientWidth,
+        viewport.clientHeight,
+        gridSize.width,
+        gridSize.height,
+      ),
+    );
     viewport.scrollTo({ top: 0, left: 0 });
   }
 
@@ -173,17 +293,54 @@ export function SeatGridViewport({ children, ariaLabel, className = "", gestures
   const contentStyle = { transform: `scale(${scale})` } satisfies CSSProperties;
 
   return (
-    <section className={`seat-grid-viewport ${gesturesEnabled ? "gestures-enabled" : "gestures-disabled"} ${className}`.trim()} aria-label={ariaLabel}>
+    <section
+      className={`seat-grid-viewport ${gesturesEnabled ? "gestures-enabled" : "gestures-disabled"} ${className}`.trim()}
+      aria-label={ariaLabel}
+    >
       <div className="seat-grid-viewport-toolbar" role="toolbar" aria-label="座位网格缩放">
-        <button type="button" aria-label="缩小座位网格" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - SCALE_STEP)}>−</button>
-        <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>{Math.round(scale * 100)}%</button>
-        <button type="button" aria-label="放大座位网格" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + SCALE_STEP)}>＋</button>
-        <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>显示完整</button>
+        <button
+          type="button"
+          aria-label="缩小座位网格"
+          disabled={scale <= MIN_SCALE}
+          onClick={() => updateScale(scale - SCALE_STEP)}
+        >
+          −
+        </button>
+        <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>
+          {Math.round(scale * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="放大座位网格"
+          disabled={scale >= MAX_SCALE}
+          onClick={() => updateScale(scale + SCALE_STEP)}
+        >
+          ＋
+        </button>
+        <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>
+          显示完整
+        </button>
       </div>
       {interactionHint}
-      <div ref={viewportRef} className="seat-grid-viewport-body" tabIndex={0} aria-label={`${ariaLabel}，可横向和纵向滚动`}>
-        <div ref={canvasRef} className="seat-grid-viewport-canvas" style={canvasStyle}>
-          <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>{children}</div>
+      <div className="seat-grid-viewport-stage">
+        <div className="seat-grid-fixed-y-axis" aria-hidden="true">
+          {frozenCoordinates.map((coordinate) => (
+            <span key={coordinate.key} style={{ top: coordinate.top, height: coordinate.height }}>
+              {coordinate.label}
+            </span>
+          ))}
+        </div>
+        <div
+          ref={viewportRef}
+          className="seat-grid-viewport-body"
+          tabIndex={0}
+          aria-label={`${ariaLabel}，可横向和纵向滚动`}
+        >
+          <div ref={canvasRef} className="seat-grid-viewport-canvas" style={canvasStyle}>
+            <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>
+              {children}
+            </div>
+          </div>
         </div>
       </div>
     </section>
