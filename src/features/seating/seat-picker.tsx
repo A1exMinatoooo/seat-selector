@@ -254,6 +254,7 @@ export function SeatPicker({
           ariaLabel="可选座位区域"
           className="public-grid-viewport"
           initialView={{ fit: "height", focusX: centerX }}
+          mobileMinimap
         >
           <div
             className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`}

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { centeredSeatGridScrollLeft, clampSeatGridScale, fitSeatGridHeightScale, fitSeatGridScale, frozenSeatCoordinateTop, pinchSeatGridScale } from "@/features/seating/seat-grid-viewport";
+import {
+  centeredSeatGridScrollLeft,
+  clampSeatGridScale,
+  fitSeatGridHeightScale,
+  fitSeatGridScale,
+  frozenSeatCoordinateTop,
+  pinchSeatGridScale,
+  seatGridMinimapSize,
+  seatGridMinimapViewport,
+} from "@/features/seating/seat-grid-viewport";
 
 describe("seat grid viewport scale", () => {
   it("fits both grid dimensions inside the viewport without enlarging small grids", () => {
@@ -35,5 +44,26 @@ describe("seat grid viewport scale", () => {
   it("projects row coordinates into the fixed viewport overlay", () => {
     expect(frozenSeatCoordinateTop(248.375, 100.125)).toBe(148.25);
     expect(frozenSeatCoordinateTop(80, 100)).toBe(-20);
+  });
+
+  it("scales the whole grid into a bounded mobile minimap", () => {
+    expect(seatGridMinimapSize(1000, 500)).toEqual({ width: 136, height: 68, scale: 0.136 });
+    expect(seatGridMinimapSize(400, 800)).toEqual({ width: 48, height: 96, scale: 0.12 });
+    expect(seatGridMinimapSize(0, 800)).toEqual({ width: 0, height: 0, scale: 0 });
+  });
+
+  it("maps the visible canvas area into minimap percentages", () => {
+    expect(seatGridMinimapViewport(360, 500, 282, 100, 12, 12, 924, 800)).toEqual({
+      left: 29.22077922077922,
+      top: 11,
+      width: 38.961038961038966,
+      height: 62.5,
+    });
+    expect(seatGridMinimapViewport(360, 500, 0, 0, 12, 12, 200, 300)).toEqual({
+      left: 0,
+      top: 0,
+      width: 100,
+      height: 100,
+    });
   });
 });

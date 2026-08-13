@@ -13,6 +13,53 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
 const SCALE_STEP = 0.1;
 const VIEWPORT_PADDING = 24;
+const MINIMAP_MAX_WIDTH = 136;
+const MINIMAP_MAX_HEIGHT = 96;
+const MINIMAP_HIDE_DELAY = 800;
+
+type MinimapViewport = { left: number; top: number; width: number; height: number };
+
+export function seatGridMinimapSize(
+  gridWidth: number,
+  gridHeight: number,
+): { width: number; height: number; scale: number } {
+  if (gridWidth <= 0 || gridHeight <= 0) return { width: 0, height: 0, scale: 0 };
+  const scale = Math.min(MINIMAP_MAX_WIDTH / gridWidth, MINIMAP_MAX_HEIGHT / gridHeight);
+  return {
+    width: Math.round(gridWidth * scale * 100) / 100,
+    height: Math.round(gridHeight * scale * 100) / 100,
+    scale,
+  };
+}
+
+export function seatGridMinimapViewport(
+  viewportWidth: number,
+  viewportHeight: number,
+  scrollLeft: number,
+  scrollTop: number,
+  canvasLeft: number,
+  canvasTop: number,
+  canvasWidth: number,
+  canvasHeight: number,
+): MinimapViewport {
+  if (canvasWidth <= 0 || canvasHeight <= 0) return { left: 0, top: 0, width: 100, height: 100 };
+  const visibleLeft = Math.min(canvasWidth, Math.max(0, scrollLeft - canvasLeft));
+  const visibleTop = Math.min(canvasHeight, Math.max(0, scrollTop - canvasTop));
+  const visibleRight = Math.max(
+    visibleLeft,
+    Math.min(canvasWidth, scrollLeft + viewportWidth - canvasLeft),
+  );
+  const visibleBottom = Math.max(
+    visibleTop,
+    Math.min(canvasHeight, scrollTop + viewportHeight - canvasTop),
+  );
+  return {
+    left: (visibleLeft / canvasWidth) * 100,
+    top: (visibleTop / canvasHeight) * 100,
+    width: ((visibleRight - visibleLeft) / canvasWidth) * 100,
+    height: ((visibleBottom - visibleTop) / canvasHeight) * 100,
+  };
+}
 
 export function clampSeatGridScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
@@ -72,6 +119,7 @@ type SeatGridViewportProps = {
   gesturesEnabled?: boolean;
   interactionHint?: ReactNode;
   initialView?: { fit: "height"; focusX: number };
+  mobileMinimap?: boolean;
 };
 
 type FrozenCoordinate = { key: string; label: string; top: number; height: number };
@@ -99,11 +147,15 @@ export function SeatGridViewport({
   gesturesEnabled = true,
   interactionHint,
   initialView,
+  mobileMinimap = false,
 }: SeatGridViewportProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const minimapContentRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
+  const minimapHideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const minimapVisibleRef = useRef(false);
   const initialViewAppliedRef = useRef(false);
   const pinchRef = useRef<{
     distance: number;
@@ -114,6 +166,42 @@ export function SeatGridViewport({
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
   const [frozenCoordinates, setFrozenCoordinates] = useState<FrozenCoordinate[]>([]);
+  const [minimapVisible, setMinimapVisible] = useState(false);
+  const [minimapViewport, setMinimapViewport] = useState<MinimapViewport>({
+    left: 0,
+    top: 0,
+    width: 100,
+    height: 100,
+  });
+
+  const measureMinimapViewport = useCallback(() => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas) return;
+    setMinimapViewport(
+      seatGridMinimapViewport(
+        viewport.clientWidth,
+        viewport.clientHeight,
+        viewport.scrollLeft,
+        viewport.scrollTop,
+        canvas.offsetLeft,
+        canvas.offsetTop,
+        canvas.offsetWidth,
+        canvas.offsetHeight,
+      ),
+    );
+  }, []);
+
+  const showMinimapDuringNavigation = useCallback(() => {
+    if (!mobileMinimap) return;
+    minimapVisibleRef.current = true;
+    setMinimapVisible(true);
+    clearTimeout(minimapHideTimerRef.current);
+    minimapHideTimerRef.current = setTimeout(() => {
+      minimapVisibleRef.current = false;
+      setMinimapVisible(false);
+    }, MINIMAP_HIDE_DELAY);
+  }, [mobileMinimap]);
 
   const measureCoordinates = useCallback(() => {
     const viewport = viewportRef.current;
@@ -150,24 +238,62 @@ export function SeatGridViewport({
   }, [measureGrid]);
 
   useLayoutEffect(() => {
+    if (!mobileMinimap) return;
+    const content = contentRef.current;
+    const minimapContent = minimapContentRef.current;
+    if (!content || !minimapContent) return;
+    const copyContent = () => {
+      minimapContent.replaceChildren(
+        ...[...content.childNodes].map((node) => node.cloneNode(true)),
+      );
+    };
+    copyContent();
+    const observer = new MutationObserver(copyContent);
+    observer.observe(content, {
+      attributes: true,
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [mobileMinimap]);
+
+  useLayoutEffect(
+    () => () => {
+      clearTimeout(minimapHideTimerRef.current);
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measureCoordinates);
+      frame = requestAnimationFrame(() => {
+        measureCoordinates();
+        measureMinimapViewport();
+      });
+    };
+    const noteTouchNavigation = () => showMinimapDuringNavigation();
+    const noteScrollNavigation = () => {
+      if (minimapVisibleRef.current) showMinimapDuringNavigation();
+      schedule();
     };
     schedule();
-    viewport.addEventListener("scroll", schedule, { passive: true });
+    viewport.addEventListener("touchmove", noteTouchNavigation, { passive: true });
+    viewport.addEventListener("scroll", noteScrollNavigation, { passive: true });
     const observer = new ResizeObserver(schedule);
     observer.observe(viewport);
     if (contentRef.current) observer.observe(contentRef.current);
     return () => {
       cancelAnimationFrame(frame);
-      viewport.removeEventListener("scroll", schedule);
+      viewport.removeEventListener("touchmove", noteTouchNavigation);
+      viewport.removeEventListener("scroll", noteScrollNavigation);
       observer.disconnect();
     };
-  }, [measureCoordinates, scale]);
+  }, [measureCoordinates, measureMinimapViewport, scale, showMinimapDuringNavigation]);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
@@ -291,6 +417,20 @@ export function SeatGridViewport({
     height: `${gridSize.height * scale}px`,
   } satisfies CSSProperties;
   const contentStyle = { transform: `scale(${scale})` } satisfies CSSProperties;
+  const minimapSize = seatGridMinimapSize(gridSize.width, gridSize.height);
+  const minimapStyle = {
+    width: `${minimapSize.width}px`,
+    height: `${minimapSize.height}px`,
+  } satisfies CSSProperties;
+  const minimapContentStyle = {
+    transform: `scale(${minimapSize.scale})`,
+  } satisfies CSSProperties;
+  const minimapViewportStyle = {
+    left: `${minimapViewport.left}%`,
+    top: `${minimapViewport.top}%`,
+    width: `${minimapViewport.width}%`,
+    height: `${minimapViewport.height}%`,
+  } satisfies CSSProperties;
 
   return (
     <section
@@ -323,6 +463,21 @@ export function SeatGridViewport({
       </div>
       {interactionHint}
       <div className="seat-grid-viewport-stage">
+        {mobileMinimap ? (
+          <div
+            className={`seat-grid-minimap ${minimapVisible ? "visible" : ""}`}
+            style={minimapStyle}
+            aria-hidden="true"
+            inert
+          >
+            <div
+              ref={minimapContentRef}
+              className="seat-grid-minimap-content"
+              style={minimapContentStyle}
+            />
+            <span className="seat-grid-minimap-window" style={minimapViewportStyle} />
+          </div>
+        ) : null}
         <div className="seat-grid-fixed-y-axis" aria-hidden="true">
           {frozenCoordinates.map((coordinate) => (
             <span key={coordinate.key} style={{ top: coordinate.top, height: coordinate.height }}>

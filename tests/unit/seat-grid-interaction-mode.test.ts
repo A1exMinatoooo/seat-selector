@@ -66,6 +66,21 @@ describe("seat grid interaction modes", () => {
     expect(markup.indexOf("操作提示")).toBeLessThan(markup.indexOf("seat-grid-viewport-body"));
   });
 
+  it("renders the optional mobile navigation minimap as non-interactive", () => {
+    const props: Parameters<typeof SeatGridViewport>[0] = {
+      children: createElement("button", null, "A1"),
+      ariaLabel: "测试网格",
+      mobileMinimap: true,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(SeatGridViewport, props),
+    );
+
+    expect(markup).toContain("seat-grid-minimap");
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain("inert");
+  });
+
   it("shows planning tools only when explicitly enabled", () => {
     const hall = {
       id: "hall-1",
