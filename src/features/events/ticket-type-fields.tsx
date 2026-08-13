@@ -47,7 +47,7 @@ export function TicketTypeFields({
         <label><input type="radio" name="participationMode" value="onsite" checked={participationMode === "onsite"} onChange={() => setParticipationMode("onsite")} /><span>现场发行</span></label>
         <label><input type="radio" name="participationMode" value="preregistered" checked={participationMode === "preregistered"} onChange={() => setParticipationMode("preregistered")} /><span>预录参与者</span></label>
       </div>
-      <p className="muted">{participationMode === "onsite" ? "现场选择票种和张数后发行单次二维码，无需预录姓名和手机号。" : "提前录入参与者、手机号及其购买票数，扫码后验证身份。"}</p>
+      <p className="muted">{participationMode === "onsite" ? "现场选择票种和张数后发行单次二维码，无需预录昵称和手机号。" : "提前录入参与者的社交平台昵称、手机号及其购买票数，扫码后验证身份。请勿录入真实姓名。"}</p>
       {participationMode === "onsite" ? <label>单次最多发行张数<NumericInput name="maxTicketsPerIssue" min={1} max={20} defaultValue={initialMaxTicketsPerIssue} /></label> : <input type="hidden" name="maxTicketsPerIssue" value={initialMaxTicketsPerIssue} />}
     </fieldset>
     <fieldset className="lottery-fields">

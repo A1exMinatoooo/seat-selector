@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { userFacingErrorMessage } from "@/shared/error-message";
 type Step = "tail" | "full-phone" | "choice";
-type Candidate = { name: string; phone: string; token: string };
+type Candidate = { nickname: string; phone: string; token: string };
 
 export function ParticipantEntry({ code, eventName }: { code: string; eventName: string }) {
   const router = useRouter();
@@ -68,7 +68,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
             ? "请输入报名时使用的手机尾号。"
             : step === "full-phone"
               ? "请输入报名时使用的手机号剩余部分。"
-              : `尾号 ${tail} 有重复，请从清单中选择你的姓名。`}
+              : `尾号 ${tail} 有重复，请从清单中选择你的昵称。`}
         </p>
         {step === "tail" ? (
           <label>
@@ -115,7 +115,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
                 disabled={busy}
                 onClick={() => void identify(candidate.token)}
               >
-                <strong>{candidate.name}</strong>
+                <strong>{candidate.nickname}</strong>
                 <span>{candidate.phone}</span>
               </button>
             ))}

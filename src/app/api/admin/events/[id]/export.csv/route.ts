@@ -61,7 +61,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   );
   const reservationMap = new Map(reservationsRows.map((row) => [row.participantId, row]));
   const seatMap = Map.groupBy(seatRows, (row) => row.participantId);
-  const identityHeaders = event.participationMode === "onsite" ? ["编号"] : ["姓名", "手机号"];
+  const identityHeaders = event.participationMode === "onsite" ? ["编号"] : ["昵称", "手机号"];
   const header = [
     ...identityHeaders,
     ...types.map((type) => type.name),
@@ -72,7 +72,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const lines = [
     header,
     ...people.map((person) => [
-      person.name,
+      person.nickname,
       ...(event.participationMode === "preregistered" ? [person.phoneIsFull
         ? `${person.phoneDigits.slice(0, 3)}****${person.phoneLast4}`
         : `****${person.phoneLast4}`] : []),

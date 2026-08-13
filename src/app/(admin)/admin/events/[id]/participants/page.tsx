@@ -46,7 +46,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
       {event.participationMode === "preregistered" ? <div className="admin-grid participant-entry-grid">
         <section className="panel">
           <h2>CSV 批量导入</h2>
-          <p className="muted">模板会按当前票种生成列：姓名、手机号或尾号、{types.map((type) => `${type.name}${type.lotteryEligible ? "（参与抽奖）" : ""}`).join("、")}。</p>
+          <p className="muted">模板会按当前票种生成列：昵称、手机号或尾号、{types.map((type) => `${type.name}${type.lotteryEligible ? "（参与抽奖）" : ""}`).join("、")}。昵称请填写社交平台昵称，不要填写真实姓名。</p>
           <div className="header-actions">
             <a className="button" href={`/api/admin/events/${id}/participants/template.csv`}>下载导入模板</a>
           </div>
@@ -61,12 +61,12 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
 
         <section className="panel">
           <h2>手动增加参与者</h2>
-          <p className="muted">适合临时补录单个参与者；手机号可填写完整号码或四位尾号。</p>
+          <p className="muted">适合临时补录单个参与者；只存储社交平台昵称，不存储参与者真实姓名。手机号可填写完整号码或四位尾号。</p>
           {editable ? (
             <form action={addParticipantAction} className="stack-form">
               <input type="hidden" name="eventId" value={id} />
               <div className="form-row">
-                <label>姓名<input name="name" maxLength={80} autoComplete="off" required /></label>
+                <label>昵称<input name="nickname" maxLength={80} autoComplete="off" placeholder="社交平台昵称" required /></label>
                 <label>手机号或四位尾号<input name="phone" inputMode="tel" maxLength={20} autoComplete="off" required /></label>
               </div>
               <fieldset className="ticket-allocation">
@@ -87,10 +87,10 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
         {people.length ? (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>{event.participationMode === "onsite" ? "编号" : "姓名"}</th>{event.participationMode === "preregistered" ? <th>手机</th> : null}<th>票种</th><th>座位</th><th>选座确认时间</th><th>设备</th><th>管理操作</th></tr></thead>
+              <thead><tr><th>{event.participationMode === "onsite" ? "编号" : "昵称"}</th>{event.participationMode === "preregistered" ? <th>手机</th> : null}<th>票种</th><th>座位</th><th>选座确认时间</th><th>设备</th><th>管理操作</th></tr></thead>
               <tbody>{people.map((person) => (
                 <tr key={person.id}>
-                  <td>{person.name}</td>
+                  <td>{person.nickname}</td>
                   {event.participationMode === "preregistered" ? <td>{maskPhone(person.phoneDigits, person.phoneIsFull)}</td> : null}
                   <td>{(byPerson.get(person.id) ?? []).map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</td>
                   <td>{(seatMap.get(person.id) ?? []).map((seat) => formatSeatLabel(seat.rowLabel, seat.columnLabel)).join("、") || "未选"}</td>

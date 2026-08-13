@@ -71,7 +71,7 @@ export async function claimTicketIssue(publicCode: string, token: string, device
       await tx.update(participants).set({ ticketTotal, deviceBoundAt: new Date(now) }).where(eq(participants.id, participantId));
     } else {
       const issueNumber = event.nextIssueNumber;
-      const [created] = await tx.insert(participants).values({ eventId: event.id, name: `现场领取 #${String(issueNumber).padStart(4, "0")}`, nameFirst: "现", phoneDigits: "", phoneLast4: "", phoneIsFull: false, ticketTotal, source: "onsite", issueNumber, deviceHash, deviceBoundAt: new Date(now) }).returning({ id: participants.id });
+      const [created] = await tx.insert(participants).values({ eventId: event.id, nickname: `现场领取 #${String(issueNumber).padStart(4, "0")}`, nicknameFirst: "现", phoneDigits: "", phoneLast4: "", phoneIsFull: false, ticketTotal, source: "onsite", issueNumber, deviceHash, deviceBoundAt: new Date(now) }).returning({ id: participants.id });
       if (!created) throw new Error("Onsite participant creation failed");
       participantId = created.id;
       await tx.update(events).set({ nextIssueNumber: sql`${events.nextIssueNumber} + 1` }).where(eq(events.id, event.id));

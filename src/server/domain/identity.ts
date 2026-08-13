@@ -1,7 +1,7 @@
 export type IdentityCandidate = {
   id: string;
-  name: string;
-  nameFirst: string;
+  nickname: string;
+  nicknameFirst: string;
   phoneDigits: string;
   phoneIsFull: boolean;
 };

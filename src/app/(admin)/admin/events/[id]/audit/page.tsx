@@ -127,7 +127,7 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
       level: eventAuditLogs.level,
       details: eventAuditLogs.details,
       occurredAt: eventAuditLogs.occurredAt,
-      participantName: participants.name,
+      participantNickname: participants.nickname,
       phoneDigits: participants.phoneDigits,
       phoneIsFull: participants.phoneIsFull,
     })
@@ -182,7 +182,7 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
                         {actionLabels[log.action]}
                       </span>
                     </td>
-                    <td>{log.participantName ?? "管理员"}</td>
+                    <td>{log.participantNickname ?? "管理员"}</td>
                     <td>
                       {log.phoneDigits ? maskPhone(log.phoneDigits, log.phoneIsFull ?? false) : "—"}
                     </td>

@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { resolveIdentity } from "@/server/domain/identity";
 
 const fullCandidates = [
-  { id: "a", name: "张小明", nameFirst: "张", phoneDigits: "13800008000", phoneIsFull: true },
-  { id: "b", name: "张小红", nameFirst: "张", phoneDigits: "13900008000", phoneIsFull: true },
+  { id: "a", nickname: "影迷小北", nicknameFirst: "影", phoneDigits: "13800008000", phoneIsFull: true },
+  { id: "b", nickname: "影迷阿南", nicknameFirst: "影", phoneDigits: "13900008000", phoneIsFull: true },
 ];
 const tailOnlyCandidates = [
-  { id: "a", name: "张小明", nameFirst: "张", phoneDigits: "8000", phoneIsFull: false },
-  { id: "b", name: "张小红", nameFirst: "张", phoneDigits: "8000", phoneIsFull: false },
+  { id: "a", nickname: "影迷小北", nicknameFirst: "影", phoneDigits: "8000", phoneIsFull: false },
+  { id: "b", nickname: "影迷阿南", nicknameFirst: "影", phoneDigits: "8000", phoneIsFull: false },
 ];
 
 describe("identity resolution", () => {

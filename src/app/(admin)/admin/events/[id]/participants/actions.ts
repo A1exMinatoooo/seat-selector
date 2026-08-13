@@ -12,11 +12,11 @@ async function eventTicketTypes(eventId: string) {
 }
 
 async function insertRows(eventId: string, rows: ParticipantImportRow[], source: "csv" | "manual") {
-  const existing = await getDb().select({ name: participants.name, nameFirst: participants.nameFirst, phoneDigits: participants.phoneDigits, phoneLast4: participants.phoneLast4, phoneIsFull: participants.phoneIsFull, ticketTotal: participants.ticketTotal }).from(participants).where(eq(participants.eventId, eventId));
+  const existing = await getDb().select({ nickname: participants.nickname, nicknameFirst: participants.nicknameFirst, phoneDigits: participants.phoneDigits, phoneLast4: participants.phoneLast4, phoneIsFull: participants.phoneIsFull, ticketTotal: participants.ticketTotal }).from(participants).where(eq(participants.eventId, eventId));
   validateResolvable([...existing.map((row) => ({ ...row, tickets: [] })), ...rows]);
   await getDb().transaction(async (tx) => {
     for (const row of rows) {
-      const [created] = await tx.insert(participants).values({ eventId, name: row.name, nameFirst: row.nameFirst, phoneDigits: row.phoneDigits, phoneLast4: row.phoneLast4, phoneIsFull: row.phoneIsFull, ticketTotal: row.ticketTotal }).returning({ id: participants.id });
+      const [created] = await tx.insert(participants).values({ eventId, nickname: row.nickname, nicknameFirst: row.nicknameFirst, phoneDigits: row.phoneDigits, phoneLast4: row.phoneLast4, phoneIsFull: row.phoneIsFull, ticketTotal: row.ticketTotal }).returning({ id: participants.id });
       if (!created) throw new Error("Participant creation did not return an id");
       await tx.insert(participantTickets).values(row.tickets.map((ticket) => ({ participantId: created.id, ...ticket })));
       if (source === "manual") await tx.insert(eventAuditLogs).values({ eventId, participantId: created.id, action: "participant_added", details: { ticketTotal: row.ticketTotal } });
@@ -44,7 +44,7 @@ export async function addParticipantAction(formData: FormData): Promise<void> {
   if (!event || event.status === "ended" || event.participationMode === "onsite") throw new Error("活动不存在、已结束或不允许预录参与者");
   const types = await eventTicketTypes(eventId);
   const quantities = Object.fromEntries(types.map((type) => [type.id, formData.get(`ticket:${type.id}`)]));
-  const row = parseParticipantInput({ name: formData.get("name"), phone: formData.get("phone"), quantities }, types);
+  const row = parseParticipantInput({ nickname: formData.get("nickname"), phone: formData.get("phone"), quantities }, types);
   await insertRows(eventId, [row], "manual");
   revalidatePath(`/admin/events/${eventId}/participants`);
 }

@@ -155,8 +155,8 @@ export const participants = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    nameFirst: text("name_first").notNull(),
+    nickname: text("nickname").notNull(),
+    nicknameFirst: text("nickname_first").notNull(),
     phoneDigits: text("phone_digits").notNull(),
     phoneLast4: text("phone_last4").notNull(),
     phoneIsFull: boolean("phone_is_full").notNull(),

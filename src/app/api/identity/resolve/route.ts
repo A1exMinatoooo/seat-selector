@@ -93,8 +93,8 @@ export async function POST(request: Request) {
     const candidates = await getDb()
       .select({
         id: participants.id,
-        name: participants.name,
-        nameFirst: participants.nameFirst,
+        nickname: participants.nickname,
+        nicknameFirst: participants.nicknameFirst,
         phoneDigits: participants.phoneDigits,
         phoneIsFull: participants.phoneIsFull,
       })
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       );
     }
     const responseCandidates = choiceCandidates.map((candidate) => ({
-      name: candidate.name,
+      nickname: candidate.nickname,
       phone: maskPhone(candidate.phoneDigits, candidate.phoneIsFull),
       token: createIdentityCandidateClaim({
         eventId: event.id,
