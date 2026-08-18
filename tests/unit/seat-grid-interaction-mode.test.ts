@@ -114,10 +114,10 @@ describe("seat grid interaction modes", () => {
     );
 
     expect(enabled).toContain("按数量开放");
-    expect(enabled).toContain("矩形框选开放");
+    expect(enabled).toContain("框选模式");
     expect(enabled).toContain('aria-pressed="false"');
     expect(disabled).not.toContain("按数量开放");
-    expect(disabled).not.toContain("矩形框选开放");
+    expect(disabled).not.toContain("框选模式");
   });
 
   it("groups hall options under non-selectable cinema labels", () => {

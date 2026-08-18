@@ -10,6 +10,7 @@ import {
 import {
   detectLockedSeatHalf,
   quickOpenSeatRectangle,
+  toggleSelectedSeatAvailability,
   toggleSeatHalfLock,
   type SeatHalf,
 } from "@/server/domain/event-seat-availability";
@@ -109,7 +110,12 @@ export function EventSeatEditor({
     "navigate",
   );
   const [changeSource, setChangeSource] = useState<
-    "manual" | "half_lock" | "half_unlock" | "half_switch" | "quick_count" | "rectangle_add"
+    | "manual"
+    | "half_lock"
+    | "half_unlock"
+    | "half_switch"
+    | "quick_count"
+    | "rectangle_toggle"
   >("manual");
   const [changedSide, setChangedSide] = useState<SeatHalf | "">("");
   const locked = useMemo(() => new Set(lockedSeatIds), [lockedSeatIds]);
@@ -247,8 +253,8 @@ export function EventSeatEditor({
     );
     const selectedIds = seatsIntersectingRectangle(selection, seatRectangles);
     if (!selectedIds.length) return;
-    setAvailable((current) => new Set([...current, ...selectedIds]));
-    setChangeSource("rectangle_add");
+    setAvailable((current) => toggleSelectedSeatAvailability(current, selectedIds, locked));
+    setChangeSource("rectangle_toggle");
     setChangedSide("");
   }
 
@@ -409,7 +415,7 @@ export function EventSeatEditor({
               setInteractionMode("rectangle");
             }}
           >
-            矩形框选开放
+            框选模式
           </button>
         ) : null}
       </div>
@@ -422,7 +428,7 @@ export function EventSeatEditor({
             {interactionMode === "navigate"
               ? "当前为“无修改”模式：单指拖动可移动网格，双指可缩放；也可使用上方缩放按钮。"
               : interactionMode === "rectangle"
-                ? "当前为“矩形框选开放”模式：在座位区域拖出矩形，框内可选座位会追加开放，框外状态不变；按 Esc 可取消未完成框选。"
+                ? "当前为“框选模式”：在座位区域拖出矩形，框内可选且未锁定的座位会逐个切换开放、关闭状态，框外不变；按 Esc 可取消未完成框选。"
                 : "当前为“调整可选区域”模式：点击或拖动可开放、关闭座位；如需移动或双指缩放，请切换到“无修改”。"}
           </p>
         }
@@ -489,7 +495,7 @@ export function EventSeatEditor({
                       key={seat.id}
                       type="button"
                       data-event-seat-id={seat.id}
-                      data-event-seat-eligible={structural ? "false" : "true"}
+                      data-event-seat-eligible={structural || isLocked ? "false" : "true"}
                       disabled={structural || isLocked}
                       title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : ""}`}
                       aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}

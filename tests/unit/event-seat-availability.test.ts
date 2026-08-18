@@ -4,11 +4,27 @@ import {
   detectLockedSeatHalf,
   quickOpenSeatRectangle,
   resolveEventAvailability,
+  toggleSelectedSeatAvailability,
   toggleSeatHalfLock,
   type GridPositionedSeat,
   type PositionedSeat,
   type SeatPosition,
 } from "@/server/domain/event-seat-availability";
+
+describe("rectangle seat availability toggling", () => {
+  it("toggles every selected seat independently", () => {
+    expect(
+      [...toggleSelectedSeatAvailability(new Set(["open", "outside"]), ["open", "closed"])],
+    ).toEqual(["outside", "closed"]);
+  });
+
+  it("keeps locked seats open and ignores an empty selection", () => {
+    expect(
+      [...toggleSelectedSeatAvailability(new Set(["open"]), ["open", "locked"], new Set(["locked"]))],
+    ).toEqual(["locked"]);
+    expect([...toggleSelectedSeatAvailability(new Set(["open"]), [])]).toEqual(["open"]);
+  });
+});
 
 const seats: SeatPosition[] = [
   { id: "a", kind: "seat", templateSelectable: true },

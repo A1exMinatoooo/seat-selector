@@ -73,15 +73,17 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
     const source =
       details.source === "quick_count"
         ? "按数量快速开放"
-        : details.source === "rectangle_add"
-          ? "矩形追加开放"
-          : details.source === "half_unlock"
-            ? `取消锁定${side}半场`
-            : details.source === "half_switch"
-              ? `切换为锁定${side}半场`
-              : details.source === "half_lock"
-                ? `快速锁定${side}半场`
-                : "手动编辑";
+        : details.source === "rectangle_toggle"
+          ? "矩形框选切换"
+          : details.source === "rectangle_add"
+            ? "矩形追加开放"
+            : details.source === "half_unlock"
+              ? `取消锁定${side}半场`
+              : details.source === "half_switch"
+                ? `切换为锁定${side}半场`
+                : details.source === "half_lock"
+                  ? `快速锁定${side}半场`
+                  : "手动编辑";
     return `${source}；开放座位 ${String(details.beforeCount ?? 0)} → ${String(details.afterCount ?? 0)}；新增 ${String(details.addedCount ?? 0)}，关闭 ${String(details.removedCount ?? 0)}`;
   }
   if (action === "participants_imported")

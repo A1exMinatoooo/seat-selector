@@ -8,6 +8,21 @@ export type PositionedSeat = SeatPosition & { columnIndex: number };
 export type GridPositionedSeat = PositionedSeat & { rowIndex: number };
 export type SeatHalf = "left" | "right";
 
+export function toggleSelectedSeatAvailability(
+  availableSeatIds: ReadonlySet<string>,
+  selectedSeatIds: Iterable<string>,
+  lockedSeatIds: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const next = new Set(availableSeatIds);
+  for (const seatId of selectedSeatIds) {
+    if (lockedSeatIds.has(seatId)) continue;
+    if (next.has(seatId)) next.delete(seatId);
+    else next.add(seatId);
+  }
+  for (const seatId of lockedSeatIds) next.add(seatId);
+  return next;
+}
+
 export type QuickOpenResult = {
   availableSeatIds: string[];
   width: number;

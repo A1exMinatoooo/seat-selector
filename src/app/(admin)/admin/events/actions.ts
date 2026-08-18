@@ -247,7 +247,15 @@ const eventAvailabilityInputSchema = z
       })
       .pipe(z.array(z.string().uuid()).max(2500)),
     changeSource: z
-      .enum(["manual", "half_lock", "half_unlock", "half_switch", "quick_count", "rectangle_add"])
+      .enum([
+        "manual",
+        "half_lock",
+        "half_unlock",
+        "half_switch",
+        "quick_count",
+        "rectangle_add",
+        "rectangle_toggle",
+      ])
       .default("manual"),
     side: z.enum(["left", "right"]).optional(),
   })
