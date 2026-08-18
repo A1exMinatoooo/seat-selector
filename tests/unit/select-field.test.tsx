@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
@@ -53,7 +53,9 @@ describe("SelectField", () => {
     const input = screen.getByRole("combobox", { name: "显示时区" });
     await user.clear(input);
     await user.type(input, "Tokyo");
-    await user.click(screen.getByRole("option", { name: "Asia/Tokyo" }));
+    const tokyoOption = screen.getByRole("option", { name: "Asia/Tokyo" });
+    expect(fireEvent.pointerDown(tokyoOption)).toBe(false);
+    await user.click(tokyoOption);
 
     expect((input as HTMLInputElement).value).toBe("Asia/Tokyo");
     expect(input.getAttribute("aria-expanded")).toBe("false");

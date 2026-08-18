@@ -5,6 +5,7 @@ export default defineConfig({
   use: { baseURL: "http://localhost:3000", trace: "on-first-retry" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "safari", use: { ...devices["Desktop Safari"] } },
     { name: "mobile", use: { ...devices["iPhone 14"] } },
   ],
   webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },

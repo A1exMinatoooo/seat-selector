@@ -270,6 +270,11 @@ export function SearchableSelectField({
             role="option"
             aria-selected={option.id === selectedKey}
             key={option.id}
+            onPointerDown={(event) => {
+              // WebKit clears relatedTarget when a listbox option takes focus. Keeping focus on
+              // the combobox prevents its blur handler from restoring the stale selection.
+              event.preventDefault();
+            }}
             onClick={() => selectOption(option)}
             onKeyDown={moveOptionFocus}
           >
