@@ -5,6 +5,7 @@ import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { EventSeatEditor } from "@/features/events/event-seat-editor";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
+import { DatePickerField } from "@/features/forms/date-picker-field";
 import { getDb } from "@/server/db/client";
 import { cinemas, halls, locationPresets, seats } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -68,10 +69,7 @@ export default async function NewEventPage() {
             />
           </div>
           <div className="form-row">
-            <label>
-              开始日期
-              <input name="startDate" type="date" required />
-            </label>
+            <DatePickerField name="startDate" label="开始日期" required />
             <label>
               开始时间
               <input name="startTime" type="time" step={60} required />

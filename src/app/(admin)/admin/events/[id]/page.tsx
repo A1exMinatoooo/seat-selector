@@ -7,6 +7,7 @@ import { EventStatusForm } from "@/features/events/event-status-form";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
+import { DatePickerField } from "@/features/forms/date-picker-field";
 import { getDb } from "@/server/db/client";
 import {
   cinemas,
@@ -133,10 +134,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             />
           </div>
           <div className="form-row">
-            <label>
-              开始日期
-              <input name="startDate" type="date" defaultValue={localStart.date} required />
-            </label>
+            <DatePickerField
+              name="startDate"
+              label="开始日期"
+              defaultValue={localStart.date}
+              required
+            />
             <label>
               开始时间
               <input
