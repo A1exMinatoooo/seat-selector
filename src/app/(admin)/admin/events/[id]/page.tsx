@@ -45,6 +45,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       maxTicketsPerIssue: events.maxTicketsPerIssue,
       expectedLotteryTickets: events.expectedLotteryTickets,
       centerAfterColumn: halls.centerAfterColumn,
+      cinemaId: cinemas.id,
       hall: halls.name,
       cinema: cinemas.name,
       location: locationPresets.name,
@@ -262,7 +263,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <EventSeatManagementForm
           eventId={event.id}
           version={event.version}
-          hall={{ id: event.hallId, name: `${event.cinema} · ${event.hall}`, seats: hallSeatRows }}
+          hall={{
+            id: event.hallId,
+            cinemaId: event.cinemaId,
+            cinemaName: event.cinema,
+            hallName: event.hall,
+            seats: hallSeatRows,
+          }}
           initialAvailableSeatIds={availableRows.map((item) => item.seatId)}
           lockedSeatIds={reservedRows.map((item) => item.seatId)}
           centerAfterColumn={event.centerAfterColumn}

@@ -16,7 +16,12 @@ export default async function NewEventPage() {
   await requireAdmin();
   const [hallRows, locations, seatRows] = await Promise.all([
     getDb()
-      .select({ id: halls.id, hall: halls.name, cinema: cinemas.name })
+      .select({
+        id: halls.id,
+        hallName: halls.name,
+        cinemaId: cinemas.id,
+        cinemaName: cinemas.name,
+      })
       .from(halls)
       .innerJoin(cinemas, eq(halls.cinemaId, cinemas.id))
       .where(isNull(halls.archivedAt))
@@ -26,7 +31,9 @@ export default async function NewEventPage() {
   ]);
   const layouts = hallRows.map((hall) => ({
     id: hall.id,
-    name: `${hall.cinema} · ${hall.hall}`,
+    cinemaId: hall.cinemaId,
+    cinemaName: hall.cinemaName,
+    hallName: hall.hallName,
     seats: seatRows.filter((seat) => seat.hallId === hall.id),
   }));
   const timeZones = supportedTimeZones();

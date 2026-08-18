@@ -29,7 +29,9 @@ export type EventSeat = {
 
 export type EventHallLayout = {
   id: string;
-  name: string;
+  cinemaId: string;
+  cinemaName: string;
+  hallName: string;
   seats: EventSeat[];
 };
 
@@ -94,6 +96,15 @@ export function EventSeatEditor({
   const [available, setAvailable] = useState(
     () => new Set(initialAvailableSeatIds ?? defaultSeatIds),
   );
+  const hallGroups = useMemo(() => {
+    const groups: Array<{ id: string; name: string; halls: EventHallLayout[] }> = [];
+    for (const item of halls) {
+      const group = groups.find((candidate) => candidate.id === item.cinemaId);
+      if (group) group.halls.push(item);
+      else groups.push({ id: item.cinemaId, name: item.cinemaName, halls: [item] });
+    }
+    return groups;
+  }, [halls]);
   const [interactionMode, setInteractionMode] = useState<"navigate" | "edit" | "rectangle">(
     "navigate",
   );
@@ -286,10 +297,14 @@ export function EventSeatEditor({
               markManualChange();
             }}
           >
-            {halls.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
+            {hallGroups.map((group) => (
+              <optgroup key={group.id} label={group.name}>
+                {group.halls.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.hallName}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>

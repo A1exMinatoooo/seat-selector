@@ -16,7 +16,9 @@ describe("seat grid interaction modes", () => {
         halls: [
           {
             id: "hall-1",
-            name: "一号厅",
+            cinemaId: "cinema-1",
+            cinemaName: "甲影院",
+            hallName: "一号厅",
             seats: [
               {
                 id: "seat-1",
@@ -56,7 +58,9 @@ describe("seat grid interaction modes", () => {
       gesturesEnabled: false,
       interactionHint: createElement("p", null, "操作提示"),
     };
-    const markup = renderToStaticMarkup(createElement(SeatGridViewport, props));
+    const markup = renderToStaticMarkup(
+      createElement(SeatGridViewport, props),
+    );
 
     expect(markup).toContain("gestures-disabled");
     expect(markup).toContain('aria-label="缩小座位网格"');
@@ -72,9 +76,7 @@ describe("seat grid interaction modes", () => {
       ariaLabel: "测试网格",
       mobileMinimap: true,
     };
-    const markup = renderToStaticMarkup(
-      createElement(SeatGridViewport, props),
-    );
+    const markup = renderToStaticMarkup(createElement(SeatGridViewport, props));
 
     expect(markup).toContain("seat-grid-minimap");
     expect(markup).toContain('aria-hidden="true"');
@@ -84,7 +86,9 @@ describe("seat grid interaction modes", () => {
   it("shows planning tools only when explicitly enabled", () => {
     const hall = {
       id: "hall-1",
-      name: "一号厅",
+      cinemaId: "cinema-1",
+      cinemaName: "甲影院",
+      hallName: "一号厅",
       seats: [
         {
           id: "seat-1",
@@ -114,6 +118,55 @@ describe("seat grid interaction modes", () => {
     expect(enabled).toContain('aria-pressed="false"');
     expect(disabled).not.toContain("按数量开放");
     expect(disabled).not.toContain("矩形框选开放");
+  });
+
+  it("groups hall options under non-selectable cinema labels", () => {
+    const seat = {
+      id: "seat-1",
+      rowIndex: 0,
+      columnIndex: 0,
+      rowLabel: "A",
+      columnLabel: "1",
+      kind: "seat" as const,
+      selectable: true,
+      golden: false,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(EventSeatEditor, {
+        halls: [
+          {
+            id: "hall-a1",
+            cinemaId: "cinema-a",
+            cinemaName: "甲影院",
+            hallName: "1号厅",
+            seats: [seat],
+          },
+          {
+            id: "hall-a2",
+            cinemaId: "cinema-a",
+            cinemaName: "甲影院",
+            hallName: "2号厅",
+            seats: [{ ...seat, id: "seat-2" }],
+          },
+          {
+            id: "hall-b1",
+            cinemaId: "cinema-b",
+            cinemaName: "乙影院",
+            hallName: "IMAX厅",
+            seats: [{ ...seat, id: "seat-3" }],
+          },
+        ],
+        initialHallId: "hall-a1",
+        includeHallSelect: true,
+      }),
+    );
+
+    expect(markup).toContain('<optgroup label="甲影院">');
+    expect(markup).toContain('<optgroup label="乙影院">');
+    expect(markup).toMatch(/<option[^>]*value="hall-a1"[^>]*>1号厅<\/option>/);
+    expect(markup).toMatch(/<option[^>]*value="hall-a2"[^>]*>2号厅<\/option>/);
+    expect(markup).not.toContain("甲影院 · 1号厅");
+    expect(markup.indexOf("甲影院")).toBeLessThan(markup.indexOf("乙影院"));
   });
 
   it("maps pointer positions through zoom and selects only eligible intersecting seats", () => {
