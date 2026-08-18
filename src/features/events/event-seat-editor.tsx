@@ -304,7 +304,7 @@ export function EventSeatEditor({
               <optgroup key={group.id} label={group.name}>
                 {group.halls.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.hallName}
+                    {item.cinemaName} · {item.hallName}
                   </option>
                 ))}
               </optgroup>

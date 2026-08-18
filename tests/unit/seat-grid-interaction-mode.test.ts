@@ -163,9 +163,9 @@ describe("seat grid interaction modes", () => {
 
     expect(markup).toContain('<optgroup label="甲影院">');
     expect(markup).toContain('<optgroup label="乙影院">');
-    expect(markup).toMatch(/<option[^>]*value="hall-a1"[^>]*>1号厅<\/option>/);
-    expect(markup).toMatch(/<option[^>]*value="hall-a2"[^>]*>2号厅<\/option>/);
-    expect(markup).not.toContain("甲影院 · 1号厅");
+    expect(markup).toMatch(/<option[^>]*value="hall-a1"[^>]*>甲影院 · 1号厅<\/option>/);
+    expect(markup).toMatch(/<option[^>]*value="hall-a2"[^>]*>甲影院 · 2号厅<\/option>/);
+    expect(markup).toMatch(/<option[^>]*value="hall-b1"[^>]*>乙影院 · IMAX厅<\/option>/);
     expect(markup.indexOf("甲影院")).toBeLessThan(markup.indexOf("乙影院"));
   });
 
