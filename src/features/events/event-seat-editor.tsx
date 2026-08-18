@@ -2,11 +2,9 @@
 
 import {
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -18,6 +16,7 @@ import {
 } from "@/server/domain/event-seat-availability";
 import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
 import { NumericInput } from "@/features/forms/numeric-input";
+import { SelectField } from "@/features/forms/select-field";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 export type EventSeat = {
@@ -38,127 +37,6 @@ export type EventHallLayout = {
   hallName: string;
   seats: EventSeat[];
 };
-
-type EventHallGroup = { id: string; name: string; halls: EventHallLayout[] };
-
-function GroupedHallSelect({
-  groups,
-  value,
-  onValueChange,
-}: {
-  groups: EventHallGroup[];
-  value: string;
-  onValueChange: (value: string) => void;
-}) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const listboxId = useId();
-  const [open, setOpen] = useState(false);
-  const selected = groups.flatMap((group) => group.halls).find((hall) => hall.id === value);
-
-  useEffect(() => {
-    if (!open) return;
-    rootRef.current
-      ?.querySelector<HTMLButtonElement>('[role="option"][aria-selected="true"]')
-      ?.focus();
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
-    window.addEventListener("pointerdown", closeOnOutsidePointer);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("pointerdown", closeOnOutsidePointer);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  function moveOptionFocus(event: ReactKeyboardEvent<HTMLButtonElement>) {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const options = [
-      ...(rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []),
-    ];
-    const currentIndex = options.indexOf(event.currentTarget);
-    const nextIndex =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? options.length - 1
-          : (currentIndex + (event.key === "ArrowDown" ? 1 : -1) + options.length) %
-            options.length;
-    options[nextIndex]?.focus();
-  }
-
-  return (
-    <div
-      className="grouped-hall-select"
-      ref={rootRef}
-      onBlur={(event) => {
-        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
-          setOpen(false);
-        }
-      }}
-    >
-      <input name="hallId" type="hidden" value={value} />
-      <button
-        ref={triggerRef}
-        className="grouped-hall-select-trigger"
-        type="button"
-        aria-controls={listboxId}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-          event.preventDefault();
-          setOpen(true);
-        }}
-      >
-        <span>{selected ? `${selected.cinemaName} · ${selected.hallName}` : "请选择影厅"}</span>
-        <span aria-hidden="true">⌄</span>
-      </button>
-      <div
-        id={listboxId}
-        className="grouped-hall-select-listbox"
-        role="listbox"
-        aria-label="影厅"
-        hidden={!open}
-      >
-        {groups.map((group, groupIndex) => {
-          const labelId = `${listboxId}-group-${groupIndex}`;
-          return (
-            <div className="grouped-hall-select-group" role="group" aria-labelledby={labelId} key={group.id}>
-              <span className="grouped-hall-select-label" id={labelId}>
-                {group.name}
-              </span>
-              {group.halls.map((hall) => (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={hall.id === value}
-                  key={hall.id}
-                  onClick={() => {
-                    onValueChange(hall.id);
-                    setOpen(false);
-                    triggerRef.current?.focus();
-                  }}
-                  onKeyDown={moveOptionFocus}
-                >
-                  {hall.hallName}
-                </button>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 const EMPTY_SEAT_IDS: string[] = [];
 type Rectangle = { left: number; top: number; right: number; bottom: number };
@@ -222,11 +100,12 @@ export function EventSeatEditor({
     () => new Set(initialAvailableSeatIds ?? defaultSeatIds),
   );
   const hallGroups = useMemo(() => {
-    const groups: EventHallGroup[] = [];
+    const groups: { id: string; label: string; options: { id: string; label: string }[] }[] = [];
     for (const item of halls) {
       const group = groups.find((candidate) => candidate.id === item.cinemaId);
-      if (group) group.halls.push(item);
-      else groups.push({ id: item.cinemaId, name: item.cinemaName, halls: [item] });
+      const option = { id: item.id, label: item.hallName };
+      if (group) group.options.push(option);
+      else groups.push({ id: item.cinemaId, label: item.cinemaName, options: [option] });
     }
     return groups;
   }, [halls]);
@@ -234,12 +113,7 @@ export function EventSeatEditor({
     "navigate",
   );
   const [changeSource, setChangeSource] = useState<
-    | "manual"
-    | "half_lock"
-    | "half_unlock"
-    | "half_switch"
-    | "quick_count"
-    | "rectangle_toggle"
+    "manual" | "half_lock" | "half_unlock" | "half_switch" | "quick_count" | "rectangle_toggle"
   >("manual");
   const [changedSide, setChangedSide] = useState<SeatHalf | "">("");
   const locked = useMemo(() => new Set(lockedSeatIds), [lockedSeatIds]);
@@ -405,10 +279,15 @@ export function EventSeatEditor({
       <legend>活动可选区域</legend>
       {includeHallSelect ? (
         <div className="event-hall-field">
-          <strong>影厅</strong>
-          <GroupedHallSelect
+          <SelectField
+            name="hallId"
+            label="影厅"
             groups={hallGroups}
             value={hall.id}
+            displayValue={(nextHallId) => {
+              const selected = halls.find((item) => item.id === nextHallId);
+              return selected ? `${selected.cinemaName} · ${selected.hallName}` : "请选择影厅";
+            }}
             onValueChange={(nextHallId) => {
               const nextHall = halls.find((item) => item.id === nextHallId);
               setHallId(nextHallId);

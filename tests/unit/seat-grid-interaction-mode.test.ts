@@ -58,9 +58,7 @@ describe("seat grid interaction modes", () => {
       gesturesEnabled: false,
       interactionHint: createElement("p", null, "操作提示"),
     };
-    const markup = renderToStaticMarkup(
-      createElement(SeatGridViewport, props),
-    );
+    const markup = renderToStaticMarkup(createElement(SeatGridViewport, props));
 
     expect(markup).toContain("gestures-disabled");
     expect(markup).toContain('aria-label="缩小座位网格"');
@@ -120,7 +118,7 @@ describe("seat grid interaction modes", () => {
     expect(disabled).not.toContain("框选模式");
   });
 
-  it("groups hall options under non-selectable cinema labels", () => {
+  it("renders the selected hall with cinema context and submits the hall id", () => {
     const seat = {
       id: "seat-1",
       rowIndex: 0,
@@ -161,13 +159,13 @@ describe("seat grid interaction modes", () => {
       }),
     );
 
-    expect(markup).toMatch(/<input[^>]*type="hidden"[^>]*name="hallId"[^>]*value="hall-a1"/);
+    expect(markup).toMatch(
+      /<select[^>]*name="hallId"[^>]*>.*<option[^>]*value="hall-a1"[^>]*selected/,
+    );
     expect(markup).toContain('aria-haspopup="listbox"');
     expect(markup).toContain("甲影院 · 1号厅");
-    expect(markup).toMatch(/role="group"[^>]*>.*甲影院.*role="option"[^>]*>1号厅<\/button>/);
-    expect(markup).toMatch(/role="group"[^>]*>.*乙影院.*role="option"[^>]*>IMAX厅<\/button>/);
-    expect(markup).not.toMatch(/role="option"[^>]*>甲影院 · 1号厅<\/button>/);
-    expect(markup.indexOf("甲影院")).toBeLessThan(markup.indexOf("乙影院"));
+    expect(markup).toContain(">1号厅</option>");
+    expect(markup).not.toContain(">甲影院 · 1号厅</option>");
   });
 
   it("maps pointer positions through zoom and selects only eligible intersecting seats", () => {

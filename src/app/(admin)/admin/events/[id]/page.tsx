@@ -6,6 +6,7 @@ import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { EventStatusForm } from "@/features/events/event-status-form";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
+import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { getDb } from "@/server/db/client";
 import {
   cinemas,
@@ -123,16 +124,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               活动名称
               <input name="name" defaultValue={event.name} required />
             </label>
-            <label>
-              显示时区
-              <select name="timeZone" defaultValue={event.timeZone}>
-                {supportedTimeZones().map((timeZone) => (
-                  <option key={timeZone} value={timeZone}>
-                    {timeZone}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchableSelectField
+              name="timeZone"
+              label="显示时区"
+              defaultValue={event.timeZone}
+              options={supportedTimeZones().map((timeZone) => ({ id: timeZone, label: timeZone }))}
+              required
+            />
           </div>
           <div className="form-row">
             <label>
@@ -151,16 +149,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </label>
           </div>
           <div className="form-row">
-            <label>
-              活动地点
-              <select name="locationId" defaultValue={event.locationId}>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              name="locationId"
+              label="活动地点"
+              defaultValue={event.locationId}
+              options={locations.map((location) => ({ id: location.id, label: location.name }))}
+              required
+            />
             <label>
               定位半径（米）
               <NumericInput

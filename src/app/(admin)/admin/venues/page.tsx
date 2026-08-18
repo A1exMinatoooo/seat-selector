@@ -7,6 +7,7 @@ import { HallTemplateImportForm } from "@/features/venues/hall-template-import-f
 import { HallTemplateDeleteButton } from "@/features/venues/hall-template-delete-button";
 import { HallLayoutPreviewDialog } from "@/features/venues/hall-layout-preview-dialog";
 import { HallTemplateExportMenu, HallTemplateGroups } from "@/features/venues/hall-template-navigation";
+import { SelectField } from "@/features/forms/select-field";
 import { getDb } from "@/server/db/client";
 import { cinemas, events, halls, seats } from "@/server/db/schema";
 import { canDeleteHallTemplate, canEditHallTemplate } from "@/server/domain/hall-template-edit";
@@ -48,7 +49,7 @@ export default async function VenuesPage() {
         <section className="panel"><div className="section-header compact"><h2>已有模板</h2>{hallRows.length ? <HallTemplateExportMenu cinemas={cinemaSummaries} /> : null}</div>{hallRows.length ? <HallTemplateGroups groups={templateGroups} /> : <p className="muted">还没有影厅模板。</p>}</section>
       </div>
       <section className="panel wide"><h2>导入影厅模板</h2><p className="muted">支持导入单个影厅、单个影院或全部影院导出的 JSON 文件。同名影院会复用，影厅模板会新增，不覆盖已有模板。</p><HallTemplateImportForm /></section>
-      <section className="panel wide"><h2>新建影厅模板</h2>{cinemaRows.length ? <form action={createHallAction} className="stack-form"><div className="form-row"><label>所属影院<select name="cinemaId" required>{cinemaRows.map((cinema) => <option value={cinema.id} key={cinema.id}>{cinema.name}</option>)}</select></label><label>影厅名称<input name="name" required placeholder="例如：6号激光厅" /></label></div><SeatLayoutEditor /><button className="button primary" type="submit">保存影厅模板</button></form> : <p className="muted">请先新增影院。</p>}</section>
+      <section className="panel wide"><h2>新建影厅模板</h2>{cinemaRows.length ? <form action={createHallAction} className="stack-form"><div className="form-row"><SelectField name="cinemaId" label="所属影院" defaultValue={cinemaRows[0]?.id} options={cinemaRows.map((cinema) => ({ id: cinema.id, label: cinema.name }))} required /><label>影厅名称<input name="name" required placeholder="例如：6号激光厅" /></label></div><SeatLayoutEditor /><button className="button primary" type="submit">保存影厅模板</button></form> : <p className="muted">请先新增影院。</p>}</section>
     </main>
   );
 }

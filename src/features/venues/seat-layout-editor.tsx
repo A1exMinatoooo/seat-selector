@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { NumericInput } from "@/features/forms/numeric-input";
+import { SelectField } from "@/features/forms/select-field";
 import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
@@ -205,22 +206,24 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
         <div className="label-preset">
           <strong>快速生成行名称</strong>
           <div className="label-preset-controls">
-            <select
-              aria-label="行名称格式"
+            <SelectField
+              ariaLabel="行名称格式"
               value={rowStyle}
-              onChange={(event) => setRowStyle(event.target.value as LabelStyle)}
-            >
-              <option value="letters">字母</option>
-              <option value="numbers">数字</option>
-            </select>
-            <select
-              aria-label="行名称顺序"
+              onValueChange={(value) => setRowStyle(value as LabelStyle)}
+              options={[
+                { id: "letters", label: "字母" },
+                { id: "numbers", label: "数字" },
+              ]}
+            />
+            <SelectField
+              ariaLabel="行名称顺序"
               value={rowDirection}
-              onChange={(event) => setRowDirection(event.target.value as LabelDirection)}
-            >
-              <option value="ascending">正序</option>
-              <option value="descending">倒序</option>
-            </select>
+              onValueChange={(value) => setRowDirection(value as LabelDirection)}
+              options={[
+                { id: "ascending", label: "正序" },
+                { id: "descending", label: "倒序" },
+              ]}
+            />
             <button
               type="button"
               onClick={() =>
@@ -237,22 +240,24 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
             <span>自动生成或按顺序手动填充</span>
           </div>
           <div className="label-preset-controls">
-            <select
-              aria-label="横排座位号类型"
+            <SelectField
+              ariaLabel="横排座位号类型"
               value={numberStyle}
-              onChange={(event) => setNumberStyle(event.target.value as LabelStyle)}
-            >
-              <option value="numbers">数字</option>
-              <option value="letters">字母</option>
-            </select>
-            <select
-              aria-label="横排座位号顺序"
+              onValueChange={(value) => setNumberStyle(value as LabelStyle)}
+              options={[
+                { id: "numbers", label: "数字" },
+                { id: "letters", label: "字母" },
+              ]}
+            />
+            <SelectField
+              ariaLabel="横排座位号顺序"
               value={numberDirection}
-              onChange={(event) => setNumberDirection(event.target.value as LabelDirection)}
-            >
-              <option value="ascending">正序</option>
-              <option value="descending">倒序</option>
-            </select>
+              onValueChange={(value) => setNumberDirection(value as LabelDirection)}
+              options={[
+                { id: "ascending", label: "正序" },
+                { id: "descending", label: "倒序" },
+              ]}
+            />
             <button type="button" onClick={generateNumbers}>
               自动生成
             </button>
@@ -369,7 +374,11 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
                 }}
                 key={`row:${rowIndex}`}
               >
-                <span className="seat-coordinate row" data-seat-row-coordinate={rowLabel} data-seat-row-key={`layout:${rowIndex}`}>
+                <span
+                  className="seat-coordinate row"
+                  data-seat-row-coordinate={rowLabel}
+                  data-seat-row-key={`layout:${rowIndex}`}
+                >
                   <span>{rowLabel}</span>
                   <button
                     className="empty-row-toggle"
