@@ -8,6 +8,7 @@ import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
+import { TimePickerField } from "@/features/forms/time-picker-field";
 import { getDb } from "@/server/db/client";
 import {
   cinemas,
@@ -140,16 +141,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               defaultValue={localStart.date}
               required
             />
-            <label>
-              开始时间
-              <input
-                name="startTime"
-                type="time"
-                step={60}
-                defaultValue={localStart.time}
-                required
-              />
-            </label>
+            <TimePickerField
+              name="startTime"
+              label="开始时间"
+              defaultValue={localStart.time}
+              required
+            />
           </div>
           <div className="form-row">
             <SelectField

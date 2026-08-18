@@ -6,6 +6,7 @@ import { EventSeatEditor } from "@/features/events/event-seat-editor";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
+import { TimePickerField } from "@/features/forms/time-picker-field";
 import { getDb } from "@/server/db/client";
 import { cinemas, halls, locationPresets, seats } from "@/server/db/schema";
 import { requireAdmin } from "@/server/security/admin-session";
@@ -70,10 +71,7 @@ export default async function NewEventPage() {
           </div>
           <div className="form-row">
             <DatePickerField name="startDate" label="开始日期" required />
-            <label>
-              开始时间
-              <input name="startTime" type="time" step={60} required />
-            </label>
+            <TimePickerField name="startTime" label="开始时间" required />
           </div>
           <div className="form-row">
             <SelectField
