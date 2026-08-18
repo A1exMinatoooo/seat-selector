@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 
 describe("SelectField", () => {
+  afterEach(cleanup);
   it("submits selected option ids and supports grouped display values", async () => {
     const user = userEvent.setup();
     const onValueChange = vi.fn();
@@ -56,5 +57,23 @@ describe("SelectField", () => {
 
     expect((input as HTMLInputElement).value).toBe("Asia/Tokyo");
     expect(new FormData(container.querySelector("form")!).get("timeZone")).toBe("Asia/Tokyo");
+  });
+
+  it("opens the complete searchable option list when the field receives focus", async () => {
+    const user = userEvent.setup();
+    render(
+      <SearchableSelectField
+        label="显示时区"
+        defaultValue="Asia/Shanghai"
+        options={[
+          { id: "Asia/Shanghai", label: "Asia/Shanghai" },
+          { id: "Asia/Tokyo", label: "Asia/Tokyo" },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "显示时区" }));
+    expect(screen.getByRole("option", { name: "Asia/Shanghai" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Asia/Tokyo" })).toBeTruthy();
   });
 });

@@ -124,6 +124,7 @@ export function SearchableSelectField({
       isDisabled={disabled}
       validationBehavior="native"
       formValue="key"
+      menuTrigger="focus"
     >
       {label ? <Label>{label}</Label> : null}
       <div className="searchable-select-control">
