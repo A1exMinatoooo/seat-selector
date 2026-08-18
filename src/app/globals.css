@@ -157,8 +157,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .select-field-listbox [role="option"][data-focused] { outline: none; background: var(--cream); }
 .select-field-listbox [role="option"][data-selected] { color: white; background: var(--green); }
 .searchable-select-control { display: flex; overflow: hidden; }
+.searchable-select-field { position: relative; }
 .searchable-select-input { min-width: 0; height: 44px; min-height: 44px; flex: 1; border: 0; border-radius: 11px 0 0 11px; outline: none !important; }
 .searchable-select-button { width: 46px; min-height: 44px; flex: none; border: 0; border-left: 1px solid var(--line); background: white; cursor: pointer; }
+.searchable-select-listbox { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; }
+.searchable-select-listbox[hidden] { display: none; }
+.searchable-select-listbox > button { width: 100%; border: 0; background: transparent; text-align: left; }
+.select-field-empty { margin: 0; padding: 12px 10px; color: var(--muted); }
 .field-error { color: #b42318; font-size: 13px; font-weight: 700; }
 .event-hall-field .select-field { max-width: 420px; display: grid; gap: 6px; }
 .label-preset-controls > .select-field { min-width: 116px; flex: 1; }

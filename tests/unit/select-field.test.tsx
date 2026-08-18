@@ -56,6 +56,7 @@ describe("SelectField", () => {
     await user.click(screen.getByRole("option", { name: "Asia/Tokyo" }));
 
     expect((input as HTMLInputElement).value).toBe("Asia/Tokyo");
+    expect(input.getAttribute("aria-expanded")).toBe("false");
     expect(new FormData(container.querySelector("form")!).get("timeZone")).toBe("Asia/Tokyo");
   });
 
