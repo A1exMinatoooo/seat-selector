@@ -15,6 +15,7 @@ import {
   type SeatHalf,
 } from "@/server/domain/event-seat-availability";
 import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
+import { NumericInput } from "@/features/forms/numeric-input";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 
 export type EventSeat = {
@@ -130,7 +131,7 @@ export function EventSeatEditor({
   } | null>(null);
   const [quickOpenVisible, setQuickOpenVisible] = useState(false);
   const [quickOpenCount, setQuickOpenCount] = useState(1);
-  const [quickOpenError, setQuickOpenError] = useState("");
+  const [quickOpenValid, setQuickOpenValid] = useState(true);
   const columns = Math.max(...(hall?.seats.map((seat) => seat.columnIndex) ?? [0])) + 1;
   const rowIndexes = [...new Set(hall?.seats.map((seat) => seat.rowIndex) ?? [])];
   const positionedSeats = useMemo(
@@ -259,23 +260,19 @@ export function EventSeatEditor({
   }
 
   function applyQuickOpen() {
-    try {
-      const result = quickOpenSeatRectangle(
-        hall!.seats.map((seat) => ({
-          ...seat,
-          templateSelectable: seat.kind === "seat" && seat.selectable,
-        })),
-        quickOpenCount,
-        centerAfterColumn,
-      );
-      setAvailable(new Set([...result.availableSeatIds, ...lockedSeatIds]));
-      setChangeSource("quick_count");
-      setChangedSide("");
-      setQuickOpenError("");
-      setQuickOpenVisible(false);
-    } catch {
-      setQuickOpenError(`请输入 1 到 ${defaultSeatIds.length} 之间的整数。`);
-    }
+    if (!quickOpenValid) return;
+    const result = quickOpenSeatRectangle(
+      hall!.seats.map((seat) => ({
+        ...seat,
+        templateSelectable: seat.kind === "seat" && seat.selectable,
+      })),
+      quickOpenCount,
+      centerAfterColumn,
+    );
+    setAvailable(new Set([...result.availableSeatIds, ...lockedSeatIds]));
+    setChangeSource("quick_count");
+    setChangedSide("");
+    setQuickOpenVisible(false);
   }
 
   if (!hall) return null;
@@ -370,7 +367,7 @@ export function EventSeatEditor({
             disabled={defaultSeatIds.length === 0}
             onClick={() => {
               setQuickOpenCount(Math.min(Math.max(1, available.size), defaultSeatIds.length));
-              setQuickOpenError("");
+              setQuickOpenValid(true);
               setQuickOpenVisible(true);
             }}
           >
@@ -543,29 +540,26 @@ export function EventSeatEditor({
             <p>将从最后一排中间开始，按约 4:3 的矩形向上开放；其他座位会关闭。</p>
             <label>
               想开放的座位数量
-              <input
-                type="number"
+              <NumericInput
                 min={1}
                 max={defaultSeatIds.length}
                 step={1}
-                value={quickOpenCount}
-                onChange={(event) => {
-                  const nextCount = event.currentTarget.valueAsNumber;
-                  setQuickOpenCount(Number.isNaN(nextCount) ? 0 : nextCount);
-                }}
+                defaultValue={quickOpenCount}
+                onValueChange={setQuickOpenCount}
+                onValidityChange={setQuickOpenValid}
               />
             </label>
             <small>最多可开放 {defaultSeatIds.length} 个模板可选座位。</small>
-            {quickOpenError ? (
-              <p className="form-error" role="alert">
-                {quickOpenError}
-              </p>
-            ) : null}
             <div className="header-actions">
               <button className="button" type="button" onClick={() => setQuickOpenVisible(false)}>
                 取消
               </button>
-              <button className="button primary" type="button" onClick={applyQuickOpen}>
+              <button
+                className="button primary"
+                type="button"
+                disabled={!quickOpenValid}
+                onClick={applyQuickOpen}
+              >
                 确认并预览
               </button>
             </div>
