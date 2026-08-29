@@ -16,6 +16,7 @@ import { sql } from "drizzle-orm";
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
 export const eventParticipationMode = pgEnum("event_participation_mode", ["onsite", "preregistered"]);
+export const eventSeatHalf = pgEnum("event_seat_half", ["left", "right"]);
 export const participantSource = pgEnum("participant_source", ["onsite", "preregistered"]);
 export const auditLevel = pgEnum("audit_level", ["info", "warn", "error"]);
 export const auditAction = pgEnum("audit_action", [
@@ -115,6 +116,7 @@ export const events = pgTable(
     qrTokenIssuedAt: timestamp("qr_token_issued_at", { withTimezone: true }),
     qrTokenExpiresAt: timestamp("qr_token_expires_at", { withTimezone: true }),
     lotteryPoolBonus: integer("lottery_pool_bonus").notNull().default(0),
+    lockedSeatHalf: eventSeatHalf("locked_seat_half"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("events_status_starts_at_idx").on(table.status, table.startsAt)],

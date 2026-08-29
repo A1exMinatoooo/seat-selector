@@ -15,6 +15,7 @@ export function EventSeatManagementForm({
   hall,
   initialAvailableSeatIds,
   lockedSeatIds,
+  initialLockedSeatHalf,
   centerAfterColumn,
   enableHalfLockControls,
   planningToolsEnabled,
@@ -24,6 +25,7 @@ export function EventSeatManagementForm({
   hall: EventHallLayout;
   initialAvailableSeatIds: string[];
   lockedSeatIds: string[];
+  initialLockedSeatHalf: "left" | "right" | null;
   centerAfterColumn: number | null;
   enableHalfLockControls: boolean;
   planningToolsEnabled: boolean;
@@ -39,6 +41,7 @@ export function EventSeatManagementForm({
           initialHallId={hall.id}
           initialAvailableSeatIds={initialAvailableSeatIds}
           lockedSeatIds={lockedSeatIds}
+          initialLockedSeatHalf={initialLockedSeatHalf}
           centerAfterColumn={centerAfterColumn}
           enableHalfLockControls={enableHalfLockControls}
           planningToolsEnabled={planningToolsEnabled}

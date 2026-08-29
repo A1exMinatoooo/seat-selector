@@ -8,7 +8,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  detectLockedSeatHalf,
+  effectiveEventAvailability,
+  isSeatLockedByHalf,
   quickOpenSeatRectangle,
   toggleSelectedSeatAvailability,
   toggleSeatHalfLock,
@@ -73,6 +74,7 @@ export function EventSeatEditor({
   initialHallId,
   initialAvailableSeatIds,
   lockedSeatIds = EMPTY_SEAT_IDS,
+  initialLockedSeatHalf = null,
   includeHallSelect = false,
   enableHalfLockControls = false,
   centerAfterColumn = null,
@@ -82,6 +84,7 @@ export function EventSeatEditor({
   initialHallId: string;
   initialAvailableSeatIds?: string[];
   lockedSeatIds?: string[];
+  initialLockedSeatHalf?: SeatHalf | null;
   includeHallSelect?: boolean;
   enableHalfLockControls?: boolean;
   centerAfterColumn?: number | null;
@@ -116,6 +119,7 @@ export function EventSeatEditor({
     "manual" | "half_lock" | "half_unlock" | "half_switch" | "quick_count" | "rectangle_toggle"
   >("manual");
   const [changedSide, setChangedSide] = useState<SeatHalf | "">("");
+  const [lockedSeatHalf, setLockedSeatHalf] = useState<SeatHalf | null>(initialLockedSeatHalf);
   const locked = useMemo(() => new Set(lockedSeatIds), [lockedSeatIds]);
   const painting = useRef<boolean | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -135,10 +139,10 @@ export function EventSeatEditor({
     () => hall?.seats.map((seat) => ({ ...seat, templateSelectable: seat.selectable })) ?? [],
     [hall],
   );
-  const activeLockedHalf = detectLockedSeatHalf(
+  const effectiveAvailableSeatIds = effectiveEventAvailability(
     positionedSeats,
     available,
-    locked,
+    lockedSeatHalf,
     centerAfterColumn,
   );
 
@@ -170,8 +174,8 @@ export function EventSeatEditor({
   }
 
   function toggleHalf(side: SeatHalf) {
-    const result = toggleSeatHalfLock(positionedSeats, available, locked, side, centerAfterColumn);
-    setAvailable(new Set(result.availableSeatIds));
+    const result = toggleSeatHalfLock(lockedSeatHalf, side);
+    setLockedSeatHalf(result.activeSide);
     setChangeSource(`half_${result.operation}`);
     setChangedSide(side);
   }
@@ -308,25 +312,25 @@ export function EventSeatEditor({
           <div>
             <strong>快速锁定半场</strong>
             <p className="muted">
-              左右半场互斥；再次点击当前启用的按钮可取消锁定。调整完成后点击下方保存按钮才会生效。
+              半场锁定只过滤基础开放范围；再次点击当前启用的按钮可取消锁定。锁定期间仍可调整基础开放范围，保存后统一生效。
             </p>
           </div>
           <div className="header-actions">
             <button
-              className={`button ${activeLockedHalf === "left" ? "primary" : ""}`}
-              aria-pressed={activeLockedHalf === "left"}
+              className={`button ${lockedSeatHalf === "left" ? "primary" : ""}`}
+              aria-pressed={lockedSeatHalf === "left"}
               type="button"
               onClick={() => toggleHalf("left")}
             >
-              {activeLockedHalf === "left" ? "取消锁定左半场" : "锁定左半场"}
+              {lockedSeatHalf === "left" ? "取消锁定左半场" : "锁定左半场"}
             </button>
             <button
-              className={`button ${activeLockedHalf === "right" ? "primary" : ""}`}
-              aria-pressed={activeLockedHalf === "right"}
+              className={`button ${lockedSeatHalf === "right" ? "primary" : ""}`}
+              aria-pressed={lockedSeatHalf === "right"}
               type="button"
               onClick={() => toggleHalf("right")}
             >
-              {activeLockedHalf === "right" ? "取消锁定右半场" : "锁定右半场"}
+              {lockedSeatHalf === "right" ? "取消锁定右半场" : "锁定右半场"}
             </button>
           </div>
         </div>
@@ -351,7 +355,7 @@ export function EventSeatEditor({
         >
           全部关闭
         </button>
-        <span>{available.size} 个座位开放</span>
+        <span>{available.size} 个座位基础开放 · {effectiveAvailableSeatIds.length} 个当前可选</span>
         {planningToolsEnabled ? (
           <button
             type="button"
@@ -478,6 +482,15 @@ export function EventSeatEditor({
                   const structural = seat.kind !== "seat" || !seat.selectable;
                   const isLocked = locked.has(seat.id);
                   const isAvailable = available.has(seat.id);
+                  const isHalfLocked =
+                    isAvailable &&
+                    !isLocked &&
+                    isSeatLockedByHalf(
+                      { ...seat, templateSelectable: seat.selectable },
+                      lockedSeatHalf,
+                      centerAfterColumn,
+                      positionedSeats,
+                    );
                   return (
                     <button
                       key={seat.id}
@@ -485,10 +498,10 @@ export function EventSeatEditor({
                       data-event-seat-id={seat.id}
                       data-event-seat-eligible={structural || isLocked ? "false" : "true"}
                       disabled={structural || isLocked}
-                      title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : ""}`}
-                      aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isAvailable ? "开放" : "关闭"}`}
+                      title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : isHalfLocked ? "（基础开放，当前被半场锁定）" : ""}`}
+                      aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isHalfLocked ? "半场锁定" : isAvailable ? "基础开放" : "基础关闭"}`}
                       aria-pressed={isAvailable}
-                      className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${seat.golden && isAvailable ? "golden" : ""} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
+                      className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${seat.golden && isAvailable && !isHalfLocked ? "golden" : ""} ${isHalfLocked ? "half-locked" : ""} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
                       aria-disabled={interactionMode === "navigate" || undefined}
                       tabIndex={interactionMode === "navigate" ? -1 : undefined}
                       onPointerDown={(event) => {
@@ -558,6 +571,7 @@ export function EventSeatEditor({
         </div>
       ) : null}
       <input type="hidden" name="availableSeatIds" value={JSON.stringify([...available])} />
+      <input type="hidden" name="lockedSeatHalf" value={lockedSeatHalf ?? ""} />
       <input type="hidden" name="changeSource" value={changeSource} />
       {changedSide ? <input type="hidden" name="side" value={changedSide} /> : null}
     </fieldset>

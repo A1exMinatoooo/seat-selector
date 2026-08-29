@@ -246,6 +246,10 @@ const eventAvailabilityInputSchema = z
         }
       })
       .pipe(z.array(z.string().uuid()).max(2500)),
+    lockedSeatHalf: z.preprocess(
+      (value) => (value === "" || value === undefined ? null : value),
+      z.enum(["left", "right"]).nullable(),
+    ),
     changeSource: z
       .enum([
         "manual",
@@ -286,7 +290,7 @@ export async function updateEventSeatsAction(
   try {
     await getDb().transaction(async (tx) => {
       const [event] = await tx
-        .select({ hallId: events.hallId, status: events.status })
+        .select({ hallId: events.hallId, status: events.status, lockedSeatHalf: events.lockedSeatHalf })
         .from(events)
         .where(eq(events.id, input.id))
         .limit(1)
@@ -318,7 +322,7 @@ export async function updateEventSeatsAction(
           .values(availableSeatIds.map((seatId) => ({ eventId: input.id, seatId })));
       await tx
         .update(events)
-        .set({ version: sql`${events.version} + 1` })
+        .set({ lockedSeatHalf: input.lockedSeatHalf, version: sql`${events.version} + 1` })
         .where(eq(events.id, input.id));
       await tx.insert(eventAuditLogs).values({
         eventId: input.id,
@@ -326,6 +330,8 @@ export async function updateEventSeatsAction(
         details: {
           source: input.changeSource,
           side: input.side,
+          lockedSeatHalfBefore: event.lockedSeatHalf,
+          lockedSeatHalfAfter: input.lockedSeatHalf,
           ...describeAvailabilityChange(
             currentAvailable.map((item) => item.seatId),
             availableSeatIds,

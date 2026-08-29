@@ -47,6 +47,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       participationMode: events.participationMode,
       maxTicketsPerIssue: events.maxTicketsPerIssue,
       expectedLotteryTickets: events.expectedLotteryTickets,
+      lockedSeatHalf: events.lockedSeatHalf,
       centerAfterColumn: halls.centerAfterColumn,
       cinemaId: cinemas.id,
       hall: halls.name,
@@ -267,6 +268,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           }}
           initialAvailableSeatIds={availableRows.map((item) => item.seatId)}
           lockedSeatIds={reservedRows.map((item) => item.seatId)}
+          initialLockedSeatHalf={event.lockedSeatHalf}
           centerAfterColumn={event.centerAfterColumn}
           enableHalfLockControls={event.status === "open"}
           planningToolsEnabled={event.status === "draft"}

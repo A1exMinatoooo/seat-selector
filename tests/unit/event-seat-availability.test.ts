@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeAvailabilityChange,
-  detectLockedSeatHalf,
+  effectiveEventAvailability,
   quickOpenSeatRectangle,
   resolveEventAvailability,
   toggleSelectedSeatAvailability,
@@ -63,52 +63,41 @@ describe("toggleSeatHalfLock", () => {
   ];
 
   it("locks the requested side using the configured center", () => {
-    const result = toggleSeatHalfLock(
-      positioned,
-      positioned.map((seat) => seat.id),
-      [],
-      "left",
-      1,
-    );
+    const result = toggleSeatHalfLock(null, "left");
     expect(result).toEqual({
-      availableSeatIds: ["right-1", "right-2"],
       previousSide: null,
       activeSide: "left",
       operation: "lock",
     });
   });
 
-  it("keeps reserved seats inside the locked half", () => {
-    expect(
-      toggleSeatHalfLock(
-        positioned,
-        positioned.map((seat) => seat.id),
-        ["left-1"],
-        "left",
-        1,
-      ).availableSeatIds,
-    ).toEqual(["left-1", "right-1", "right-2"]);
+  it("filters only the locked part of the base availability", () => {
+    expect(effectiveEventAvailability(positioned, ["left-1", "right-1"], "left", 1)).toEqual([
+      "right-1",
+    ]);
+    expect(effectiveEventAvailability(positioned, ["left-1", "right-1"], "right", 1)).toEqual([
+      "left-1",
+    ]);
   });
 
   it("unlocks the active side when clicked again", () => {
-    const result = toggleSeatHalfLock(positioned, ["right-1", "right-2"], [], "left", 1);
+    const result = toggleSeatHalfLock("left", "left");
     expect(result).toEqual({
-      availableSeatIds: positioned.map((seat) => seat.id),
       previousSide: "left",
       activeSide: null,
       operation: "unlock",
     });
   });
 
-  it("preserves manual edits on the other side when unlocking", () => {
-    const result = toggleSeatHalfLock(positioned, ["right-1"], [], "left", 1);
-    expect(result.availableSeatIds).toEqual(["left-1", "left-2", "right-1"]);
+  it("restores exactly the edited base range after unlocking", () => {
+    const base = ["left-1", "right-1"];
+    expect(effectiveEventAvailability(positioned, base, "left", 1)).toEqual(["right-1"]);
+    expect(effectiveEventAvailability(positioned, base, null, 1)).toEqual(base);
   });
 
   it("switches sides while keeping the states mutually exclusive", () => {
-    const result = toggleSeatHalfLock(positioned, ["right-1", "right-2"], [], "right", 1);
+    const result = toggleSeatHalfLock("left", "right");
     expect(result).toEqual({
-      availableSeatIds: ["left-1", "left-2"],
       previousSide: "left",
       activeSide: "right",
       operation: "switch",
@@ -117,27 +106,8 @@ describe("toggleSeatHalfLock", () => {
 
   it("falls back to the geometric midpoint", () => {
     expect(
-      toggleSeatHalfLock(
-        positioned,
-        positioned.map((seat) => seat.id),
-        [],
-        "left",
-        null,
-      ).availableSeatIds,
+      effectiveEventAvailability(positioned, positioned.map((seat) => seat.id), "left", null),
     ).toEqual(["right-1", "right-2"]);
-  });
-
-  it("detects the active side from the actual availability", () => {
-    expect(detectLockedSeatHalf(positioned, ["right-1", "right-2"], [], 1)).toBe("left");
-    expect(detectLockedSeatHalf(positioned, ["left-1", "left-2"], [], 1)).toBe("right");
-    expect(
-      detectLockedSeatHalf(
-        positioned,
-        positioned.map((seat) => seat.id),
-        [],
-        1,
-      ),
-    ).toBeNull();
   });
 });
 

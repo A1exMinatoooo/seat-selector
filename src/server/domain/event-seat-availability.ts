@@ -140,63 +140,45 @@ export function resolveEventAvailability(
     .map((seat) => seat.id);
 }
 
-export function detectLockedSeatHalf(
-  seats: PositionedSeat[],
-  currentAvailableSeatIds: Iterable<string>,
-  reservedSeatIds: Iterable<string>,
+export function isSeatLockedByHalf(
+  seat: PositionedSeat,
+  lockedSeatHalf: SeatHalf | null,
   centerAfterColumn: number | null,
-): SeatHalf | null {
-  if (seats.length === 0) return null;
+  seats: PositionedSeat[],
+): boolean {
+  return lockedSeatHalf !== null && isInHalf(seat, lockedSeatHalf, halfBoundary(seats, centerAfterColumn));
+}
+
+export function effectiveEventAvailability(
+  seats: PositionedSeat[],
+  baseAvailableSeatIds: Iterable<string>,
+  lockedSeatHalf: SeatHalf | null,
+  centerAfterColumn: number | null,
+): string[] {
+  const base = new Set(resolveEventAvailability(seats, baseAvailableSeatIds));
+  if (lockedSeatHalf === null || seats.length === 0) return [...base];
   const boundary = halfBoundary(seats, centerAfterColumn);
-  const available = new Set(currentAvailableSeatIds);
-  const reserved = new Set(reservedSeatIds);
-  const isLocked = (side: SeatHalf) => {
-    const eligible = seats.filter(
+  return seats
+    .filter(
       (seat) =>
-        seat.kind === "seat" &&
-        seat.templateSelectable &&
-        !reserved.has(seat.id) &&
-        isInHalf(seat, side, boundary),
-    );
-    return eligible.length > 0 && eligible.every((seat) => !available.has(seat.id));
-  };
-  const leftLocked = isLocked("left");
-  const rightLocked = isLocked("right");
-  return leftLocked === rightLocked ? null : leftLocked ? "left" : "right";
+        base.has(seat.id) &&
+        !isInHalf(seat, lockedSeatHalf, boundary),
+    )
+    .map((seat) => seat.id);
 }
 
 export function toggleSeatHalfLock(
-  seats: PositionedSeat[],
-  currentAvailableSeatIds: Iterable<string>,
-  reservedSeatIds: Iterable<string>,
+  currentLockedSeatHalf: SeatHalf | null,
   side: SeatHalf,
-  centerAfterColumn: number | null,
 ): {
-  availableSeatIds: string[];
   previousSide: SeatHalf | null;
   activeSide: SeatHalf | null;
   operation: "lock" | "unlock" | "switch";
 } {
-  if (seats.length === 0)
-    return { availableSeatIds: [], previousSide: null, activeSide: null, operation: "lock" };
-  const current = new Set(currentAvailableSeatIds);
-  const reserved = new Set(reservedSeatIds);
-  const previousSide = detectLockedSeatHalf(seats, current, reserved, centerAfterColumn);
-  const boundary = halfBoundary(seats, centerAfterColumn);
-  const activeSide = previousSide === side ? null : side;
-
-  for (const seat of seats) {
-    if (seat.kind !== "seat" || !seat.templateSelectable) continue;
-    if (activeSide === null) {
-      if (isInHalf(seat, side, boundary)) current.add(seat.id);
-    } else if (!isInHalf(seat, activeSide, boundary)) current.add(seat.id);
-    else if (!reserved.has(seat.id)) current.delete(seat.id);
-  }
-
+  const activeSide = currentLockedSeatHalf === side ? null : side;
   return {
-    availableSeatIds: resolveEventAvailability(seats, current, reserved),
-    previousSide,
+    previousSide: currentLockedSeatHalf,
     activeSide,
-    operation: activeSide === null ? "unlock" : previousSide === null ? "lock" : "switch",
+    operation: activeSide === null ? "unlock" : currentLockedSeatHalf === null ? "lock" : "switch",
   };
 }
