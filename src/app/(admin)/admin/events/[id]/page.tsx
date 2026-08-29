@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { EventSeatManagementForm } from "@/features/events/event-seat-management-form";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { EventStatusForm } from "@/features/events/event-status-form";
+import { EventSeatingStats } from "@/features/events/event-seating-stats";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
@@ -17,6 +18,7 @@ import {
   halls,
   locationPresets,
   lotteryPrizes,
+  reservations,
   reservationSeats,
   seats,
   ticketTypes,
@@ -61,7 +63,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     .where(eq(events.id, id))
     .limit(1);
   if (!event) notFound();
-  const [types, prizes, hallSeatRows, availableRows, reservedRows, locations] = await Promise.all([
+  const [types, prizes, hallSeatRows, availableRows, reservedRows, locations, seatedCounts, occupiedCounts] = await Promise.all([
     getDb()
       .select()
       .from(ticketTypes)
@@ -86,6 +88,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .from(reservationSeats)
       .where(eq(reservationSeats.eventId, id)),
     getDb().select().from(locationPresets).orderBy(asc(locationPresets.name)),
+    getDb().select({ value: count() }).from(reservations).where(eq(reservations.eventId, id)),
+    getDb().select({ value: count() }).from(reservationSeats).where(eq(reservationSeats.eventId, id)),
   ]);
   const localStart = formatLocalDateTime(event.startsAt, event.timeZone);
   return (
@@ -255,6 +259,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : null}
         </div>
       )}
+      <EventSeatingStats
+        seatedParticipantCount={Number(seatedCounts[0]?.value ?? 0)}
+        occupiedSeatCount={Number(occupiedCounts[0]?.value ?? 0)}
+      />
       {event.status !== "ended" ? (
         <EventSeatManagementForm
           eventId={event.id}
