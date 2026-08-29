@@ -5,6 +5,7 @@ import { EventSeatManagementForm } from "@/features/events/event-seat-management
 import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { EventStatusForm } from "@/features/events/event-status-form";
 import { EventSeatingStats } from "@/features/events/event-seating-stats";
+import { EventPrizeInventory } from "@/features/events/event-prize-inventory";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
@@ -17,6 +18,7 @@ import {
   events,
   halls,
   locationPresets,
+  lotteryDraws,
   lotteryPrizes,
   reservations,
   reservationSeats,
@@ -63,7 +65,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     .where(eq(events.id, id))
     .limit(1);
   if (!event) notFound();
-  const [types, prizes, hallSeatRows, availableRows, reservedRows, locations, seatedCounts, occupiedCounts] = await Promise.all([
+  const [types, prizes, hallSeatRows, availableRows, reservedRows, locations, seatedCounts, occupiedCounts, awardedPrizeCounts] = await Promise.all([
     getDb()
       .select()
       .from(ticketTypes)
@@ -90,6 +92,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     getDb().select().from(locationPresets).orderBy(asc(locationPresets.name)),
     getDb().select({ value: count() }).from(reservations).where(eq(reservations.eventId, id)),
     getDb().select({ value: count() }).from(reservationSeats).where(eq(reservationSeats.eventId, id)),
+    getDb()
+      .select({ prizeId: lotteryDraws.prizeId, value: count() })
+      .from(lotteryDraws)
+      .where(eq(lotteryDraws.eventId, id))
+      .groupBy(lotteryDraws.prizeId),
   ]);
   const localStart = formatLocalDateTime(event.startsAt, event.timeZone);
   return (
@@ -241,28 +248,27 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               ))}
             </ul>
           </section>
-          {event.lotteryEnabled ? (
-            <section className="panel">
-              <h2>奖品清单</h2>
-              <ul className="record-list">
-                {prizes.map((prize) => (
-                  <li key={prize.id}>
-                    <strong>{prize.name}</strong>
-                    <span>数量 {prize.quantity}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="muted">
-                未中奖由系统按总抽奖次数自动补足；额外奖池人数 {event.lotteryPoolBonus}。
-              </p>
-            </section>
-          ) : null}
         </div>
       )}
       <EventSeatingStats
         seatedParticipantCount={Number(seatedCounts[0]?.value ?? 0)}
         occupiedSeatCount={Number(occupiedCounts[0]?.value ?? 0)}
       />
+      {event.lotteryEnabled ? (
+        <EventPrizeInventory
+          prizes={prizes.map((prize) => {
+            const awarded = Number(
+              awardedPrizeCounts.find((row) => row.prizeId === prize.id)?.value ?? 0,
+            );
+            return {
+              id: prize.id,
+              name: prize.name,
+              total: prize.quantity,
+              remaining: prize.quantity - awarded,
+            };
+          })}
+        />
+      ) : null}
       {event.status !== "ended" ? (
         <EventSeatManagementForm
           eventId={event.id}
