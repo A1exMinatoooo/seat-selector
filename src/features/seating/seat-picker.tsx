@@ -49,6 +49,7 @@ export function SeatPicker({
   const [busy, setBusy] = useState(false);
   const [showTheaterManners, setShowTheaterManners] = useState(true);
   const selectedRef = useRef(selected);
+  const seatViewportRef = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<number>(undefined);
   const pendingDisplacedRef = useRef(new Set<string>());
   const reportingDisplacedRef = useRef(false);
@@ -82,6 +83,7 @@ export function SeatPicker({
 
   const closeTheaterManners = useCallback(() => {
     setShowTheaterManners(false);
+    seatViewportRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
     showToast("双指可放大缩小座位图");
   }, [showToast]);
 
@@ -252,6 +254,7 @@ export function SeatPicker({
       </header>
       <section className="seat-map-wrap">
         <div className="screen">银幕方向</div>
+        <div ref={seatViewportRef}>
         <SeatGridViewport
           ariaLabel="可选座位区域"
           className="public-grid-viewport"
@@ -284,6 +287,7 @@ export function SeatPicker({
             })}
           </div>
         </SeatGridViewport>
+        </div>
       </section>
       <footer className="selection-bar">
         <div>

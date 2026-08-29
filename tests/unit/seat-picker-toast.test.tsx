@@ -25,6 +25,8 @@ afterEach(() => {
 
 describe("SeatPicker toast", () => {
   it("shows the pinch hint after manners and replaces its timer with newer feedback", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
     render(
       <SeatPicker
         code="summer-screening"
@@ -49,6 +51,7 @@ describe("SeatPicker toast", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "start" });
     expect(screen.getByRole("status").textContent).toBe("双指可放大缩小座位图");
     act(() => vi.advanceTimersByTime(1_000));
     fireEvent.click(screen.getByRole("button", { name: "A排1座" }));
