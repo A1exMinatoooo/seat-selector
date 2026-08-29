@@ -7,6 +7,7 @@ import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
 import { centerDividerOffset } from "./public-seat-layout";
 import { responseErrorMessage } from "@/shared/error-message";
 import { SeatGridViewport } from "./seat-grid-viewport";
+import { TheaterMannersDialog } from "./theater-manners-dialog";
 
 export type SeatDto = {
   id: string;
@@ -47,6 +48,7 @@ export function SeatPicker({
   const [version, setVersion] = useState(initialVersion);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showTheaterManners, setShowTheaterManners] = useState(true);
   const selectedRef = useRef(selected);
   const pendingDisplacedRef = useRef(new Set<string>());
   const reportingDisplacedRef = useRef(false);
@@ -294,6 +296,9 @@ export function SeatPicker({
         <div className="toast" role="status">
           {toast}
         </div>
+      ) : null}
+      {showTheaterManners ? (
+        <TheaterMannersDialog onClose={() => setShowTheaterManners(false)} />
       ) : null}
     </main>
   );
