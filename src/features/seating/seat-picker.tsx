@@ -259,7 +259,7 @@ export function SeatPicker({
           ariaLabel="可选座位区域"
           className="public-grid-viewport"
           layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
-          legend={<div className="legend" aria-label="参与者座位图图例">
+          legend={<div className="legend participant-legend" aria-label="参与者座位图图例">
             <span className="available">可选</span>
             <span className="golden">黄金区</span>
             <span className="mine">我的选择</span>
@@ -282,7 +282,21 @@ export function SeatPicker({
               const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);
               return <div className="public-seat-row" style={{ gridTemplateColumns: `32px repeat(${columns}, 42px)` }} key={rowIndex}>
                 <span className="public-seat-coordinate" data-seat-row-coordinate={rowLabel} data-seat-row-key={`public:${rowIndex}`}>{rowLabel}</span>
-                {rowSeats.map((seat) => <button key={seat.id} type="button" aria-label={formatSeatLabel(seat.rowLabel, seat.columnLabel)} disabled={seat.kind !== "seat" || !seat.selectable || !available.has(seat.id)} className={`public-seat ${seat.kind} ${seat.golden ? "golden" : ""} ${occupied.has(seat.id) ? "occupied" : ""} ${selected.includes(seat.id) ? "mine" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? displaySeatNumber(seat.columnLabel) : ""}</button>)}
+                {rowSeats.map((seat) => {
+                  const isOccupied = occupied.has(seat.id);
+                  const isMine = selected.includes(seat.id);
+                  const isBlocked =
+                    seat.kind === "seat" && (!seat.selectable || !available.has(seat.id));
+                  const label = formatSeatLabel(seat.rowLabel, seat.columnLabel);
+                  const stateLabel = isOccupied
+                    ? "已被他人选择"
+                    : isBlocked
+                      ? "不可选"
+                      : isMine
+                        ? "我的选择"
+                        : "可选";
+                  return <button key={seat.id} type="button" aria-label={`${label}：${stateLabel}`} disabled={seat.kind !== "seat" || (!isOccupied && isBlocked)} className={`public-seat ${seat.kind} ${seat.golden && !isBlocked && !isOccupied ? "golden" : ""} ${isOccupied ? "occupied" : ""} ${isBlocked && !isOccupied ? "blocked" : ""} ${isMine ? "mine" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? isOccupied || isBlocked ? <span aria-hidden="true">×</span> : displaySeatNumber(seat.columnLabel) : ""}</button>;
+                })}
               </div>;
             })}
           </div>
