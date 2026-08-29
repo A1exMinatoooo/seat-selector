@@ -15,7 +15,10 @@ import { sql } from "drizzle-orm";
 
 export const seatKind = pgEnum("seat_kind", ["seat", "aisle", "empty"]);
 export const eventStatus = pgEnum("event_status", ["draft", "open", "ended"]);
-export const eventParticipationMode = pgEnum("event_participation_mode", ["onsite", "preregistered"]);
+export const eventParticipationMode = pgEnum("event_participation_mode", [
+  "onsite",
+  "preregistered",
+]);
 export const eventSeatHalf = pgEnum("event_seat_half", ["left", "right"]);
 export const participantSource = pgEnum("participant_source", ["onsite", "preregistered"]);
 export const auditLevel = pgEnum("audit_level", ["info", "warn", "error"]);
@@ -108,7 +111,7 @@ export const events = pgTable(
     locationCheckEnabled: boolean("location_check_enabled").notNull().default(true),
     lotteryEnabled: boolean("lottery_enabled").notNull().default(false),
     participationMode: eventParticipationMode("participation_mode").notNull().default("onsite"),
-    maxTicketsPerIssue: integer("max_tickets_per_issue").notNull().default(3),
+    maxTicketsPerIssue: integer("max_tickets_per_issue").notNull().default(7),
     expectedLotteryTickets: integer("expected_lottery_tickets"),
     nextIssueNumber: integer("next_issue_number").notNull().default(1),
     qrTokenNonce: text("qr_token_nonce"),
@@ -197,7 +200,9 @@ export const ticketIssues = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }).notNull(),
     invalidatedAt: timestamp("invalidated_at", { withTimezone: true, precision: 3 }),
     consumedAt: timestamp("consumed_at", { withTimezone: true, precision: 3 }),
-    participantId: uuid("participant_id").references(() => participants.id, { onDelete: "set null" }),
+    participantId: uuid("participant_id").references(() => participants.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     uniqueIndex("ticket_issues_token_hash_uidx").on(table.tokenHash),

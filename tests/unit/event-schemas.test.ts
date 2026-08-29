@@ -11,7 +11,9 @@ const baseInput = {
   timeZone: "Asia/Shanghai",
   locationCheckEnabled: true,
   lotteryEnabled: false,
-  ticketTypes: [{ id: "00000000-0000-4000-8000-000000000003", name: "普通票", lotteryEligible: false }],
+  ticketTypes: [
+    { id: "00000000-0000-4000-8000-000000000003", name: "普通票", lotteryEligible: false },
+  ],
   prizes: [],
 };
 
@@ -19,19 +21,37 @@ describe("event configuration validation", () => {
   it("parses separate local date and time in the selected time zone", () => {
     const parsed = eventConfigurationInputSchema.parse(baseInput);
     expect(parsed.startsAt.toISOString()).toBe("2026-08-07T11:30:00.000Z");
+    expect(parsed.maxTicketsPerIssue).toBe(7);
+  });
+
+  it("keeps an explicitly configured onsite issue limit", () => {
+    expect(
+      eventConfigurationInputSchema.parse({ ...baseInput, maxTicketsPerIssue: 4 })
+        .maxTicketsPerIssue,
+    ).toBe(4);
   });
 
   it("requires lottery eligibility and a prize when lottery is enabled", () => {
-    expect(eventConfigurationInputSchema.safeParse({ ...baseInput, lotteryEnabled: true }).success).toBe(false);
+    expect(
+      eventConfigurationInputSchema.safeParse({ ...baseInput, lotteryEnabled: true }).success,
+    ).toBe(false);
   });
 
   it("parses the activity-level location check switch", () => {
-    expect(eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: "on" }).locationCheckEnabled).toBe(true);
-    expect(eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: undefined }).locationCheckEnabled).toBe(false);
+    expect(
+      eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: "on" })
+        .locationCheckEnabled,
+    ).toBe(true);
+    expect(
+      eventConfigurationInputSchema.parse({ ...baseInput, locationCheckEnabled: undefined })
+        .locationCheckEnabled,
+    ).toBe(false);
   });
 
   it("rejects lottery-eligible ticket types while lottery is disabled", () => {
     const ticketTypes = [{ ...baseInput.ticketTypes[0], lotteryEligible: true }];
-    expect(eventConfigurationInputSchema.safeParse({ ...baseInput, ticketTypes }).success).toBe(false);
+    expect(eventConfigurationInputSchema.safeParse({ ...baseInput, ticketTypes }).success).toBe(
+      false,
+    );
   });
 });

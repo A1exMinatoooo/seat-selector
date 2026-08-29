@@ -1,0 +1,1 @@
+ALTER TABLE "events" ALTER COLUMN "max_tickets_per_issue" SET DEFAULT 7;
