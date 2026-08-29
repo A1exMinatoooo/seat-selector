@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
-import { centerDividerOffset } from "./public-seat-layout";
 import { responseErrorMessage } from "@/shared/error-message";
 import { SeatGridViewport } from "./seat-grid-viewport";
 import { TheaterMannersDialog } from "./theater-manners-dialog";
@@ -236,26 +235,26 @@ export function SeatPicker({
     [seats, selected],
   );
 
-  const centerX = 40 + centerDividerOffset(columns, centerAfterColumn);
-
   return (
     <main className="seat-page">
       <header>
         <p className="eyebrow">{eventName}</p>
         <h1>挑选你的座位</h1>
-        <div className="legend">
-          <span className="available">可选</span>
-          <span className="golden">黄金区</span>
-          <span className="occupied">已选</span>
-          <span className="blocked">不可选</span>
-        </div>
       </header>
       <section className="seat-map-wrap">
         <div className="screen">银幕方向</div>
         <SeatGridViewport
           ariaLabel="可选座位区域"
           className="public-grid-viewport"
-          initialView={{ fit: "height", focusX: centerX }}
+          layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
+          legend={<div className="legend" aria-label="参与者座位图图例">
+            <span className="available">可选</span>
+            <span className="golden">黄金区</span>
+            <span className="mine">我的选择</span>
+            <span className="occupied">他人已选</span>
+            <span className="blocked">不可选</span>
+            <span className="divider">左右半场中线</span>
+          </div>}
           mobileMinimap
         >
           <div

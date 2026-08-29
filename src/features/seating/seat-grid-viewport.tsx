@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-const MIN_SCALE = 0.25;
+const MIN_SCALE = 0.05;
 const MAX_SCALE = 2;
 const SCALE_STEP = 0.1;
 const VIEWPORT_PADDING = 24;
@@ -118,7 +118,8 @@ type SeatGridViewportProps = {
   className?: string;
   gesturesEnabled?: boolean;
   interactionHint?: ReactNode;
-  initialView?: { fit: "height"; focusX: number };
+  legend?: ReactNode;
+  layoutKey?: string;
   mobileMinimap?: boolean;
 };
 
@@ -146,7 +147,8 @@ export function SeatGridViewport({
   className = "",
   gesturesEnabled = true,
   interactionHint,
-  initialView,
+  legend,
+  layoutKey = "default",
   mobileMinimap = false,
 }: SeatGridViewportProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -157,6 +159,9 @@ export function SeatGridViewport({
   const minimapHideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const minimapVisibleRef = useRef(false);
   const initialViewAppliedRef = useRef(false);
+  const activeLayoutKeyRef = useRef(layoutKey);
+  const userAdjustedViewRef = useRef(false);
+  const applyingFitRef = useRef(false);
   const pinchRef = useRef<{
     distance: number;
     scale: number;
@@ -173,6 +178,24 @@ export function SeatGridViewport({
     width: 100,
     height: 100,
   });
+
+  const fitGrid = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || gridSize.width <= 0 || gridSize.height <= 0) return;
+    const nextScale = fitSeatGridScale(
+      viewport.clientWidth,
+      viewport.clientHeight,
+      gridSize.width,
+      gridSize.height,
+    );
+    applyingFitRef.current = true;
+    scaleRef.current = nextScale;
+    setScale(nextScale);
+    viewport.scrollTo({ top: 0, left: 0 });
+    requestAnimationFrame(() => {
+      applyingFitRef.current = false;
+    });
+  }, [gridSize.height, gridSize.width]);
 
   const measureMinimapViewport = useCallback(() => {
     const viewport = viewportRef.current;
@@ -278,6 +301,7 @@ export function SeatGridViewport({
     };
     const noteTouchNavigation = () => showMinimapDuringNavigation();
     const noteScrollNavigation = () => {
+      if (!applyingFitRef.current) userAdjustedViewRef.current = true;
       if (minimapVisibleRef.current) showMinimapDuringNavigation();
       schedule();
     };
@@ -296,32 +320,26 @@ export function SeatGridViewport({
   }, [measureCoordinates, measureMinimapViewport, scale, showMinimapDuringNavigation]);
 
   useLayoutEffect(() => {
+    if (activeLayoutKeyRef.current !== layoutKey) {
+      activeLayoutKeyRef.current = layoutKey;
+      initialViewAppliedRef.current = false;
+      userAdjustedViewRef.current = false;
+    }
+    if (!initialViewAppliedRef.current || !userAdjustedViewRef.current) {
+      initialViewAppliedRef.current = true;
+      fitGrid();
+    }
+  }, [fitGrid, layoutKey]);
+
+  useLayoutEffect(() => {
     const viewport = viewportRef.current;
-    if (
-      !initialView ||
-      initialViewAppliedRef.current ||
-      !viewport ||
-      gridSize.width <= 0 ||
-      gridSize.height <= 0
-    )
-      return;
-    const initialScale = fitSeatGridHeightScale(viewport.clientHeight, gridSize.height);
-    initialViewAppliedRef.current = true;
-    scaleRef.current = initialScale;
-    setScale(initialScale);
-    requestAnimationFrame(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      viewport.scrollTo({
-        top: 0,
-        left: centeredSeatGridScrollLeft(
-          viewport.clientWidth,
-          viewport.scrollWidth,
-          canvas.offsetLeft + initialView.focusX * initialScale,
-        ),
-      });
+    if (!viewport) return;
+    const observer = new ResizeObserver(() => {
+      if (!userAdjustedViewRef.current) fitGrid();
     });
-  }, [gridSize, initialView]);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [fitGrid]);
 
   useLayoutEffect(() => {
     const currentViewport = viewportRef.current;
@@ -355,6 +373,7 @@ export function SeatGridViewport({
         contentX: (viewport.scrollLeft + localX) / scaleRef.current,
         contentY: (viewport.scrollTop + localY) / scaleRef.current,
       };
+      userAdjustedViewRef.current = true;
     }
 
     function movePinch(event: TouchEvent) {
@@ -393,23 +412,10 @@ export function SeatGridViewport({
   }, [gesturesEnabled]);
 
   function updateScale(nextScale: number) {
+    userAdjustedViewRef.current = true;
     const normalizedScale = Math.round(clampSeatGridScale(nextScale) * 100) / 100;
     scaleRef.current = normalizedScale;
     setScale(normalizedScale);
-  }
-
-  function fitGrid() {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    updateScale(
-      fitSeatGridScale(
-        viewport.clientWidth,
-        viewport.clientHeight,
-        gridSize.width,
-        gridSize.height,
-      ),
-    );
-    viewport.scrollTo({ top: 0, left: 0 });
   }
 
   const canvasStyle = {
@@ -437,6 +443,7 @@ export function SeatGridViewport({
       className={`seat-grid-viewport ${gesturesEnabled ? "gestures-enabled" : "gestures-disabled"} ${className}`.trim()}
       aria-label={ariaLabel}
     >
+      {legend ? <div className="seat-grid-legend">{legend}</div> : null}
       <div className="seat-grid-viewport-toolbar" role="toolbar" aria-label="座位网格缩放">
         <button
           type="button"
@@ -457,7 +464,10 @@ export function SeatGridViewport({
         >
           ＋
         </button>
-        <button type="button" aria-label="缩放以显示完整座位网格" onClick={fitGrid}>
+        <button type="button" aria-label="缩放以显示完整座位网格" onClick={() => {
+          userAdjustedViewRef.current = false;
+          fitGrid();
+        }}>
           显示完整
         </button>
       </div>

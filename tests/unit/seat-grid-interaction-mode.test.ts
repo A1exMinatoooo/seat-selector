@@ -57,6 +57,7 @@ describe("seat grid interaction modes", () => {
       ariaLabel: "测试网格",
       gesturesEnabled: false,
       interactionHint: createElement("p", null, "操作提示"),
+      legend: createElement("p", null, "顶部图例"),
     };
     const markup = renderToStaticMarkup(createElement(SeatGridViewport, props));
 
@@ -64,6 +65,7 @@ describe("seat grid interaction modes", () => {
     expect(markup).toContain('aria-label="缩小座位网格"');
     expect(markup).toContain('aria-label="放大座位网格"');
     expect(markup).toContain("显示完整");
+    expect(markup.indexOf("顶部图例")).toBeLessThan(markup.indexOf("显示完整"));
     expect(markup.indexOf("显示完整")).toBeLessThan(markup.indexOf("操作提示"));
     expect(markup.indexOf("操作提示")).toBeLessThan(markup.indexOf("seat-grid-viewport-body"));
   });

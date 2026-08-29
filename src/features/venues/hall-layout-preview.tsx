@@ -18,7 +18,19 @@ export function HallLayoutPreview({
   const columns = Math.max(...cells.map((cell) => cell.columnIndex), 0) + 1;
   const rowIndexes = [...new Set(cells.map((cell) => cell.rowIndex))];
   return (
-    <SeatGridViewport ariaLabel="已保存的影厅座位布局" className="preview-grid-viewport">
+    <SeatGridViewport
+      ariaLabel="已保存的影厅座位布局"
+      className="preview-grid-viewport"
+      layoutKey={`${cells.length}:${columns}:${centerAfterColumn ?? "none"}`}
+      legend={<div className="legend" aria-label="影厅预览图例">
+        <span className="available">普通座位</span>
+        <span className="golden">黄金区</span>
+        <span className="blocked">不可选</span>
+        <span className="aisle">过道</span>
+        <span className="empty">空白</span>
+        <span className="divider">左右半场中线</span>
+      </div>}
+    >
       <div className="seat-grid saved-layout-grid" role="img" aria-label="已保存的影厅座位布局">
         {rowIndexes.map((rowIndex) => {
           const rowCells = cells.filter((cell) => cell.rowIndex === rowIndex);

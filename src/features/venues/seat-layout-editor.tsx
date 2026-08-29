@@ -332,6 +332,15 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       <SeatGridViewport
         ariaLabel="座位布局绘制区域"
         className="editor-grid-viewport"
+        layoutKey={`${rowLabels.length}:${columns}`}
+        legend={<div className="legend" aria-label="影厅模板编辑图例">
+          <span className="available">普通座位</span>
+          <span className="golden">黄金区</span>
+          <span className="blocked">不可选</span>
+          <span className="aisle">过道</span>
+          <span className="empty">空白</span>
+          <span className="divider">左右半场中线</span>
+        </div>}
         gesturesEnabled={tool === "navigate"}
         interactionHint={
           <p className="grid-interaction-hint muted" role="status" aria-live="polite">

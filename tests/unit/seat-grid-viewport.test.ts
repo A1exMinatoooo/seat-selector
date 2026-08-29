@@ -18,15 +18,16 @@ describe("seat grid viewport scale", () => {
   });
 
   it("keeps manual and fitted zoom within supported limits", () => {
-    expect(clampSeatGridScale(0.1)).toBe(0.25);
+    expect(clampSeatGridScale(0.01)).toBe(0.05);
     expect(clampSeatGridScale(3)).toBe(2);
-    expect(fitSeatGridScale(200, 200, 2000, 2000)).toBe(0.25);
+    expect(fitSeatGridScale(200, 200, 2000, 2000)).toBe(0.08);
+    expect(fitSeatGridScale(360, 600, 2500, 2500)).toBe(0.13);
   });
 
   it("fits every row vertically without shrinking for the grid width", () => {
     expect(fitSeatGridHeightScale(600, 800)).toBe(0.72);
     expect(fitSeatGridHeightScale(600, 400)).toBe(1);
-    expect(fitSeatGridHeightScale(200, 2000)).toBe(0.25);
+    expect(fitSeatGridHeightScale(200, 2000)).toBe(0.08);
   });
 
   it("centers a focus point horizontally within the scrollable range", () => {

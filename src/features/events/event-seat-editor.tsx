@@ -414,6 +414,15 @@ export function EventSeatEditor({
       <SeatGridViewport
         ariaLabel="活动座位开放区域"
         className="editor-grid-viewport"
+        layoutKey={hall.id}
+        legend={<div className="legend" aria-label="活动开放范围图例">
+          <span className="available">基础开放</span>
+          <span className="golden">黄金区</span>
+          <span className="blocked">基础关闭</span>
+          <span className="half-locked">半场锁定</span>
+          <span className="reserved">已被选择</span>
+          <span className="divider">左右半场中线</span>
+        </div>}
         gesturesEnabled={interactionMode === "navigate"}
         interactionHint={
           <p className="grid-interaction-hint muted" role="status" aria-live="polite">
