@@ -3,6 +3,8 @@ import { asc, count, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { EventSeatManagementForm } from "@/features/events/event-seat-management-form";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
+import { AdminActionForm } from "@/features/admin/admin-action-form";
+import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
 import { EventStatusForm } from "@/features/events/event-status-form";
 import { EventSeatingStats } from "@/features/events/event-seating-stats";
 import { EventPrizeInventory } from "@/features/events/event-prize-inventory";
@@ -65,7 +67,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     .where(eq(events.id, id))
     .limit(1);
   if (!event) notFound();
-  const [types, prizes, hallSeatRows, availableRows, reservedRows, locations, seatedCounts, occupiedCounts, awardedPrizeCounts] = await Promise.all([
+  const [
+    types,
+    prizes,
+    hallSeatRows,
+    availableRows,
+    reservedRows,
+    locations,
+    seatedCounts,
+    occupiedCounts,
+    awardedPrizeCounts,
+  ] = await Promise.all([
     getDb()
       .select()
       .from(ticketTypes)
@@ -91,7 +103,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .where(eq(reservationSeats.eventId, id)),
     getDb().select().from(locationPresets).orderBy(asc(locationPresets.name)),
     getDb().select({ value: count() }).from(reservations).where(eq(reservations.eventId, id)),
-    getDb().select({ value: count() }).from(reservationSeats).where(eq(reservationSeats.eventId, id)),
+    getDb()
+      .select({ value: count() })
+      .from(reservationSeats)
+      .where(eq(reservationSeats.eventId, id)),
     getDb()
       .select({ prizeId: lotteryDraws.prizeId, value: count() })
       .from(lotteryDraws)
@@ -130,7 +145,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         </div>
       </header>
       {event.status === "draft" ? (
-        <form action={updateEventConfigurationAction} className="panel wide stack-form">
+        <AdminActionForm action={updateEventConfigurationAction} className="panel wide stack-form">
           <h2>编辑活动设置</h2>
           <input type="hidden" name="id" value={event.id} />
           <div className="form-row">
@@ -200,10 +215,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             initialMaxTicketsPerIssue={event.maxTicketsPerIssue}
             initialExpectedLotteryTickets={event.expectedLotteryTickets}
           />
-          <button className="button primary" type="submit">
-            保存活动设置
-          </button>
-        </form>
+          <AdminSubmitButton pendingLabel="正在保存…">保存活动设置</AdminSubmitButton>
+        </AdminActionForm>
       ) : (
         <div className="admin-grid">
           <section className="panel">

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { asc, eq, isNull } from "drizzle-orm";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
+import { AdminActionForm } from "@/features/admin/admin-action-form";
+import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
 import { EventSeatEditor } from "@/features/events/event-seat-editor";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
@@ -55,7 +57,7 @@ export default async function NewEventPage() {
         </div>
       </header>
       {hallRows.length && locations.length ? (
-        <form action={createEventAction} className="panel stack-form">
+        <AdminActionForm action={createEventAction} className="panel stack-form">
           <div className="form-row">
             <label>
               活动名称
@@ -98,10 +100,8 @@ export default async function NewEventPage() {
             planningToolsEnabled
           />
           <TicketTypeFields />
-          <button className="button primary" type="submit">
-            保存草稿
-          </button>
-        </form>
+          <AdminSubmitButton pendingLabel="正在保存…">保存草稿</AdminSubmitButton>
+        </AdminActionForm>
       ) : (
         <section className="panel">
           <p>请先建立至少一个影厅模板和活动地点。</p>
