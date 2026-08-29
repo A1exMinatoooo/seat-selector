@@ -8,7 +8,7 @@ import { createTicketIssueToken, verifyTicketIssueToken } from "@/server/securit
 import { DomainError, errorCodes } from "@/shared/errors";
 import { hasOnsiteLotteryCapacity, ticketIssueAllocationSchema, ticketIssueTotal } from "./ticket-issue-rules";
 
-export type TicketIssueStatus = "active" | "claimed" | "expired" | "replaced";
+export type TicketIssueStatus = "active" | "claimed" | "expired" | "cancelled";
 
 export async function createTicketIssue(eventId: string, rawAllocation: unknown, now = Date.now()) {
   const allocation = ticketIssueAllocationSchema.parse(rawAllocation);
@@ -20,7 +20,6 @@ export async function createTicketIssue(eventId: string, rawAllocation: unknown,
     const validTypes = await tx.select({ id: ticketTypes.id, name: ticketTypes.name }).from(ticketTypes).where(and(eq(ticketTypes.eventId, eventId), inArray(ticketTypes.id, allocation.map((item) => item.ticketTypeId))));
     if (validTypes.length !== allocation.length) throw new DomainError(errorCodes.validation, "票种不属于该活动", 400);
     const created = createTicketIssueToken(event.publicCode, now);
-    await tx.update(ticketIssues).set({ invalidatedAt: created.issuedAt }).where(and(eq(ticketIssues.eventId, eventId), isNull(ticketIssues.consumedAt), isNull(ticketIssues.invalidatedAt)));
     await tx.insert(ticketIssues).values({ id: created.issueId, eventId, tokenNonce: created.nonce, tokenHash: created.tokenHash, allocation, issuedAt: created.issuedAt, expiresAt: created.expiresAt });
     await tx.insert(eventAuditLogs).values({ eventId, action: "ticket_issue_created", details: { issueId: created.issueId, ticketTotal, tickets: allocation.map((item) => ({ name: validTypes.find((type) => type.id === item.ticketTypeId)?.name ?? "未知票种", quantity: item.quantity })) } });
     return { ...created, publicCode: event.publicCode, eventName: event.name, allocation: allocation.map((item) => ({ ...item, name: validTypes.find((type) => type.id === item.ticketTypeId)?.name ?? "未知票种" })) };
@@ -31,9 +30,24 @@ export async function ticketIssueStatus(eventId: string, issueId: string, now = 
   const [issue] = await getDb().select({ consumedAt: ticketIssues.consumedAt, invalidatedAt: ticketIssues.invalidatedAt, expiresAt: ticketIssues.expiresAt }).from(ticketIssues).where(and(eq(ticketIssues.id, issueId), eq(ticketIssues.eventId, eventId))).limit(1);
   if (!issue) throw new DomainError(errorCodes.notFound, "发行记录不存在", 404);
   if (issue.consumedAt) return "claimed";
-  if (issue.invalidatedAt) return "replaced";
+  if (issue.invalidatedAt) return "cancelled";
   if (issue.expiresAt.getTime() <= now) return "expired";
   return "active";
+}
+
+export async function cancelTicketIssue(eventId: string, issueId: string, now = Date.now()): Promise<Exclude<TicketIssueStatus, "active">> {
+  return getDb().transaction(async (tx) => {
+    const [event] = await tx.select({ id: events.id }).from(events).where(eq(events.id, eventId)).limit(1).for("update");
+    if (!event) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
+    const [issue] = await tx.select({ consumedAt: ticketIssues.consumedAt, invalidatedAt: ticketIssues.invalidatedAt, expiresAt: ticketIssues.expiresAt }).from(ticketIssues).where(and(eq(ticketIssues.id, issueId), eq(ticketIssues.eventId, eventId))).limit(1).for("update");
+    if (!issue) throw new DomainError(errorCodes.notFound, "发行记录不存在", 404);
+    if (issue.consumedAt) return "claimed";
+    if (issue.invalidatedAt) return "cancelled";
+    if (issue.expiresAt.getTime() <= now) return "expired";
+    const [cancelled] = await tx.update(ticketIssues).set({ invalidatedAt: new Date(now) }).where(and(eq(ticketIssues.id, issueId), eq(ticketIssues.eventId, eventId), isNull(ticketIssues.consumedAt), isNull(ticketIssues.invalidatedAt))).returning({ id: ticketIssues.id });
+    if (!cancelled) throw new DomainError(errorCodes.eventConflict, "二维码状态已变化", 409);
+    return "cancelled";
+  });
 }
 
 export async function claimTicketIssue(publicCode: string, token: string, deviceHash: string, now = Date.now()) {
