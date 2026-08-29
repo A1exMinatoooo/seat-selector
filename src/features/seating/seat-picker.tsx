@@ -49,6 +49,7 @@ export function SeatPicker({
   const [busy, setBusy] = useState(false);
   const [showTheaterManners, setShowTheaterManners] = useState(true);
   const selectedRef = useRef(selected);
+  const toastTimerRef = useRef<number>(undefined);
   const pendingDisplacedRef = useRef(new Set<string>());
   const reportingDisplacedRef = useRef(false);
   const columns = Math.max(...seats.map((seat) => seat.columnIndex), 0) + 1;
@@ -57,6 +58,8 @@ export function SeatPicker({
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -72,9 +75,15 @@ export function SeatPicker({
   }, [code]);
 
   const showToast = useCallback((message: string) => {
+    window.clearTimeout(toastTimerRef.current);
     setToast(message);
-    setTimeout(() => setToast(""), 2600);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 2_600);
   }, []);
+
+  const closeTheaterManners = useCallback(() => {
+    setShowTheaterManners(false);
+    showToast("双指可放大缩小座位图");
+  }, [showToast]);
 
   const reportDisplaced = useCallback(async () => {
     if (reportingDisplacedRef.current || pendingDisplacedRef.current.size === 0) return;
@@ -297,7 +306,7 @@ export function SeatPicker({
         </div>
       ) : null}
       {showTheaterManners ? (
-        <TheaterMannersDialog onClose={() => setShowTheaterManners(false)} />
+        <TheaterMannersDialog onClose={closeTheaterManners} />
       ) : null}
     </main>
   );
