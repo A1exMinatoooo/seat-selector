@@ -14,7 +14,10 @@ class ResizeObserverStub {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 204 })),
+  );
 });
 
 afterEach(() => {
@@ -31,25 +34,28 @@ describe("SeatPicker toast", () => {
       <SeatPicker
         code="summer-screening"
         eventName="夏日放映"
-        seats={[{
-          id: "seat-1",
-          rowIndex: 0,
-          columnIndex: 0,
-          rowLabel: "A",
-          columnLabel: "1",
-          kind: "seat",
-          selectable: true,
-          golden: false,
-        }, {
-          id: "seat-2",
-          rowIndex: 0,
-          columnIndex: 1,
-          rowLabel: "A",
-          columnLabel: "2",
-          kind: "seat",
-          selectable: true,
-          golden: false,
-        }]}
+        seats={[
+          {
+            id: "seat-1",
+            rowIndex: 0,
+            columnIndex: 0,
+            rowLabel: "A",
+            columnLabel: "1",
+            kind: "seat",
+            selectable: true,
+            golden: false,
+          },
+          {
+            id: "seat-2",
+            rowIndex: 0,
+            columnIndex: 1,
+            rowLabel: "A",
+            columnLabel: "2",
+            kind: "seat",
+            selectable: true,
+            golden: false,
+          },
+        ]}
         initialAvailable={["seat-1"]}
         initialOccupied={["seat-1"]}
         initialVersion={1}
@@ -65,10 +71,16 @@ describe("SeatPicker toast", () => {
     act(() => vi.advanceTimersByTime(1_000));
     const occupied = screen.getByRole("button", { name: "A排1座：已被他人选择" });
     const blocked = screen.getByRole("button", { name: "A排2座：不可选" });
-    expect(occupied.textContent).toBe("×");
     expect(occupied.className).toContain("occupied");
-    expect(blocked.textContent).toBe("×");
     expect(blocked.className).toContain("blocked");
+    expect(
+      occupied.querySelector('[data-seat-state-icon="occupied"]')?.classList.contains("lucide-x"),
+    ).toBe(true);
+    expect(
+      blocked.querySelector('[data-seat-state-icon="blocked"]')?.classList.contains("lucide-ban"),
+    ).toBe(true);
+    expect(occupied.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(blocked.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     fireEvent.click(occupied);
     expect(screen.getByRole("status").textContent).toBe("这个座位已被其他参与者选择。");
     act(() => vi.advanceTimersByTime(1_600));

@@ -26,7 +26,9 @@ describe("SelectField", () => {
       </form>,
     );
 
-    await user.click(screen.getByRole("button", { name: /甲影院 · 1号厅/ }));
+    const trigger = screen.getByRole("button", { name: /甲影院 · 1号厅/ });
+    expect(trigger.querySelector(".lucide-chevron-down")?.getAttribute("aria-hidden")).toBe("true");
+    await user.click(trigger);
     expect(screen.getByText("甲影院").getAttribute("role")).not.toBe("option");
     await user.click(screen.getByRole("option", { name: "IMAX厅" }));
 
@@ -51,6 +53,9 @@ describe("SelectField", () => {
     );
 
     const input = screen.getByRole("combobox", { name: "显示时区" });
+    expect(
+      screen.getByRole("button", { name: "展开选项" }).querySelector(".lucide-chevron-down"),
+    ).toBeTruthy();
     await user.clear(input);
     await user.type(input, "Tokyo");
     const tokyoOption = screen.getByRole("option", { name: "Asia/Tokyo" });

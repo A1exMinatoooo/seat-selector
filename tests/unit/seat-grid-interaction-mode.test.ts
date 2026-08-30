@@ -64,6 +64,8 @@ describe("seat grid interaction modes", () => {
     expect(markup).toContain("gestures-disabled");
     expect(markup).toContain('aria-label="缩小座位网格"');
     expect(markup).toContain('aria-label="放大座位网格"');
+    expect(markup).toContain("lucide-zoom-out");
+    expect(markup).toContain("lucide-zoom-in");
     expect(markup).toContain("显示完整");
     expect(markup.indexOf("顶部图例")).toBeLessThan(markup.indexOf("显示完整"));
     expect(markup.indexOf("显示完整")).toBeLessThan(markup.indexOf("操作提示"));

@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdminToast } from "@/features/admin/admin-toast";
@@ -98,7 +99,8 @@ function RotatingQrBoard({
           建议使用微信扫描二维码，后续可在同一微信中查看今日选座记录。
         </aside>
         <Link className="qr-back-button" href={backHref}>
-          ← 返回活动详情
+          <ArrowLeft aria-hidden="true" size={20} strokeWidth={2} />
+          返回活动详情
         </Link>
         <p className="eyebrow">现场扫码入场</p>
         <h1>{eventName}</h1>
@@ -281,7 +283,8 @@ function OnsiteIssueBoard({
   return (
     <main className="issue-screen admin-shell">
       <Link className="qr-back-button" href={backHref}>
-        ← 返回活动详情
+        <ArrowLeft aria-hidden="true" size={20} strokeWidth={2} />
+        返回活动详情
       </Link>
       <header className="section-header">
         <div>

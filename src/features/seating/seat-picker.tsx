@@ -1,5 +1,6 @@
 "use client";
 
+import { Ban, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
@@ -18,6 +19,19 @@ export type SeatDto = {
   selectable: boolean;
   golden: boolean;
 };
+
+function SeatStateIcon({ state, size }: { state: "occupied" | "blocked"; size: 14 | 22 }) {
+  const Icon = state === "occupied" ? X : Ban;
+  return (
+    <Icon
+      className="seat-state-icon"
+      data-seat-state-icon={state}
+      aria-hidden="true"
+      size={size}
+      strokeWidth={2}
+    />
+  );
+}
 
 export function SeatPicker({
   code,
@@ -255,52 +269,93 @@ export function SeatPicker({
       <section className="seat-map-wrap">
         <div className="screen">银幕方向</div>
         <div ref={seatViewportRef}>
-        <SeatGridViewport
-          ariaLabel="可选座位区域"
-          className="public-grid-viewport"
-          layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
-          legend={<div className="legend participant-legend" aria-label="参与者座位图图例">
-            <span className="available">可选</span>
-            <span className="golden">黄金区</span>
-            <span className="mine">我的选择</span>
-            <span className="occupied">他人已选</span>
-            <span className="blocked">不可选</span>
-            <span className="divider">左右半场中线</span>
-          </div>}
-          mobileMinimap
-        >
-          <div
-            className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`}
-            style={
-              {
-                "--center-divider-column": (centerAfterColumn ?? Math.floor(columns / 2)) + 1,
-              } as CSSProperties
+          <SeatGridViewport
+            ariaLabel="可选座位区域"
+            className="public-grid-viewport"
+            layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
+            legend={
+              <div className="legend participant-legend" aria-label="参与者座位图图例">
+                <span className="available">可选</span>
+                <span className="golden">黄金区</span>
+                <span className="mine">我的选择</span>
+                <span className="occupied">
+                  <SeatStateIcon state="occupied" size={14} />
+                  他人已选
+                </span>
+                <span className="blocked">
+                  <SeatStateIcon state="blocked" size={14} />
+                  不可选
+                </span>
+                <span className="divider">左右半场中线</span>
+              </div>
             }
+            mobileMinimap
           >
-            {rowIndexes.map((rowIndex) => {
-              const rowSeats = seats.filter((seat) => seat.rowIndex === rowIndex);
-              const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);
-              return <div className="public-seat-row" style={{ gridTemplateColumns: `32px repeat(${columns}, 42px)` }} key={rowIndex}>
-                <span className="public-seat-coordinate" data-seat-row-coordinate={rowLabel} data-seat-row-key={`public:${rowIndex}`}>{rowLabel}</span>
-                {rowSeats.map((seat) => {
-                  const isOccupied = occupied.has(seat.id);
-                  const isMine = selected.includes(seat.id);
-                  const isBlocked =
-                    seat.kind === "seat" && (!seat.selectable || !available.has(seat.id));
-                  const label = formatSeatLabel(seat.rowLabel, seat.columnLabel);
-                  const stateLabel = isOccupied
-                    ? "已被他人选择"
-                    : isBlocked
-                      ? "不可选"
-                      : isMine
-                        ? "我的选择"
-                        : "可选";
-                  return <button key={seat.id} type="button" aria-label={`${label}：${stateLabel}`} disabled={seat.kind !== "seat" || (!isOccupied && isBlocked)} className={`public-seat ${seat.kind} ${seat.golden && !isBlocked && !isOccupied ? "golden" : ""} ${isOccupied ? "occupied" : ""} ${isBlocked && !isOccupied ? "blocked" : ""} ${isMine ? "mine" : ""}`} onClick={() => toggle(seat)}>{seat.kind === "seat" ? isOccupied || isBlocked ? <span aria-hidden="true">×</span> : displaySeatNumber(seat.columnLabel) : ""}</button>;
-                })}
-              </div>;
-            })}
-          </div>
-        </SeatGridViewport>
+            <div
+              className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`}
+              style={
+                {
+                  "--center-divider-column": (centerAfterColumn ?? Math.floor(columns / 2)) + 1,
+                } as CSSProperties
+              }
+            >
+              {rowIndexes.map((rowIndex) => {
+                const rowSeats = seats.filter((seat) => seat.rowIndex === rowIndex);
+                const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);
+                return (
+                  <div
+                    className="public-seat-row"
+                    style={{ gridTemplateColumns: `32px repeat(${columns}, 42px)` }}
+                    key={rowIndex}
+                  >
+                    <span
+                      className="public-seat-coordinate"
+                      data-seat-row-coordinate={rowLabel}
+                      data-seat-row-key={`public:${rowIndex}`}
+                    >
+                      {rowLabel}
+                    </span>
+                    {rowSeats.map((seat) => {
+                      const isOccupied = occupied.has(seat.id);
+                      const isMine = selected.includes(seat.id);
+                      const isBlocked =
+                        seat.kind === "seat" && (!seat.selectable || !available.has(seat.id));
+                      const label = formatSeatLabel(seat.rowLabel, seat.columnLabel);
+                      const stateLabel = isOccupied
+                        ? "已被他人选择"
+                        : isBlocked
+                          ? "不可选"
+                          : isMine
+                            ? "我的选择"
+                            : "可选";
+                      return (
+                        <button
+                          key={seat.id}
+                          type="button"
+                          aria-label={`${label}：${stateLabel}`}
+                          disabled={seat.kind !== "seat" || (!isOccupied && isBlocked)}
+                          className={`public-seat ${seat.kind} ${seat.golden && !isBlocked && !isOccupied ? "golden" : ""} ${isOccupied ? "occupied" : ""} ${isBlocked && !isOccupied ? "blocked" : ""} ${isMine ? "mine" : ""}`}
+                          onClick={() => toggle(seat)}
+                        >
+                          {seat.kind === "seat" ? (
+                            isOccupied ? (
+                              <SeatStateIcon state="occupied" size={22} />
+                            ) : isBlocked ? (
+                              <SeatStateIcon state="blocked" size={22} />
+                            ) : (
+                              displaySeatNumber(seat.columnLabel)
+                            )
+                          ) : (
+                            ""
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </SeatGridViewport>
         </div>
       </section>
       <footer className="selection-bar">
@@ -323,9 +378,7 @@ export function SeatPicker({
           {toast}
         </div>
       ) : null}
-      {showTheaterManners ? (
-        <TheaterMannersDialog onClose={closeTheaterManners} />
-      ) : null}
+      {showTheaterManners ? <TheaterMannersDialog onClose={closeTheaterManners} /> : null}
     </main>
   );
 }

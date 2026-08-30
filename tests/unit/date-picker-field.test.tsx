@@ -15,10 +15,16 @@ describe("DatePickerField", () => {
     );
 
     expect(new FormData(container.querySelector("form")!).get("startDate")).toBe("2026-08-18");
-    await user.click(screen.getByRole("button", { name: /打开日历/ }));
+    const calendarButton = screen.getByRole("button", { name: /打开日历/ });
+    expect(calendarButton.querySelector(".lucide-calendar-days")).toBeTruthy();
+    await user.click(calendarButton);
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /上个月/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /下个月/ })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /上个月/ }).querySelector(".lucide-chevron-left"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /下个月/ }).querySelector(".lucide-chevron-right"),
+    ).toBeTruthy();
     expect(screen.getAllByRole("gridcell").length).toBeGreaterThan(27);
     const cells = screen.getAllByRole("gridcell");
     const nextDay = cells.find(

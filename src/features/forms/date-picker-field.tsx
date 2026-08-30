@@ -1,6 +1,7 @@
 "use client";
 
 import { parseDate } from "@internationalized/date";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Button,
   Calendar,
@@ -48,7 +49,7 @@ export function DatePickerField({
             {(segment) => <DateSegment segment={segment} className="date-picker-segment" />}
           </DateInput>
           <Button className="date-picker-button" aria-label="打开日历">
-            <span aria-hidden="true">▦</span>
+            <CalendarDays aria-hidden="true" size={18} strokeWidth={2} />
           </Button>
         </Group>
         <FieldError className="field-error" />
@@ -57,11 +58,11 @@ export function DatePickerField({
             <Calendar className="date-picker-calendar">
               <header>
                 <Button slot="previous" aria-label="上个月">
-                  ‹
+                  <ChevronLeft aria-hidden="true" size={18} strokeWidth={2} />
                 </Button>
                 <Heading />
                 <Button slot="next" aria-label="下个月">
-                  ›
+                  <ChevronRight aria-hidden="true" size={18} strokeWidth={2} />
                 </Button>
               </header>
               <CalendarGrid weekdayStyle="short">

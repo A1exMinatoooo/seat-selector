@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -85,9 +86,12 @@ export function SelectField({
             return displayValue?.(String(selectedKey)) ?? selectedText;
           }}
         </SelectValue>
-        <span className="select-field-chevron" aria-hidden="true">
-          ⌄
-        </span>
+        <ChevronDown
+          className="select-field-chevron"
+          aria-hidden="true"
+          size={18}
+          strokeWidth={2}
+        />
       </Button>
       <FieldError className="field-error" />
       <Popover className="select-field-popover">
@@ -253,7 +257,12 @@ export function SearchableSelectField({
             else openAllOptions();
           }}
         >
-          <span aria-hidden="true">⌄</span>
+          <ChevronDown
+            className="searchable-select-chevron"
+            aria-hidden="true"
+            size={18}
+            strokeWidth={2}
+          />
         </button>
       </div>
       <input type="hidden" name={name} value={selectedKey ?? ""} />

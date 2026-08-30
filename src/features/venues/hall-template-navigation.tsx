@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type CinemaTemplateSummary = {
@@ -11,6 +12,7 @@ export function HallTemplateExportMenu({ cinemas }: { cinemas: CinemaTemplateSum
     <details className="export-menu">
       <summary className="button" aria-label="导出影厅模板">
         导出
+        <ChevronDown className="details-chevron" aria-hidden="true" size={20} strokeWidth={2} />
       </summary>
       <nav className="export-menu-popover" aria-label="影厅模板导出范围">
         <a href="/api/admin/venues/export?scope=all">
@@ -40,7 +42,15 @@ export function HallTemplateGroups({
         <details key={group.id}>
           <summary>
             <strong>{group.name}</strong>
-            <span>{group.hallCount} 个影厅模板</span>
+            <span className="hall-template-summary-meta">
+              {group.hallCount} 个影厅模板
+              <ChevronDown
+                className="details-chevron"
+                aria-hidden="true"
+                size={20}
+                strokeWidth={2}
+              />
+            </span>
           </summary>
           {group.content}
         </details>

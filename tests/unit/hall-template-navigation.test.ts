@@ -30,6 +30,8 @@ describe("hall template navigation", () => {
     expect(markup).not.toContain("<details open");
     expect(markup).toContain("甲影院");
     expect(markup).toContain("2 个影厅模板");
+    expect(markup.match(/lucide-chevron-down/g)).toHaveLength(2);
+    expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain("scope=hall&amp;id=cinema-a-hall");
     expect(markup.indexOf("甲影院")).toBeLessThan(markup.indexOf("乙影院"));
   });
@@ -42,5 +44,6 @@ describe("hall template navigation", () => {
     expect(markup).toContain('href="/api/admin/venues/export?scope=cinema&amp;id=cinema-a"');
     expect(markup).toContain('href="/api/admin/venues/export?scope=cinema&amp;id=cinema-b"');
     expect(markup).toContain("按影院导出");
+    expect(markup).toContain("lucide-chevron-down");
   });
 });

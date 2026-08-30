@@ -1,5 +1,6 @@
 "use client";
 
+import { ZoomIn, ZoomOut } from "lucide-react";
 import {
   useCallback,
   useLayoutEffect,
@@ -451,7 +452,7 @@ export function SeatGridViewport({
           disabled={scale <= MIN_SCALE}
           onClick={() => updateScale(scale - SCALE_STEP)}
         >
-          −
+          <ZoomOut aria-hidden="true" size={20} strokeWidth={2} />
         </button>
         <button type="button" aria-label="恢复座位网格为百分之百" onClick={() => updateScale(1)}>
           {Math.round(scale * 100)}%
@@ -462,12 +463,16 @@ export function SeatGridViewport({
           disabled={scale >= MAX_SCALE}
           onClick={() => updateScale(scale + SCALE_STEP)}
         >
-          ＋
+          <ZoomIn aria-hidden="true" size={20} strokeWidth={2} />
         </button>
-        <button type="button" aria-label="缩放以显示完整座位网格" onClick={() => {
-          userAdjustedViewRef.current = false;
-          fitGrid();
-        }}>
+        <button
+          type="button"
+          aria-label="缩放以显示完整座位网格"
+          onClick={() => {
+            userAdjustedViewRef.current = false;
+            fitGrid();
+          }}
+        >
           显示完整
         </button>
       </div>

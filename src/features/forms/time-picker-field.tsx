@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import {
   Button,
@@ -75,6 +76,7 @@ export function TimePickerField({
       aria-labelledby={labelId}
       aria-describedby={invalid ? errorId : undefined}
       data-invalid={invalid || undefined}
+      data-open={open || undefined}
     >
       <Label id={labelId}>{label}</Label>
       <DialogTrigger isOpen={open} onOpenChange={changeOpen}>
@@ -85,7 +87,12 @@ export function TimePickerField({
           aria-describedby={invalid ? errorId : undefined}
         >
           <span>{value || "--:--"}</span>
-          <span aria-hidden="true">⌄</span>
+          <ChevronDown
+            className="time-picker-chevron"
+            aria-hidden="true"
+            size={18}
+            strokeWidth={2}
+          />
         </Button>
         <Popover className="time-picker-popover" placement="bottom end">
           <Dialog className="time-picker-dialog" aria-label="选择时间">
