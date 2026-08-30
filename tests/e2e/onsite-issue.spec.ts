@@ -40,6 +40,7 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
   test.skip(!checkinUrl, "An open onsite event is required for onsite issue browser coverage");
 
   let issueCount = 0;
+  let firstIssueStatusChecks = 0;
   await page.route("**/api/admin/events/*/qr*", async (route) => {
     const request = route.request();
     if (request.method() === "POST") {
@@ -65,11 +66,38 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
       return;
     }
     const issueId = new URL(request.url()).searchParams.get("issueId");
-    await route.fulfill({ json: { status: issueId?.endsWith("000001") ? "claimed" : "expired" } });
+    if (issueId?.endsWith("000001")) {
+      firstIssueStatusChecks += 1;
+      await route.fulfill({
+        json: { status: firstIssueStatusChecks === 1 ? "active" : "claimed" },
+      });
+      return;
+    }
+    await route.fulfill({ json: { status: "expired" } });
   });
 
   await page.getByRole("radio", { name: "1" }).first().check();
   await page.getByRole("button", { name: "发行二维码" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("现场二维码已发行，共 1 张。");
+  const layering = await page.evaluate(() => {
+    const toast = document.querySelector<HTMLElement>(".toast");
+    const modal = document.querySelector<HTMLElement>(".lottery-backdrop");
+    if (!toast || !modal) throw new Error("Expected toast and modal to be visible together");
+    const toastRect = toast.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      toastRect.left + toastRect.width / 2,
+      toastRect.top + toastRect.height / 2,
+    );
+    return {
+      toast: Number(getComputedStyle(toast).zIndex),
+      modal: Number(getComputedStyle(modal).zIndex),
+      toastReceivesPointer: hit === toast || toast.contains(hit),
+    };
+  });
+  expect(layering.toast).toBeGreaterThan(layering.modal);
+  expect(layering.toastReceivesPointer).toBe(true);
+
   await expect(page.getByRole("status")).toHaveText("参与者已领取，共 1 张。");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
