@@ -9,6 +9,13 @@ test("landing page presents the organizer entry", async ({ page }) => {
   await expect(page.getByText("动态二维码轮换", { exact: true })).toBeVisible();
   await expect(page.getByText("峰值并发支持", { exact: true })).toBeVisible();
   await expect(page.getByText("座位状态同步", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByLabel("产品能力")
+      .getByRole("article")
+      .filter({ hasText: "座位状态同步" })
+      .locator(".lucide-cloud-sync"),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "为下一场放映做好准备" })).toHaveAttribute(
     "href",
     "/admin",

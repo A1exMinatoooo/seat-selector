@@ -1,11 +1,11 @@
-import { ArrowRight, MapPin, ScanLine, UsersRound } from "lucide-react";
+import { ArrowRight, CloudSync, ScanLine, UsersRound } from "lucide-react";
 import Link from "next/link";
 import styles from "./page.module.css";
 
 const features = [
   { value: "30 秒", label: "动态二维码轮换", icon: ScanLine },
   { value: "100 人", label: "峰值并发支持", icon: UsersRound },
-  { value: "实时", label: "座位状态同步", icon: MapPin },
+  { value: "实时", label: "座位状态同步", icon: CloudSync },
 ];
 
 export default function HomePage() {
