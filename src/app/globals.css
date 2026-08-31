@@ -161,6 +161,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .searchable-select-listbox > button { width: 100%; border: 0; background: transparent; text-align: left; }
 .select-field-empty { margin: 0; padding: 12px 10px; color: var(--muted); }
 .field-error { color: #b42318; font-size: 13px; font-weight: 700; }
+.apple-maps-import { display: grid; gap: 10px; }
+.apple-maps-import > label { font-weight: 700; }
+.apple-maps-import-control { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 10px; }
+.apple-maps-import-control input { min-width: 0; }
+.apple-maps-import-control .button { min-width: 156px; background: white; }
+.apple-maps-import-feedback { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.55; }
+.apple-maps-import-feedback.success { color: var(--green); }
+.apple-maps-import-feedback.error { color: #b42318; }
+@media (max-width: 640px) { .apple-maps-import-control { grid-template-columns: 1fr; }.apple-maps-import-control .button { width: 100%; } }
 .event-hall-field .select-field { max-width: 420px; display: grid; gap: 6px; }
 .label-preset-controls > .select-field { min-width: 116px; flex: 1; }
 

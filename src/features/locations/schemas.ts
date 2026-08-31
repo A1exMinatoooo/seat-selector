@@ -9,4 +9,6 @@ export const locationPresetSchema = z.object({
 
 export const locationPresetUpdateSchema = locationPresetSchema.extend({ id: z.string().uuid() });
 
+export const appleMapsImportInputSchema = z.string().trim().min(1).max(4096);
+
 export type LocationPresetInput = z.infer<typeof locationPresetSchema>;

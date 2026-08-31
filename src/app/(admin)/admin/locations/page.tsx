@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
-import { AdminActionForm } from "@/features/admin/admin-action-form";
-import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
-import { NumericInput } from "@/features/forms/numeric-input";
 import { LocationDeleteButton } from "@/features/locations/location-delete-button";
+import { LocationPresetCreateForm } from "@/features/locations/location-preset-create-form";
 import { listLocationPresets } from "@/server/db/location-presets";
 import { requireAdmin } from "@/server/security/admin-session";
-import { createLocationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -31,33 +28,7 @@ export default async function LocationsPage() {
       <div className="admin-grid">
         <section className="panel">
           <h2>新增地点</h2>
-          <AdminActionForm action={createLocationAction} className="stack-form" resetOnSuccess>
-            <label>
-              地点名称
-              <input name="name" required placeholder="例如：上海影城正门" />
-            </label>
-            <div className="form-row">
-              <label>
-                纬度
-                <NumericInput name="latitude" step="any" min={-90} max={90} placeholder="31.2304" />
-              </label>
-              <label>
-                经度
-                <NumericInput
-                  name="longitude"
-                  step="any"
-                  min={-180}
-                  max={180}
-                  placeholder="121.4737"
-                />
-              </label>
-            </div>
-            <label>
-              默认范围（米）
-              <NumericInput name="defaultRadiusMeters" min={50} max={100000} defaultValue={1000} />
-            </label>
-            <AdminSubmitButton pendingLabel="正在保存…">保存地点</AdminSubmitButton>
-          </AdminActionForm>
+          <LocationPresetCreateForm />
         </section>
         <section className="panel">
           <h2>地点列表</h2>
