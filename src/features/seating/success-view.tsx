@@ -98,7 +98,13 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
       setLotteryPhase("result");
     } catch (error) {
       console.error("Lottery failed", error);
-      setLotteryError(error instanceof Error ? error.message : "抽奖暂时无法完成，请重试。已完成的结果不会重复抽取。");
+      setLotteryError(
+        error instanceof TypeError
+          ? "网络连接失败，请检查网络后重试。已完成的结果不会重复抽取。"
+          : error instanceof Error
+            ? error.message
+            : "抽奖暂时无法完成，请重试。已完成的结果不会重复抽取。",
+      );
       setLotteryPhase("prompt");
     }
   }

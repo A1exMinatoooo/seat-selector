@@ -14,12 +14,14 @@ const messages: Record<string, string> = {
   TICKET_ISSUE_CLAIMED: "二维码已被领取或失效，请让发起者重新发行。",
   TICKET_ISSUE_CAPACITY_EXCEEDED: "预计可抽奖票数额度不足，请调整活动设置。",
   TICKET_ISSUE_SELECTION_EXISTS: "本设备已完成选座，不能再次领取。",
+  SELECTION_ALREADY_COMPLETED: "您已完成本场选座。",
   CONSECUTIVE_WORKFLOW_ACTIVE: "本设备已有进行中的连签，请先完成或等待现场工作人员撤销。",
   CONSECUTIVE_WORKFLOW_EXPIRED: "本次连签已超时，请让现场工作人员重新发行。",
   CONSECUTIVE_WORKFLOW_UNAVAILABLE: "连签活动状态已变化，请联系现场工作人员。",
   CONSECUTIVE_SEAT_HELD: "部分座位正在被其他参与者选择，请重新选择。",
   RATE_LIMITED: "操作过于频繁，请稍后再试。",
   INTERNAL_ERROR: "系统暂时遇到问题，请稍后重试。",
+  NETWORK_ERROR: "网络连接失败，请检查网络后重试。",
 };
 
 export function userFacingErrorMessage(code: string | undefined): string {

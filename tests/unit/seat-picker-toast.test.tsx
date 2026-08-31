@@ -88,4 +88,47 @@ describe("SeatPicker toast", () => {
     act(() => vi.advanceTimersByTime(1_000));
     expect(screen.queryByRole("status")).toBeNull();
   });
+
+  it("preserves the current selection and unlocks submit after a network failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith("/confirm")) throw new TypeError("Failed to fetch");
+        return new Response(null, { status: 204 });
+      }),
+    );
+    render(
+      <SeatPicker
+        code="summer-screening"
+        eventName="夏日放映"
+        seats={[{
+          id: "seat-1",
+          rowIndex: 0,
+          columnIndex: 0,
+          rowLabel: "A",
+          columnLabel: "1",
+          kind: "seat",
+          selectable: true,
+          golden: false,
+        }]}
+        initialAvailable={["seat-1"]}
+        initialOccupied={[]}
+        initialVersion={1}
+        ticketTotal={1}
+        centerAfterColumn={null}
+        skipLocationCheck
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: "A排1座：可选" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认选座" }));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("status").textContent).toContain("已保留当前选择");
+    expect(screen.getByText("已选 1/1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "确认选座" }).hasAttribute("disabled")).toBe(false);
+  });
 });

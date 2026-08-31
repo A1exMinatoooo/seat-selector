@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { getDb } from "./client";
-import { events, participants } from "./schema";
+import { events, participants, reservations } from "./schema";
 
 const participantSelection = {
   eventId: events.id,
@@ -34,4 +34,24 @@ export async function findOpenParticipantsByDevice(code: string, deviceHash: str
     .innerJoin(participants, and(eq(participants.eventId, events.id), eq(participants.deviceHash, deviceHash)))
     .where(and(eq(events.publicCode, code), eq(events.status, "open")))
     .limit(2);
+}
+
+export async function hasCompletedReservationForDevice(code: string, deviceHash: string) {
+  const [row] = await getDb()
+    .select({ reservationId: reservations.id })
+    .from(events)
+    .innerJoin(
+      participants,
+      and(eq(participants.eventId, events.id), eq(participants.deviceHash, deviceHash)),
+    )
+    .innerJoin(
+      reservations,
+      and(
+        eq(reservations.eventId, events.id),
+        eq(reservations.participantId, participants.id),
+      ),
+    )
+    .where(eq(events.publicCode, code))
+    .limit(1);
+  return Boolean(row);
 }

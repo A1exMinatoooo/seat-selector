@@ -134,4 +134,22 @@ describe("ConsecutiveSeatFlow", () => {
     act(() => vi.advanceTimersByTime(1_000));
     expect(screen.getByText("，剩余 299 秒")).toBeTruthy();
   });
+
+  it("preserves the current step selection and unlocks submit after a network failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/holds") && init?.method === "PUT")
+        throw new TypeError("Failed to fetch");
+      if (url.includes("/holds"))
+        return Response.json({ occupiedSeatIds: [], selectedSeatIds: [] });
+      return Response.json({ ok: true });
+    }));
+    render(<ConsecutiveSeatFlow code="ABC123" initialView={view()} />);
+    fireEvent.click(screen.getByRole("button", { name: "A排1座：可选" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交并选下一场" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("已保留当前选择");
+    expect(screen.getByText("已选 1/1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "提交并选下一场" }).hasAttribute("disabled")).toBe(false);
+  });
 });

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
+import { hasCompletedReservationForDevice } from "@/server/db/participant-device";
 import { events } from "@/server/db/schema";
 import { consumeQrToken } from "@/server/domain/qr-entry";
 import { claimTicketIssue } from "@/server/domain/ticket-issue";
@@ -26,13 +27,43 @@ export async function POST(request: Request) {
       .from(events)
       .where(eq(events.publicCode, input.code))
       .limit(1);
-    if (!event || event.status !== "open")
+    if (!event)
       throw new DomainError(errorCodes.forbidden, "活动已关闭，请联系现场工作人员", 403);
+    const jar = await cookies();
+    const existingToken = jar.get("ps_device")?.value;
+    const deviceHash = existingToken ? tokenHash(existingToken) : null;
+    const selectionCompleted = deviceHash
+      ? await hasCompletedReservationForDevice(input.code, deviceHash)
+      : false;
     if (event.participationMode === "onsite") {
-      const jar = await cookies();
-      const existingToken = jar.get("ps_device")?.value;
+      if (event.status !== "open") {
+        if (selectionCompleted)
+          throw new DomainError(
+            errorCodes.selectionAlreadyCompleted,
+            "设备已完成本场选座",
+            409,
+          );
+        throw new DomainError(errorCodes.forbidden, "活动已关闭，请联系现场工作人员", 403);
+      }
       const deviceToken = existingToken ?? randomToken();
-      const claim = await claimTicketIssue(input.code, input.token, tokenHash(deviceToken));
+      let claim;
+      try {
+        claim = await claimTicketIssue(input.code, input.token, tokenHash(deviceToken));
+      } catch (error) {
+        if (
+          selectionCompleted &&
+          error instanceof DomainError &&
+          (error.code === errorCodes.ticketIssueExpired ||
+            error.code === errorCodes.ticketIssueClaimed ||
+            error.code === errorCodes.eventConflict)
+        )
+          throw new DomainError(
+            errorCodes.selectionAlreadyCompleted,
+            "设备已完成本场选座",
+            409,
+          );
+        throw error;
+      }
       if (!existingToken)
         jar.set("ps_device", deviceToken, {
           httpOnly: true,
@@ -45,6 +76,14 @@ export async function POST(request: Request) {
         await setConsecutiveWorkflowClaim({ workflowId: claim.workflowId, code: claim.code });
       else await setParticipantClaim(claim);
     } else {
+      if (selectionCompleted)
+        throw new DomainError(
+          errorCodes.selectionAlreadyCompleted,
+          "设备已完成本场选座",
+          409,
+        );
+      if (event.status !== "open")
+        throw new DomainError(errorCodes.forbidden, "活动已关闭，请联系现场工作人员", 403);
       await consumeQrToken(event.id, input.code, input.token);
       await setEntryClaim({ eventId: event.id, code: input.code });
     }

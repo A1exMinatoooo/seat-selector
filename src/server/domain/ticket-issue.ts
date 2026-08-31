@@ -27,6 +27,7 @@ import {
   ticketIssueAllocationSchema,
   ticketIssueTotal,
 } from "./ticket-issue-rules";
+import { allWorkflowEventsCompleted } from "./participant-reentry";
 
 export type TicketIssueStatus = "active" | "claimed" | "expired" | "cancelled";
 
@@ -506,6 +507,13 @@ export async function claimTicketIssue(
         });
       }
 
+      if (allWorkflowEventsCompleted(workflowEvents))
+        throw new DomainError(
+          errorCodes.selectionAlreadyCompleted,
+          "设备已完成全部连签活动选座",
+          409,
+        );
+
       const claimedAt = new Date(now);
       const hardExpiresAt = new Date(now + 300_000);
       const [workflow] = await tx
@@ -573,7 +581,7 @@ export async function claimTicketIssue(
         .where(and(eq(reservations.eventId, event.id), eq(reservations.participantId, existing.id)))
         .limit(1);
       if (reservation)
-        throw new DomainError(errorCodes.ticketIssueSelectionExists, "设备已完成选座", 409);
+        throw new DomainError(errorCodes.selectionAlreadyCompleted, "设备已完成选座", 409);
     }
     const oldEligibleRows = existing
       ? await tx

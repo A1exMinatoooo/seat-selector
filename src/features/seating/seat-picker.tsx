@@ -105,34 +105,38 @@ export function SeatPicker({
 
   const refresh = useCallback(async () => {
     void reportDisplaced();
-    const response = await fetch(`/api/events/${code}/seat-state?version=${version}`, {
-      cache: "no-store",
-    });
-    if (response.status === 204 || !response.ok) return;
-    const data = (await response.json()) as {
-      version: number;
-      occupiedSeatIds: string[];
-      availableSeatIds: string[];
-    };
-    const next = new Set(data.occupiedSeatIds);
-    const displaced = selectedRef.current.filter((seatId) => next.has(seatId));
-    setVersion(data.version);
-    setOccupied(next);
-    setAvailable(new Set(data.availableSeatIds));
-    const noLongerAvailable = selectedRef.current.filter(
-      (seatId) => !data.availableSeatIds.includes(seatId),
-    );
-    if (displaced.length || noLongerAvailable.length) {
-      displaced.forEach((seatId) => pendingDisplacedRef.current.add(seatId));
-      setSelected((old) =>
-        old.filter((seatId) => !next.has(seatId) && data.availableSeatIds.includes(seatId)),
+    try {
+      const response = await fetch(`/api/events/${code}/seat-state?version=${version}`, {
+        cache: "no-store",
+      });
+      if (response.status === 204 || !response.ok) return;
+      const data = (await response.json()) as {
+        version: number;
+        occupiedSeatIds: string[];
+        availableSeatIds: string[];
+      };
+      const next = new Set(data.occupiedSeatIds);
+      const displaced = selectedRef.current.filter((seatId) => next.has(seatId));
+      setVersion(data.version);
+      setOccupied(next);
+      setAvailable(new Set(data.availableSeatIds));
+      const noLongerAvailable = selectedRef.current.filter(
+        (seatId) => !data.availableSeatIds.includes(seatId),
       );
-      showToast(
-        displaced.length
-          ? "你选中的座位刚刚被他人确认，请重新选择。"
-          : "活动开放范围已更新，请重新选择。",
-      );
-      void reportDisplaced();
+      if (displaced.length || noLongerAvailable.length) {
+        displaced.forEach((seatId) => pendingDisplacedRef.current.add(seatId));
+        setSelected((old) =>
+          old.filter((seatId) => !next.has(seatId) && data.availableSeatIds.includes(seatId)),
+        );
+        showToast(
+          displaced.length
+            ? "你选中的座位刚刚被他人确认，请重新选择。"
+            : "活动开放范围已更新，请重新选择。",
+        );
+        void reportDisplaced();
+      }
+    } catch {
+      // Background refreshes retry on the next scheduled poll.
     }
   }, [code, reportDisplaced, showToast, version]);
 
@@ -183,16 +187,21 @@ export function SeatPicker({
   }
 
   async function submitSelection() {
-    const response = await fetch(`/api/events/${code}/confirm`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ seatIds: selected }),
-    });
-    setBusy(false);
-    if (response.ok) router.refresh();
-    else {
-      showToast(await responseErrorMessage(response));
-      await refresh();
+    try {
+      const response = await fetch(`/api/events/${code}/confirm`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ seatIds: selected }),
+      });
+      if (response.ok) router.refresh();
+      else {
+        showToast(await responseErrorMessage(response));
+        await refresh();
+      }
+    } catch {
+      showToast("网络连接失败，已保留当前选择，请重试。");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -205,22 +214,27 @@ export function SeatPicker({
     }
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const location = await fetch("/api/location/verify", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            capturedAt: position.timestamp,
-          }),
-        });
-        if (!location.ok) {
+        try {
+          const location = await fetch("/api/location/verify", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              capturedAt: position.timestamp,
+            }),
+          });
+          if (!location.ok) {
+            setBusy(false);
+            showToast(await responseErrorMessage(location));
+            return;
+          }
+          await submitSelection();
+        } catch {
           setBusy(false);
-          showToast("确认前的定位验证未通过。");
-          return;
+          showToast("网络连接失败，已保留当前选择，请重试。");
         }
-        await submitSelection();
       },
       (locationError) => {
         setBusy(false);

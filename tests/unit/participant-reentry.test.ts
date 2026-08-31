@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { uniqueDeviceParticipant } from "@/server/domain/participant-reentry";
+import {
+  allWorkflowEventsCompleted,
+  uniqueDeviceParticipant,
+} from "@/server/domain/participant-reentry";
 
 describe("participant device re-entry", () => {
   it("restores the only participant bound to the device for an event", () => {
@@ -10,5 +13,11 @@ describe("participant device re-entry", () => {
   it("does not guess when no participant or multiple participants match", () => {
     expect(uniqueDeviceParticipant([])).toBeNull();
     expect(uniqueDeviceParticipant([{ participantId: "one" }, { participantId: "two" }])).toBeNull();
+  });
+
+  it("only completes a linked re-entry when every workflow event is historical", () => {
+    expect(allWorkflowEventsCompleted([{ historical: true }, { historical: true }])).toBe(true);
+    expect(allWorkflowEventsCompleted([{ historical: true }, { historical: false }])).toBe(false);
+    expect(allWorkflowEventsCompleted([])).toBe(false);
   });
 });

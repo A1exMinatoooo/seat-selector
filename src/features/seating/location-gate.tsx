@@ -14,10 +14,15 @@ export function LocationGate({ code, eventName }: { code: string; eventName: str
     setBusy(true);
     setError("");
     navigator.geolocation.getCurrentPosition(async (position) => {
-      const response = await fetch("/api/location/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: position.timestamp }) });
-      setBusy(false);
-      if (response.ok) router.refresh();
-      else setError(await responseErrorMessage(response));
+      try {
+        const response = await fetch("/api/location/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: position.timestamp }) });
+        if (response.ok) router.refresh();
+        else setError(await responseErrorMessage(response));
+      } catch {
+        setError("网络连接失败，请检查网络后重试。");
+      } finally {
+        setBusy(false);
+      }
     }, (locationError) => {
       setBusy(false);
       setError("无法获取定位，请开启权限后重试。");

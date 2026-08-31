@@ -208,6 +208,8 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
   useEffect(() => {
     const heartbeat = () => void fetch(`/api/events/${code}/workflow`, { method: "POST" }).then(async (response) => {
       if (!response.ok) setError(await responseErrorMessage(response));
+    }).catch(() => {
+      // A later heartbeat retries transient network failures.
     });
     const initial = window.setTimeout(heartbeat, 0);
     const timer = window.setInterval(heartbeat, 5_000);
@@ -217,14 +219,18 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
   useEffect(() => {
     if (!currentEventId || currentHistorical || phase !== "selecting") return;
     const refresh = async () => {
-      const response = await fetch(`/api/events/${code}/workflow/holds?eventId=${currentEventId}`, { cache: "no-store" });
-      if (!response.ok) return;
-      const state = (await response.json()) as { occupiedSeatIds: string[]; selectedSeatIds: string[] };
-      setSteps((items) => items.map((item, index) => {
-        if (index !== currentIndex) return item;
-        const dirty = !sameIds(item.selectedSeatIds, item.lockedSeatIds);
-        return { ...item, occupiedSeatIds: state.occupiedSeatIds, lockedSeatIds: state.selectedSeatIds, selectedSeatIds: dirty ? item.selectedSeatIds : state.selectedSeatIds };
-      }));
+      try {
+        const response = await fetch(`/api/events/${code}/workflow/holds?eventId=${currentEventId}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const state = (await response.json()) as { occupiedSeatIds: string[]; selectedSeatIds: string[] };
+        setSteps((items) => items.map((item, index) => {
+          if (index !== currentIndex) return item;
+          const dirty = !sameIds(item.selectedSeatIds, item.lockedSeatIds);
+          return { ...item, occupiedSeatIds: state.occupiedSeatIds, lockedSeatIds: state.selectedSeatIds, selectedSeatIds: dirty ? item.selectedSeatIds : state.selectedSeatIds };
+        }));
+      } catch {
+        // A later refresh retries transient network failures.
+      }
     };
     const initial = window.setTimeout(() => void refresh(), 0);
     const timer = window.setInterval(() => void refresh(), 3_000);
@@ -237,15 +243,21 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
     setError("");
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(async (position) => {
-        const response = await fetch(`/api/events/${code}/workflow/location`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: position.timestamp }),
-        });
-        setBusy(false);
-        if (!response.ok) { setError(await responseErrorMessage(response)); resolve(false); return; }
-        setLocated(true);
-        resolve(true);
+        try {
+          const response = await fetch(`/api/events/${code}/workflow/location`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: position.timestamp }),
+          });
+          if (!response.ok) { setError(await responseErrorMessage(response)); resolve(false); return; }
+          setLocated(true);
+          resolve(true);
+        } catch {
+          setError("网络连接失败，请检查网络后重试。");
+          resolve(false);
+        } finally {
+          setBusy(false);
+        }
       }, () => { setBusy(false); setError("无法获取定位，请开启定位权限后重试。"); resolve(false); }, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 });
     });
   }
@@ -269,19 +281,25 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
     if (sameIds(current.selectedSeatIds, current.lockedSeatIds)) return true;
     setBusy(true);
     setError("");
-    const response = await fetch(`/api/events/${code}/workflow/holds`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ eventId: current.eventId, seatIds: current.selectedSeatIds }),
-    });
-    setBusy(false);
-    if (!response.ok) {
-      if (response.status === 403) setLocated(false);
-      setError(await responseErrorMessage(response));
+    try {
+      const response = await fetch(`/api/events/${code}/workflow/holds`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventId: current.eventId, seatIds: current.selectedSeatIds }),
+      });
+      if (!response.ok) {
+        if (response.status === 403) setLocated(false);
+        setError(await responseErrorMessage(response));
+        return false;
+      }
+      setSteps((items) => items.map((item, index) => index === currentIndex ? { ...item, lockedSeatIds: item.selectedSeatIds } : item));
+      return true;
+    } catch {
+      setError("网络连接失败，已保留当前选择，请重试。");
       return false;
+    } finally {
+      setBusy(false);
     }
-    setSteps((items) => items.map((item, index) => index === currentIndex ? { ...item, lockedSeatIds: item.selectedSeatIds } : item));
-    return true;
   }
 
   async function completeWorkflow(withLottery: boolean) {
@@ -301,7 +319,13 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
       if (withLottery) { setCompletedView(body.view); setPhase("lotteryResult"); }
       else router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "连签提交失败，请重试。");
+      setError(
+        cause instanceof TypeError
+          ? "网络连接失败，已保留当前选择，请重试。"
+          : cause instanceof Error
+            ? cause.message
+            : "连签提交失败，请重试。",
+      );
       setFinalSubmissionFailed(true);
       setPhase("selecting");
     } finally { setBusy(false); }

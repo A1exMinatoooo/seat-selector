@@ -14,6 +14,7 @@ export const errorCodes = {
   ticketIssueClaimed: "TICKET_ISSUE_CLAIMED",
   ticketIssueCapacity: "TICKET_ISSUE_CAPACITY_EXCEEDED",
   ticketIssueSelectionExists: "TICKET_ISSUE_SELECTION_EXISTS",
+  selectionAlreadyCompleted: "SELECTION_ALREADY_COMPLETED",
   consecutiveWorkflowActive: "CONSECUTIVE_WORKFLOW_ACTIVE",
   consecutiveWorkflowExpired: "CONSECUTIVE_WORKFLOW_EXPIRED",
   consecutiveWorkflowUnavailable: "CONSECUTIVE_WORKFLOW_UNAVAILABLE",
