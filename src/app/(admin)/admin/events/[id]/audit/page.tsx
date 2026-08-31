@@ -33,6 +33,10 @@ const actionLabels: Record<AuditAction, string> = {
   ticket_issue_claimed: "领取现场票",
   ticket_issue_replaced: "替换现场票",
   consecutive_checkin_configuration_changed: "连签设置变更",
+  consecutive_checkin_workflow_claimed: "领取连签",
+  consecutive_checkin_workflow_cancelled: "撤销连签",
+  consecutive_checkin_seats_held: "临时锁座",
+  consecutive_checkin_completed: "完成连签",
 };
 
 const statusLabels: Record<string, string> = { draft: "草稿", open: "开放中", ended: "已结束" };
@@ -71,6 +75,12 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
     return details.enabled === true
       ? `开启；关联 ${Array.isArray(details.targets) ? details.targets.length : 0} 场活动`
       : "关闭";
+  if (action === "consecutive_checkin_workflow_claimed")
+    return details.historical === true ? "使用此前已完成记录" : "创建本次连签参与资格";
+  if (action === "consecutive_checkin_workflow_cancelled") return "释放本次连签的全部临时座位";
+  if (action === "consecutive_checkin_seats_held")
+    return `临时锁定 ${String(details.seatCount ?? 0)} 个座位`;
+  if (action === "consecutive_checkin_completed") return "连签选座与抽奖已完成";
   if (action === "event_status_changed")
     return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
   if (action === "seat_availability_changed") {

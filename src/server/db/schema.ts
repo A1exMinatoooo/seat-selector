@@ -44,6 +44,16 @@ export const auditAction = pgEnum("audit_action", [
   "ticket_issue_claimed",
   "ticket_issue_replaced",
   "consecutive_checkin_configuration_changed",
+  "consecutive_checkin_workflow_claimed",
+  "consecutive_checkin_workflow_cancelled",
+  "consecutive_checkin_seats_held",
+  "consecutive_checkin_completed",
+]);
+export const consecutiveCheckinWorkflowStatus = pgEnum("consecutive_checkin_workflow_status", [
+  "active",
+  "completed",
+  "cancelled",
+  "expired",
 ]);
 
 export const cinemas = pgTable("cinemas", {
@@ -230,6 +240,107 @@ export const ticketIssues = pgTable(
     uniqueIndex("ticket_issues_token_hash_uidx").on(table.tokenHash),
     index("ticket_issues_event_issued_idx").on(table.eventId, table.issuedAt),
     index("ticket_issues_participant_idx").on(table.participantId),
+  ],
+);
+
+export const ticketIssueEvents = pgTable(
+  "ticket_issue_events",
+  {
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => ticketIssues.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    allocation: jsonb("allocation").$type<TicketIssueAllocation[]>().notNull(),
+  },
+  (table) => [
+    uniqueIndex("ticket_issue_events_issue_event_uidx").on(table.issueId, table.eventId),
+    uniqueIndex("ticket_issue_events_issue_order_uidx").on(table.issueId, table.sortOrder),
+    index("ticket_issue_events_event_idx").on(table.eventId),
+  ],
+);
+
+export const consecutiveCheckinWorkflows = pgTable(
+  "consecutive_checkin_workflows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    issueId: uuid("issue_id")
+      .notNull()
+      .unique()
+      .references(() => ticketIssues.id, { onDelete: "cascade" }),
+    sourceEventId: uuid("source_event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    deviceHash: text("device_hash").notNull(),
+    status: consecutiveCheckinWorkflowStatus("status").notNull().default("active"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true, precision: 3 }).notNull(),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, precision: 3 }).notNull(),
+    hardExpiresAt: timestamp("hard_expires_at", { withTimezone: true, precision: 3 }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true, precision: 3 }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true, precision: 3 }),
+  },
+  (table) => [
+    uniqueIndex("consecutive_checkin_workflows_active_device_uidx")
+      .on(table.deviceHash)
+      .where(sql`${table.status} = 'active'`),
+    index("consecutive_checkin_workflows_source_status_idx").on(table.sourceEventId, table.status),
+    index("consecutive_checkin_workflows_expiry_idx").on(table.status, table.hardExpiresAt),
+  ],
+);
+
+export const consecutiveCheckinWorkflowEvents = pgTable(
+  "consecutive_checkin_workflow_events",
+  {
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => consecutiveCheckinWorkflows.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    allocation: jsonb("allocation").$type<TicketIssueAllocation[]>().notNull(),
+    historical: boolean("historical").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("consecutive_checkin_workflow_events_workflow_event_uidx").on(
+      table.workflowId,
+      table.eventId,
+    ),
+    uniqueIndex("consecutive_checkin_workflow_events_workflow_order_uidx").on(
+      table.workflowId,
+      table.sortOrder,
+    ),
+    index("consecutive_checkin_workflow_events_event_idx").on(table.eventId),
+    index("consecutive_checkin_workflow_events_participant_idx").on(table.participantId),
+  ],
+);
+
+export const consecutiveCheckinSeatHolds = pgTable(
+  "consecutive_checkin_seat_holds",
+  {
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => consecutiveCheckinWorkflows.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    seatId: uuid("seat_id")
+      .notNull()
+      .references(() => seats.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("consecutive_checkin_seat_holds_event_seat_uidx").on(table.eventId, table.seatId),
+    index("consecutive_checkin_seat_holds_workflow_idx").on(table.workflowId),
+    index("consecutive_checkin_seat_holds_expiry_idx").on(table.expiresAt),
   ],
 );
 

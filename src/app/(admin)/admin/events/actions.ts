@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import { getDb } from "@/server/db/client";
 import {
   eventAuditLogs,
   consecutiveCheckinLinks,
+  consecutiveCheckinWorkflowEvents,
+  consecutiveCheckinWorkflows,
   eventSeats,
   events,
   halls,
@@ -655,6 +657,32 @@ export async function setEventStatusAction(
           submission: Date.now(),
           code: "EVENT_STATUS_CONFLICT",
         };
+      if (status === "ended") {
+        const now = Date.now();
+        const [activeWorkflow] = await tx
+          .select({ id: consecutiveCheckinWorkflows.id })
+          .from(consecutiveCheckinWorkflows)
+          .innerJoin(
+            consecutiveCheckinWorkflowEvents,
+            eq(consecutiveCheckinWorkflowEvents.workflowId, consecutiveCheckinWorkflows.id),
+          )
+          .where(
+            and(
+              eq(consecutiveCheckinWorkflowEvents.eventId, id),
+              eq(consecutiveCheckinWorkflows.status, "active"),
+              gt(consecutiveCheckinWorkflows.hardExpiresAt, new Date(now)),
+              gt(consecutiveCheckinWorkflows.heartbeatAt, new Date(now - 120_000)),
+            ),
+          )
+          .limit(1);
+        if (activeWorkflow)
+          return {
+            status: "error",
+            message: "仍有参与者正在进行连签，请等待完成或在主场发行页撤销后重试。",
+            submission: Date.now(),
+            code: "CONSECUTIVE_WORKFLOW_ACTIVE",
+          };
+      }
       if (status === "open" && event.status === "ended") successNotice = "event-reopened";
       if (status === "open" && event.lotteryEnabled) {
         const eligiblePool =

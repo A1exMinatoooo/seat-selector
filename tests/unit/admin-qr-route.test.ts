@@ -12,6 +12,10 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/server/security/admin-session", () => auth);
 vi.mock("@/server/domain/ticket-issue", () => domain);
 vi.mock("@/server/domain/qr-entry", () => ({ getOrCreateQrToken: vi.fn() }));
+vi.mock("@/server/domain/consecutive-checkin-workflow", () => ({
+  cancelConsecutiveWorkflow: vi.fn(),
+  listActiveConsecutiveWorkflows: vi.fn(async () => []),
+}));
 vi.mock("@/server/qr-code", () => qr);
 vi.mock("@/server/env", () => ({
   env: () => ({ APP_URL: "https://example.test", TRUSTED_PROXY_COUNT: 0 }),

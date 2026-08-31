@@ -234,3 +234,9 @@ details[open] > summary .details-chevron, .select-field[data-open] .select-field
 .consecutive-target-list input { width: 20px; height: 20px; min-height: 20px; }
 .consecutive-target-list span { display: grid; gap: 3px; }
 .consecutive-target-list small { color: var(--muted); }
+.issue-event-group { display: grid; gap: 14px; padding: 16px; border: 2px solid var(--line); border-radius: 18px; }
+.issue-event-group > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.issue-event-group > header .eyebrow { margin-bottom: 2px; }
+.issue-event-summary { display: grid; gap: 10px; width: 100%; }
+.issue-event-summary section { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.active-workflows { margin-top: 18px; }

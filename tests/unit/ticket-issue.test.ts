@@ -95,7 +95,7 @@ describe("ticket issue lifecycle", () => {
     await createTicketIssue(eventId, [{ ticketTypeId, quantity: 1 }]);
 
     expect(update).not.toHaveBeenCalled();
-    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert).toHaveBeenCalledTimes(3);
   });
 
   it.each([

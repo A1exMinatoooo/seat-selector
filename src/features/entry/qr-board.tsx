@@ -9,15 +9,33 @@ import { responseErrorMessage } from "@/shared/error-message";
 
 const qrRefreshIntervalMs = 1_000;
 type TicketType = { id: string; name: string };
+type IssueEvent = {
+  id: string;
+  name: string;
+  maxTicketsPerIssue: number;
+  ticketTypes: TicketType[];
+};
 type QrData = { image: string; expiresIn: number; serverTime: string };
 type IssueStatus = "active" | "claimed" | "expired" | "cancelled";
 type IssueResponse = QrData & {
   issueId: string;
   expiresAt: string;
   allocation: Array<TicketType & { quantity: number }>;
+  events?: Array<{
+    eventId: string;
+    eventName: string;
+    ticketTotal: number;
+    allocation: Array<TicketType & { ticketTypeId: string; quantity: number }>;
+  }>;
 };
 type IssueData = IssueResponse & { clientExpiresAt: number };
 type IssuePhase = "active" | "confirming" | "cancelling";
+type ActiveWorkflow = {
+  id: string;
+  claimedAt: string;
+  hardExpiresAt: string;
+  events: string[];
+};
 
 function isIssueStatus(value: unknown): value is IssueStatus {
   return ["active", "claimed", "expired", "cancelled"].includes(String(value));
@@ -30,6 +48,7 @@ export function QrBoard({
   participationMode = "preregistered",
   maxTicketsPerIssue = 7,
   ticketTypes = [],
+  issueEvents,
 }: {
   eventId: string;
   eventName: string;
@@ -37,6 +56,7 @@ export function QrBoard({
   participationMode?: "onsite" | "preregistered";
   maxTicketsPerIssue?: number;
   ticketTypes?: TicketType[];
+  issueEvents?: IssueEvent[];
 }) {
   if (participationMode === "onsite")
     return (
@@ -44,8 +64,9 @@ export function QrBoard({
         eventId={eventId}
         eventName={eventName}
         backHref={backHref}
-        maxTicketsPerIssue={maxTicketsPerIssue}
-        ticketTypes={ticketTypes}
+        issueEvents={
+          issueEvents ?? [{ id: eventId, name: eventName, maxTicketsPerIssue, ticketTypes }]
+        }
       />
     );
   return <RotatingQrBoard eventId={eventId} eventName={eventName} backHref={backHref} />;
@@ -123,22 +144,21 @@ function OnsiteIssueBoard({
   eventId,
   eventName,
   backHref,
-  maxTicketsPerIssue,
-  ticketTypes,
+  issueEvents,
 }: {
   eventId: string;
   eventName: string;
   backHref: string;
-  maxTicketsPerIssue: number;
-  ticketTypes: TicketType[];
+  issueEvents: IssueEvent[];
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
-    Object.fromEntries(ticketTypes.map((type) => [type.id, 0])),
+    Object.fromEntries(issueEvents.flatMap((item) => item.ticketTypes.map((type) => [type.id, 0]))),
   );
   const [issue, setIssue] = useState<IssueData>();
   const [phase, setPhase] = useState<IssuePhase>("active");
   const [remaining, setRemaining] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [activeWorkflows, setActiveWorkflows] = useState<ActiveWorkflow[]>([]);
   const confirmationFailureShownRef = useRef(false);
   const mutationControllerRef = useRef<AbortController | undefined>(undefined);
   const showToast = useAdminToast();
@@ -146,12 +166,51 @@ function OnsiteIssueBoard({
     () => Object.values(quantities).reduce((sum, quantity) => sum + quantity, 0),
     [quantities],
   );
+  const eventTotals = useMemo(
+    () =>
+      Object.fromEntries(
+        issueEvents.map((item) => [
+          item.id,
+          item.ticketTypes.reduce((sum, type) => sum + (quantities[type.id] ?? 0), 0),
+        ]),
+      ),
+    [issueEvents, quantities],
+  );
+  const validAllocation = issueEvents.every((item, index) => {
+    const eventTotal = eventTotals[item.id] ?? 0;
+    return eventTotal <= item.maxTicketsPerIssue && (index > 0 || eventTotal >= 1);
+  });
+
+  const loadActiveWorkflows = useCallback(async () => {
+    if (issueEvents.length <= 1) return;
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/qr?workflows=active`, {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { workflows?: ActiveWorkflow[] };
+      setActiveWorkflows(data.workflows ?? []);
+    } catch (error) {
+      console.error("Active consecutive workflow refresh failed", error);
+    }
+  }, [eventId, issueEvents.length]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void loadActiveWorkflows(), 0);
+    const timer = window.setInterval(() => void loadActiveWorkflows(), 5_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadActiveWorkflows]);
 
   const finishIssue = useCallback(
     (currentIssue: IssueData, status: Exclude<IssueStatus, "active">) => {
       setIssue(undefined);
       setPhase("active");
-      const ticketTotal = currentIssue.allocation.reduce((sum, item) => sum + item.quantity, 0);
+      const ticketTotal =
+        currentIssue.events?.reduce((sum, item) => sum + item.ticketTotal, 0) ??
+        currentIssue.allocation.reduce((sum, item) => sum + item.quantity, 0);
       if (status === "claimed") {
         showToast("success", `参与者已领取，共 ${ticketTotal} 张。`);
       } else if (status === "expired") {
@@ -221,16 +280,19 @@ function OnsiteIssueBoard({
 
   async function createIssue() {
     setBusy(true);
-    const allocation = ticketTypes.flatMap((type) =>
-      quantities[type.id] ? [{ ticketTypeId: type.id, quantity: quantities[type.id]! }] : [],
-    );
+    const allocations = issueEvents.map((item) => ({
+      eventId: item.id,
+      allocation: item.ticketTypes.flatMap((type) =>
+        quantities[type.id] ? [{ ticketTypeId: type.id, quantity: quantities[type.id]! }] : [],
+      ),
+    }));
     const controller = new AbortController();
     mutationControllerRef.current = controller;
     try {
       const response = await fetch(`/api/admin/events/${eventId}/qr`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ allocation }),
+        body: JSON.stringify({ allocations }),
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(await responseErrorMessage(response));
@@ -245,7 +307,7 @@ function OnsiteIssueBoard({
       confirmationFailureShownRef.current = false;
       showToast(
         "success",
-        `现场二维码已发行，共 ${data.allocation.reduce((sum, item) => sum + item.quantity, 0)} 张。`,
+        `现场二维码已发行，共 ${data.events?.reduce((sum, item) => sum + item.ticketTotal, 0) ?? data.allocation.reduce((sum, item) => sum + item.quantity, 0)} 张。`,
       );
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -280,6 +342,19 @@ function OnsiteIssueBoard({
     }
   }
 
+  async function revokeWorkflow(workflowId: string) {
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}/qr?workflowId=${workflowId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error(await responseErrorMessage(response));
+      showToast("success", "进行中的连签已撤销，临时座位已释放。");
+      await loadActiveWorkflows();
+    } catch (cause) {
+      showToast("error", cause instanceof Error ? cause.message : "连签撤销失败。");
+    }
+  }
+
   return (
     <main className="issue-screen admin-shell">
       <Link className="qr-back-button" href={backHref}>
@@ -290,46 +365,93 @@ function OnsiteIssueBoard({
         <div>
           <p className="eyebrow">现场发行</p>
           <h1>{eventName}</h1>
-          <p className="muted">选择本次票种与张数，合计最多 {maxTicketsPerIssue} 张。</p>
+          <p className="muted">分别选择各场票种与张数；后续场可选择 0 张。</p>
         </div>
       </header>
       <section className="panel wide issue-workbench">
-        {ticketTypes.map((type) => (
-          <fieldset className="issue-ticket-type" key={type.id}>
-            <legend>{type.name}</legend>
-            <div className="quantity-tabs" role="radiogroup" aria-label={`${type.name}张数`}>
-              {Array.from({ length: maxTicketsPerIssue + 1 }, (_, quantity) => (
-                <label key={quantity}>
-                  <input
-                    type="radio"
-                    name={`quantity:${type.id}`}
-                    value={quantity}
-                    checked={quantities[type.id] === quantity}
-                    onChange={() =>
-                      setQuantities((current) => ({ ...current, [type.id]: quantity }))
-                    }
-                    disabled={total - (quantities[type.id] ?? 0) + quantity > maxTicketsPerIssue}
-                  />
-                  <span>{quantity}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+        {issueEvents.map((issueEvent, eventIndex) => (
+          <section className="issue-event-group" key={issueEvent.id}>
+            <header>
+              <div>
+                <p className="eyebrow">{eventIndex === 0 ? "主场" : `后续场 ${eventIndex}`}</p>
+                <h2>{issueEvent.name}</h2>
+              </div>
+              <strong>
+                {eventTotals[issueEvent.id] ?? 0}/{issueEvent.maxTicketsPerIssue} 张
+              </strong>
+            </header>
+            {issueEvent.ticketTypes.map((type) => (
+              <fieldset className="issue-ticket-type" key={type.id}>
+                <legend>{type.name}</legend>
+                <div
+                  className="quantity-tabs"
+                  role="radiogroup"
+                  aria-label={`${issueEvent.name} ${type.name}张数`}
+                >
+                  {Array.from({ length: issueEvent.maxTicketsPerIssue + 1 }, (_, quantity) => (
+                    <label key={quantity}>
+                      <input
+                        type="radio"
+                        name={`quantity:${type.id}`}
+                        value={quantity}
+                        checked={quantities[type.id] === quantity}
+                        onChange={() =>
+                          setQuantities((current) => ({ ...current, [type.id]: quantity }))
+                        }
+                        disabled={
+                          (eventTotals[issueEvent.id] ?? 0) -
+                            (quantities[type.id] ?? 0) +
+                            quantity >
+                          issueEvent.maxTicketsPerIssue
+                        }
+                      />
+                      <span>{quantity}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </section>
         ))}
         <div className="issue-actions">
-          <strong>
-            本次合计 {total}/{maxTicketsPerIssue} 张
-          </strong>
+          <strong>本次跨场合计 {total} 张</strong>
           <button
             className="button primary"
             type="button"
-            disabled={busy || total < 1 || total > maxTicketsPerIssue}
+            disabled={busy || !validAllocation}
             onClick={() => void createIssue()}
           >
             {busy ? "正在发行…" : "发行二维码"}
           </button>
         </div>
       </section>
+      {activeWorkflows.length ? (
+        <section className="panel wide active-workflows" aria-labelledby="active-workflows-title">
+          <h2 id="active-workflows-title">进行中的连签</h2>
+          <ul className="record-list actionable-record-list">
+            {activeWorkflows.map((workflow) => (
+              <li key={workflow.id}>
+                <div>
+                  <strong>{workflow.events.join(" → ")}</strong>
+                  <small>
+                    领取于 {new Date(workflow.claimedAt).toLocaleTimeString("zh-CN")} · 最晚{" "}
+                    {new Date(workflow.hardExpiresAt).toLocaleTimeString("zh-CN")}
+                  </small>
+                </div>
+                <div className="row-actions">
+                  <button
+                    className="text-button danger"
+                    type="button"
+                    onClick={() => void revokeWorkflow(workflow.id)}
+                  >
+                    撤销连签
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {issue ? (
         <div
           className="lottery-backdrop"
@@ -349,11 +471,28 @@ function OnsiteIssueBoard({
             {phase === "active" ? (
               <BrandedQrCode src={issue.image} alt={`${eventName} 单次领取二维码`} />
             ) : null}
-            <div className="ticket-summary">
-              {issue.allocation.map((item) => (
-                <span key={item.id}>
-                  {item.name} × {item.quantity}
-                </span>
+            <div className="ticket-summary issue-event-summary">
+              {(
+                issue.events ?? [
+                  {
+                    eventId,
+                    eventName,
+                    ticketTotal: issue.allocation.reduce((sum, item) => sum + item.quantity, 0),
+                    allocation: issue.allocation.map((item) => ({
+                      ...item,
+                      ticketTypeId: item.id,
+                    })),
+                  },
+                ]
+              ).map((item) => (
+                <section key={item.eventId}>
+                  <strong>{item.eventName}</strong>
+                  {item.allocation.map((ticket) => (
+                    <span key={ticket.ticketTypeId}>
+                      {ticket.name} × {ticket.quantity}
+                    </span>
+                  ))}
+                </section>
               ))}
             </div>
             <strong>

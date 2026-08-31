@@ -1,10 +1,17 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { findClaimedParticipant, findOpenParticipantsByDevice } from "@/server/db/participant-device";
+import {
+  findClaimedParticipant,
+  findOpenParticipantsByDevice,
+} from "@/server/db/participant-device";
 import { uniqueDeviceParticipant } from "@/server/domain/participant-reentry";
 import { tokenHash } from "./crypto";
-import { getParticipantClaim, setParticipantClaim } from "./participant-session";
+import {
+  getConsecutiveWorkflowClaim,
+  getParticipantClaim,
+  setParticipantClaim,
+} from "./participant-session";
 import { DomainError, errorCodes } from "@/shared/errors";
 
 export const participantEventCodeSchema = z.string().min(10).max(80);
@@ -19,7 +26,8 @@ export async function requireParticipantForEvent(code: string) {
   const parsedCode = participantEventCodeSchema.safeParse(code);
   const claim = await getParticipantClaim();
   const deviceHash = await getCurrentDeviceHash();
-  if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !deviceHash) throw new DomainError(errorCodes.unauthorized, "Participant session required", 401);
+  if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !deviceHash)
+    throw new DomainError(errorCodes.unauthorized, "Participant session required", 401);
   const row = await findClaimedParticipant(parsedCode.data, claim.participantId, deviceHash);
   if (!row) throw new DomainError(errorCodes.unauthorized, "Device binding invalid", 401);
   return row;
@@ -37,6 +45,19 @@ export async function restoreParticipantForEvent(code: string) {
   if (!parsedCode.success) return null;
   const participant = await findRestorableParticipantForEvent(parsedCode.data);
   if (!participant) return null;
-  await setParticipantClaim({ eventId: participant.eventId, participantId: participant.participantId, code: parsedCode.data });
+  await setParticipantClaim({
+    eventId: participant.eventId,
+    participantId: participant.participantId,
+    code: parsedCode.data,
+  });
   return participant;
+}
+
+export async function requireConsecutiveWorkflowForEvent(code: string) {
+  const parsedCode = participantEventCodeSchema.safeParse(code);
+  const claim = await getConsecutiveWorkflowClaim();
+  const deviceHash = await getCurrentDeviceHash();
+  if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !deviceHash)
+    throw new DomainError(errorCodes.unauthorized, "Consecutive workflow session required", 401);
+  return { workflowId: claim.workflowId, deviceHash, code: parsedCode.data };
 }
