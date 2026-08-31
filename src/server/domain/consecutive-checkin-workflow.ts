@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, asc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
+import { randomInt } from "node:crypto";
+import { and, asc, count, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/server/db/client";
 import {
   consecutiveCheckinSeatHolds,
@@ -10,17 +11,81 @@ import {
   eventSeats,
   events,
   halls,
+  lotteryDraws,
+  lotteryPrizes,
+  participantTickets,
   participants,
+  reservations,
   reservationSeats,
   seats,
+  ticketTypes,
 } from "@/server/db/schema";
 import { effectiveEventAvailability } from "./event-seat-availability";
+import { prizeIndexForRoll } from "./lottery-rules";
 import { DomainError, errorCodes } from "@/shared/errors";
 import { postgresErrorInfo } from "@/shared/postgres-error";
+import { formatSeatLabel } from "@/shared/seat-label";
 
 export const consecutiveHeartbeatIntervalMs = 5_000;
 export const consecutiveLeaseMs = 120_000;
 export const consecutiveHardLimitMs = 300_000;
+
+export type ConsecutiveWorkflowStepView = {
+  eventId: string;
+  eventName: string;
+  lotteryEnabled: boolean;
+  centerAfterColumn: number | null;
+  ticketTotal: number;
+  historical: boolean;
+  sortOrder: number;
+  tickets: Array<{ name: string; quantity: number; lotteryEligible: boolean }>;
+  confirmedAt: string | null;
+  confirmedSeats: string[];
+  lotteryResults: Array<{ drawIndex: number; prizeName: string | null }>;
+  lotteryChances: number;
+  seats: Array<{
+    id: string;
+    rowIndex: number;
+    columnIndex: number;
+    rowLabel: string;
+    columnLabel: string;
+    kind: "seat" | "aisle" | "empty";
+    selectable: boolean;
+    golden: boolean;
+  }>;
+  availableSeatIds: string[];
+  occupiedSeatIds: string[];
+  selectedSeatIds: string[];
+};
+
+export type ConsecutiveWorkflowView = {
+  id: string;
+  status: "active" | "completed" | "cancelled" | "expired";
+  claimedAt: string;
+  hardExpiresAt: string;
+  needsLocation: boolean;
+  steps: ConsecutiveWorkflowStepView[];
+};
+
+export async function consecutiveWorkflowNeedsLocation(workflowId: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: events.id })
+    .from(consecutiveCheckinWorkflowEvents)
+    .innerJoin(events, eq(events.id, consecutiveCheckinWorkflowEvents.eventId))
+    .innerJoin(participants, eq(participants.id, consecutiveCheckinWorkflowEvents.participantId))
+    .where(
+      and(
+        eq(consecutiveCheckinWorkflowEvents.workflowId, workflowId),
+        eq(consecutiveCheckinWorkflowEvents.historical, false),
+        eq(events.locationCheckEnabled, true),
+        // A null exemption means this participant must pass the shared workflow location check.
+        // Drizzle expresses this nullable comparison through SQL equality semantics below.
+        isNull(participants.locationExemptAt),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
 
 function activeAt(now: number) {
   return and(
@@ -57,8 +122,7 @@ async function expireInactiveWorkflows(now: number): Promise<void> {
     .where(lt(consecutiveCheckinSeatHolds.expiresAt, new Date(now)));
 }
 
-async function workflowIdentity(workflowId: string, deviceHash: string, code: string, now: number) {
-  await expireInactiveWorkflows(now);
+async function workflowAuthorization(workflowId: string, deviceHash: string, code: string) {
   const [workflow] = await getDb()
     .select({
       id: consecutiveCheckinWorkflows.id,
@@ -80,9 +144,198 @@ async function workflowIdentity(workflowId: string, deviceHash: string, code: st
     .limit(1);
   if (!workflow || workflow.publicCode !== code)
     throw new DomainError(errorCodes.unauthorized, "连签会话无效", 401);
+  return workflow;
+}
+
+async function workflowIdentity(workflowId: string, deviceHash: string, code: string, now: number) {
+  await expireInactiveWorkflows(now);
+  const workflow = await workflowAuthorization(workflowId, deviceHash, code);
   if (workflow.status !== "active")
     throw new DomainError(errorCodes.consecutiveWorkflowExpired, "连签已结束或过期", 409);
   return workflow;
+}
+
+export async function getConsecutiveWorkflowView(
+  workflowId: string,
+  deviceHash: string,
+  code: string,
+  now = Date.now(),
+): Promise<ConsecutiveWorkflowView> {
+  await expireInactiveWorkflows(now);
+  const workflow = await workflowAuthorization(workflowId, deviceHash, code);
+  const stepRows = await getDb()
+    .select({
+      eventId: events.id,
+      eventName: events.name,
+      hallId: events.hallId,
+      status: events.status,
+      lotteryEnabled: events.lotteryEnabled,
+      locationCheckEnabled: events.locationCheckEnabled,
+      lockedSeatHalf: events.lockedSeatHalf,
+      centerAfterColumn: halls.centerAfterColumn,
+      participantId: consecutiveCheckinWorkflowEvents.participantId,
+      ticketTotal: participants.ticketTotal,
+      historical: consecutiveCheckinWorkflowEvents.historical,
+      sortOrder: consecutiveCheckinWorkflowEvents.sortOrder,
+    })
+    .from(consecutiveCheckinWorkflowEvents)
+    .innerJoin(events, eq(events.id, consecutiveCheckinWorkflowEvents.eventId))
+    .innerJoin(halls, eq(halls.id, events.hallId))
+    .innerJoin(participants, eq(participants.id, consecutiveCheckinWorkflowEvents.participantId))
+    .where(eq(consecutiveCheckinWorkflowEvents.workflowId, workflow.id))
+    .orderBy(asc(consecutiveCheckinWorkflowEvents.sortOrder));
+
+  const steps: ConsecutiveWorkflowStepView[] = [];
+  for (const step of stepRows) {
+    const [ticketRows, reservationRows, lotteryResults] = await Promise.all([
+      getDb()
+        .select({
+          name: ticketTypes.name,
+          quantity: participantTickets.quantity,
+          lotteryEligible: ticketTypes.lotteryEligible,
+        })
+        .from(participantTickets)
+        .innerJoin(ticketTypes, eq(ticketTypes.id, participantTickets.ticketTypeId))
+        .where(eq(participantTickets.participantId, step.participantId))
+        .orderBy(asc(ticketTypes.sortOrder)),
+      getDb()
+        .select({
+          confirmedAt: reservations.confirmedAt,
+          rowLabel: seats.rowLabel,
+          columnLabel: seats.columnLabel,
+        })
+        .from(reservations)
+        .innerJoin(reservationSeats, eq(reservationSeats.reservationId, reservations.id))
+        .innerJoin(seats, eq(seats.id, reservationSeats.seatId))
+        .where(
+          and(
+            eq(reservations.eventId, step.eventId),
+            eq(reservations.participantId, step.participantId),
+          ),
+        )
+        .orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
+      getDb()
+        .select({ drawIndex: lotteryDraws.drawIndex, prizeName: lotteryDraws.prizeName })
+        .from(lotteryDraws)
+        .where(
+          and(
+            eq(lotteryDraws.eventId, step.eventId),
+            eq(lotteryDraws.participantId, step.participantId),
+          ),
+        )
+        .orderBy(asc(lotteryDraws.drawIndex)),
+    ]);
+    if (step.historical || workflow.status === "completed") {
+      steps.push({
+        eventId: step.eventId,
+        eventName: step.eventName,
+        lotteryEnabled: step.lotteryEnabled,
+        centerAfterColumn: step.centerAfterColumn,
+        ticketTotal: step.ticketTotal,
+        historical: step.historical,
+        sortOrder: step.sortOrder,
+        tickets: ticketRows,
+        confirmedAt: reservationRows[0]?.confirmedAt?.toISOString() ?? null,
+        confirmedSeats: reservationRows.map((seat) =>
+          formatSeatLabel(seat.rowLabel, seat.columnLabel),
+        ),
+        lotteryResults,
+        lotteryChances: ticketRows.reduce(
+          (sum, ticket) => sum + (ticket.lotteryEligible ? ticket.quantity : 0),
+          0,
+        ),
+        seats: [],
+        availableSeatIds: [],
+        occupiedSeatIds: [],
+        selectedSeatIds: [],
+      });
+      continue;
+    }
+    const [seatRows, baseAvailable, reserved, held, mine] = await Promise.all([
+      getDb()
+        .select({
+          id: seats.id,
+          rowIndex: seats.rowIndex,
+          columnIndex: seats.columnIndex,
+          rowLabel: seats.rowLabel,
+          columnLabel: seats.columnLabel,
+          kind: seats.kind,
+          selectable: seats.selectable,
+          golden: seats.golden,
+        })
+        .from(seats)
+        .where(eq(seats.hallId, step.hallId))
+        .orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
+      getDb()
+        .select({ seatId: eventSeats.seatId })
+        .from(eventSeats)
+        .where(eq(eventSeats.eventId, step.eventId)),
+      getDb()
+        .select({ seatId: reservationSeats.seatId })
+        .from(reservationSeats)
+        .where(eq(reservationSeats.eventId, step.eventId)),
+      getDb()
+        .select({ seatId: consecutiveCheckinSeatHolds.seatId })
+        .from(consecutiveCheckinSeatHolds)
+        .where(
+          and(
+            eq(consecutiveCheckinSeatHolds.eventId, step.eventId),
+            ne(consecutiveCheckinSeatHolds.workflowId, workflow.id),
+            gt(consecutiveCheckinSeatHolds.expiresAt, new Date(now)),
+          ),
+        ),
+      getDb()
+        .select({ seatId: consecutiveCheckinSeatHolds.seatId })
+        .from(consecutiveCheckinSeatHolds)
+        .where(
+          and(
+            eq(consecutiveCheckinSeatHolds.eventId, step.eventId),
+            eq(consecutiveCheckinSeatHolds.workflowId, workflow.id),
+            gt(consecutiveCheckinSeatHolds.expiresAt, new Date(now)),
+          ),
+        ),
+    ]);
+    const availableSeatIds = effectiveEventAvailability(
+      seatRows.map((seat) => ({
+        id: seat.id,
+        columnIndex: seat.columnIndex,
+        kind: seat.kind,
+        templateSelectable: seat.selectable,
+      })),
+      baseAvailable.map((row) => row.seatId),
+      step.lockedSeatHalf,
+      step.centerAfterColumn,
+    );
+    steps.push({
+      eventId: step.eventId,
+      eventName: step.eventName,
+      lotteryEnabled: step.lotteryEnabled,
+      centerAfterColumn: step.centerAfterColumn,
+      ticketTotal: step.ticketTotal,
+      historical: step.historical,
+      sortOrder: step.sortOrder,
+      tickets: ticketRows,
+      confirmedAt: null,
+      confirmedSeats: [],
+      lotteryResults,
+      lotteryChances: ticketRows.reduce(
+        (sum, ticket) => sum + (ticket.lotteryEligible ? ticket.quantity : 0),
+        0,
+      ),
+      seats: seatRows,
+      availableSeatIds,
+      occupiedSeatIds: [...reserved, ...held].map((row) => row.seatId),
+      selectedSeatIds: mine.map((row) => row.seatId),
+    });
+  }
+  return {
+    id: workflow.id,
+    status: workflow.status,
+    claimedAt: workflow.claimedAt.toISOString(),
+    hardExpiresAt: workflow.hardExpiresAt.toISOString(),
+    needsLocation: await consecutiveWorkflowNeedsLocation(workflow.id),
+    steps,
+  };
 }
 
 export async function heartbeatConsecutiveWorkflow(
@@ -258,6 +511,231 @@ export async function replaceConsecutiveSeatHolds(
   }
 }
 
+export async function finalizeConsecutiveWorkflow(
+  workflowId: string,
+  deviceHash: string,
+  code: string,
+  now = Date.now(),
+) {
+  await workflowAuthorization(workflowId, deviceHash, code);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const alreadyCompleted = await getDb().transaction(
+        async (tx) => {
+          const [workflow] = await tx
+            .select({
+              status: consecutiveCheckinWorkflows.status,
+              hardExpiresAt: consecutiveCheckinWorkflows.hardExpiresAt,
+              heartbeatAt: consecutiveCheckinWorkflows.heartbeatAt,
+              deviceHash: consecutiveCheckinWorkflows.deviceHash,
+            })
+            .from(consecutiveCheckinWorkflows)
+            .where(eq(consecutiveCheckinWorkflows.id, workflowId))
+            .limit(1)
+            .for("update");
+          if (!workflow || workflow.deviceHash !== deviceHash)
+            throw new DomainError(errorCodes.unauthorized, "连签会话无效", 401);
+          if (workflow.status === "completed") return true;
+          if (
+            workflow.status !== "active" ||
+            workflow.hardExpiresAt.getTime() <= now ||
+            workflow.heartbeatAt.getTime() <= now - consecutiveLeaseMs
+          )
+            throw new DomainError(errorCodes.consecutiveWorkflowExpired, "连签已过期", 409);
+
+          const steps = await tx
+            .select({
+              eventId: consecutiveCheckinWorkflowEvents.eventId,
+              participantId: consecutiveCheckinWorkflowEvents.participantId,
+              historical: consecutiveCheckinWorkflowEvents.historical,
+              sortOrder: consecutiveCheckinWorkflowEvents.sortOrder,
+              ticketTotal: participants.ticketTotal,
+            })
+            .from(consecutiveCheckinWorkflowEvents)
+            .innerJoin(
+              participants,
+              eq(participants.id, consecutiveCheckinWorkflowEvents.participantId),
+            )
+            .where(eq(consecutiveCheckinWorkflowEvents.workflowId, workflowId))
+            .orderBy(asc(consecutiveCheckinWorkflowEvents.sortOrder));
+          const eventRows = await tx
+            .select({
+              id: events.id,
+              name: events.name,
+              status: events.status,
+              version: events.version,
+              lotteryEnabled: events.lotteryEnabled,
+              participationMode: events.participationMode,
+              expectedLotteryTickets: events.expectedLotteryTickets,
+              lotteryPoolBonus: events.lotteryPoolBonus,
+            })
+            .from(events)
+            .where(
+              inArray(
+                events.id,
+                steps.map((step) => step.eventId),
+              ),
+            )
+            .orderBy(asc(events.id))
+            .for("update");
+          if (eventRows.some((event) => event.status !== "open"))
+            throw new DomainError(
+              errorCodes.consecutiveWorkflowUnavailable,
+              "部分连签活动已经关闭",
+              409,
+            );
+
+          for (const step of steps.filter((item) => !item.historical)) {
+            const holds = await tx
+              .select({ seatId: consecutiveCheckinSeatHolds.seatId })
+              .from(consecutiveCheckinSeatHolds)
+              .where(
+                and(
+                  eq(consecutiveCheckinSeatHolds.workflowId, workflowId),
+                  eq(consecutiveCheckinSeatHolds.eventId, step.eventId),
+                  gt(consecutiveCheckinSeatHolds.expiresAt, new Date(now)),
+                ),
+              );
+            if (holds.length !== step.ticketTotal)
+              throw new DomainError(errorCodes.consecutiveSeatHeld, "部分临时座位已经失效", 409);
+            const [reservation] = await tx
+              .insert(reservations)
+              .values({ eventId: step.eventId, participantId: step.participantId })
+              .returning({ id: reservations.id });
+            if (!reservation) throw new Error("Consecutive reservation creation failed");
+            await tx.insert(reservationSeats).values(
+              holds.map((hold) => ({
+                reservationId: reservation.id,
+                eventId: step.eventId,
+                seatId: hold.seatId,
+              })),
+            );
+            await tx
+              .update(events)
+              .set({ version: sql`${events.version} + 1` })
+              .where(eq(events.id, step.eventId));
+            await tx.insert(eventAuditLogs).values({
+              eventId: step.eventId,
+              participantId: step.participantId,
+              action: "seat_confirmed",
+              details: {
+                reservationId: reservation.id,
+                workflowId,
+                seatIds: holds.map((hold) => hold.seatId),
+              },
+            });
+
+            const currentEvent = eventRows.find((event) => event.id === step.eventId)!;
+            if (!currentEvent.lotteryEnabled) continue;
+            const [eligible, allDraws, prizes, awarded] = await Promise.all([
+              tx
+                .select({
+                  total: sql<number>`coalesce(sum(${participantTickets.quantity}), 0)::int`,
+                })
+                .from(participantTickets)
+                .innerJoin(ticketTypes, eq(ticketTypes.id, participantTickets.ticketTypeId))
+                .where(
+                  and(
+                    eq(participantTickets.participantId, step.participantId),
+                    eq(ticketTypes.eventId, step.eventId),
+                    eq(ticketTypes.lotteryEligible, true),
+                  ),
+                ),
+              tx
+                .select({ value: count() })
+                .from(lotteryDraws)
+                .where(eq(lotteryDraws.eventId, step.eventId)),
+              tx
+                .select()
+                .from(lotteryPrizes)
+                .where(eq(lotteryPrizes.eventId, step.eventId))
+                .orderBy(asc(lotteryPrizes.sortOrder)),
+              tx
+                .select({ prizeId: lotteryDraws.prizeId, value: count() })
+                .from(lotteryDraws)
+                .where(
+                  and(
+                    eq(lotteryDraws.eventId, step.eventId),
+                    sql`${lotteryDraws.prizeId} is not null`,
+                  ),
+                )
+                .groupBy(lotteryDraws.prizeId),
+            ]);
+            const drawCount = Number(eligible[0]?.total ?? 0);
+            if (drawCount === 0) continue;
+            const totalPool =
+              (currentEvent.expectedLotteryTickets ?? 0) + currentEvent.lotteryPoolBonus;
+            let remainingPool = totalPool - Number(allDraws[0]?.value ?? 0);
+            if (remainingPool < drawCount)
+              throw new DomainError(errorCodes.lotteryUnavailable, "抽奖名额不足", 409);
+            const awardedByPrize = new Map(awarded.map((row) => [row.prizeId, Number(row.value)]));
+            const remainingPrizes = prizes.map((prize) => ({
+              ...prize,
+              remaining: prize.quantity - (awardedByPrize.get(prize.id) ?? 0),
+            }));
+            if (remainingPrizes.reduce((sum, prize) => sum + prize.remaining, 0) > remainingPool)
+              throw new DomainError(errorCodes.lotteryUnavailable, "奖池配置已失效", 409);
+            const results: Array<{ drawIndex: number; prizeName: string | null }> = [];
+            for (let drawIndex = 0; drawIndex < drawCount; drawIndex += 1) {
+              const prizeIndex = prizeIndexForRoll(
+                remainingPrizes,
+                remainingPool,
+                randomInt(remainingPool),
+              );
+              const won = prizeIndex === null ? null : (remainingPrizes[prizeIndex] ?? null);
+              if (won) won.remaining -= 1;
+              results.push({ drawIndex, prizeName: won?.name ?? null });
+              await tx.insert(lotteryDraws).values({
+                eventId: step.eventId,
+                participantId: step.participantId,
+                drawIndex,
+                prizeId: won?.id ?? null,
+                prizeName: won?.name ?? null,
+              });
+              remainingPool -= 1;
+            }
+            await tx.insert(eventAuditLogs).values({
+              eventId: step.eventId,
+              participantId: step.participantId,
+              action: "lottery_drawn",
+              details: {
+                workflowId,
+                drawCount,
+                prizes: results.map((result) => result.prizeName),
+              },
+            });
+          }
+          await tx
+            .delete(consecutiveCheckinSeatHolds)
+            .where(eq(consecutiveCheckinSeatHolds.workflowId, workflowId));
+          await tx
+            .update(consecutiveCheckinWorkflows)
+            .set({ status: "completed", completedAt: new Date(now) })
+            .where(eq(consecutiveCheckinWorkflows.id, workflowId));
+          await tx.insert(eventAuditLogs).values(
+            steps.map((step) => ({
+              eventId: step.eventId,
+              participantId: step.participantId,
+              action: "consecutive_checkin_completed" as const,
+              details: { workflowId, historical: step.historical },
+            })),
+          );
+          return false;
+        },
+        { isolationLevel: "serializable" },
+      );
+      return { alreadyCompleted };
+    } catch (error) {
+      const info = postgresErrorInfo(error);
+      if (info.code === "40001" && attempt < 2) continue;
+      if (info.code === "23505")
+        throw new DomainError(errorCodes.consecutiveSeatHeld, "座位状态已变化", 409);
+      throw error;
+    }
+  }
+  throw new DomainError(errorCodes.consecutiveWorkflowUnavailable, "连签提交失败", 409);
+}
+
 export async function consecutiveWorkflowSeatState(
   workflowId: string,
   eventId: string,
@@ -335,6 +813,27 @@ export async function listActiveConsecutiveWorkflows(sourceEventId: string, now 
     grouped.set(row.id, item);
   }
   return [...grouped.values()];
+}
+
+export async function findRestorableConsecutiveWorkflow(
+  code: string,
+  deviceHash: string,
+  now = Date.now(),
+) {
+  await expireInactiveWorkflows(now);
+  const [workflow] = await getDb()
+    .select({ id: consecutiveCheckinWorkflows.id })
+    .from(consecutiveCheckinWorkflows)
+    .innerJoin(events, eq(events.id, consecutiveCheckinWorkflows.sourceEventId))
+    .where(
+      and(
+        eq(events.publicCode, code),
+        eq(consecutiveCheckinWorkflows.deviceHash, deviceHash),
+        activeAt(now),
+      ),
+    )
+    .limit(1);
+  return workflow ?? null;
 }
 
 export async function cancelConsecutiveWorkflow(

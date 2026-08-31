@@ -2,24 +2,211 @@ import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ParticipantEntry } from "@/features/entry/participant-entry";
 import { ParticipantSessionRestore } from "@/features/entry/participant-session-restore";
+import { ConsecutiveSessionRestore } from "@/features/entry/consecutive-session-restore";
 import { LocationGate } from "@/features/seating/location-gate";
 import { SeatPicker } from "@/features/seating/seat-picker";
 import { SuccessView } from "@/features/seating/success-view";
+import {
+  ConsecutiveResultView,
+  ConsecutiveSeatFlow,
+} from "@/features/seating/consecutive-seat-flow";
 import { getDb } from "@/server/db/client";
-import { eventSeats, events, halls, lotteryDraws, participantTickets, reservations, reservationSeats, seats, ticketTypes } from "@/server/db/schema";
+import {
+  eventSeats,
+  events,
+  halls,
+  lotteryDraws,
+  participantTickets,
+  reservations,
+  reservationSeats,
+  seats,
+  ticketTypes,
+} from "@/server/db/schema";
 import { countTodaySeatRecords } from "@/server/domain/daily-seat-record-count";
+import { getConsecutiveWorkflowView } from "@/server/domain/consecutive-checkin-workflow";
 import { effectiveEventAvailability } from "@/server/domain/event-seat-availability";
 import { isLocationCheckRequired } from "@/server/domain/location-check";
-import { findRestorableParticipantForEvent, participantEventCodeSchema, requireParticipantForEvent } from "@/server/security/participant-auth";
-import { getEntryClaim, getLocationClaim } from "@/server/security/participant-session";
+import {
+  findRestorableConsecutiveWorkflowForEvent,
+  findRestorableParticipantForEvent,
+  getCurrentDeviceHash,
+  participantEventCodeSchema,
+  requireParticipantForEvent,
+} from "@/server/security/participant-auth";
+import {
+  getConsecutiveWorkflowClaim,
+  getEntryClaim,
+  getLocationClaim,
+} from "@/server/security/participant-session";
 import { formatSeatLabel } from "@/shared/seat-label";
 import { DomainError, errorCodes } from "@/shared/errors";
 
 export const dynamic = "force-dynamic";
-export default async function ParticipantPage({ params }: { params: Promise<{ code: string }> }) { const parsedCode = participantEventCodeSchema.safeParse((await params).code); if (!parsedCode.success) notFound(); const code = parsedCode.data; const [event] = await getDb().select({ id: events.id, name: events.name, version: events.version, locationCheckEnabled: events.locationCheckEnabled, lotteryEnabled: events.lotteryEnabled, participationMode: events.participationMode, lockedSeatHalf: events.lockedSeatHalf, centerAfterColumn: halls.centerAfterColumn }).from(events).innerJoin(halls, eq(events.hallId, halls.id)).where(and(eq(events.publicCode, code), eq(events.status, "open"))).limit(1); if (!event) notFound(); let participant; try { participant = await requireParticipantForEvent(code); } catch (error) { if (!(error instanceof DomainError) || error.code !== errorCodes.unauthorized) throw error; const restorable = await findRestorableParticipantForEvent(code); if (restorable) return <ParticipantSessionRestore code={code} eventName={event.name} />; participant = null; } if (!participant) { const entry = await getEntryClaim(); return event.participationMode === "preregistered" && entry?.eventId === event.id ? <ParticipantEntry code={code} eventName={event.name} /> : <main className="participant-shell"><section className="participant-card"><p className="eyebrow">安全入口</p><h1>请扫描现场二维码</h1><p>活动链接本身不包含选座资格，请使用现场屏幕上正在显示的动态二维码进入。</p></section></main>; }
-  const [reservation] = await getDb().select().from(reservations).where(and(eq(reservations.eventId, event.id), eq(reservations.participantId, participant.participantId))).limit(1);
-  if (reservation) { const serverNow = new Date(); const [seatRows, tickets, lotteryResults, todayRecordCount] = await Promise.all([getDb().select({ rowLabel: seats.rowLabel, columnLabel: seats.columnLabel }).from(reservationSeats).innerJoin(seats, eq(reservationSeats.seatId, seats.id)).where(eq(reservationSeats.reservationId, reservation.id)).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)), getDb().select({ name: ticketTypes.name, quantity: participantTickets.quantity, lotteryEligible: ticketTypes.lotteryEligible }).from(participantTickets).innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id)).where(eq(participantTickets.participantId, participant.participantId)).orderBy(asc(ticketTypes.sortOrder)), getDb().select({ drawIndex: lotteryDraws.drawIndex, prizeName: lotteryDraws.prizeName }).from(lotteryDraws).where(and(eq(lotteryDraws.eventId, event.id), eq(lotteryDraws.participantId, participant.participantId))).orderBy(asc(lotteryDraws.drawIndex)), participant.deviceHash ? countTodaySeatRecords(participant.deviceHash, serverNow) : Promise.resolve(0)]); return <SuccessView code={code} eventName={event.name} phoneLast4={participant.phoneLast4} showPhoneLast4={event.participationMode === "preregistered"} confirmedAt={reservation.confirmedAt.toISOString()} serverTime={serverNow.toISOString()} seats={seatRows.map((seat) => formatSeatLabel(seat.rowLabel, seat.columnLabel))} tickets={tickets} lotteryEnabled={event.lotteryEnabled} initialLotteryResults={lotteryResults} showTodayRecordsLink={todayRecordCount >= 2} />; }
-  const location = await getLocationClaim(); if (isLocationCheckRequired(event.locationCheckEnabled, participant.locationExemptAt) && (!location || location.participantId !== participant.participantId)) return <LocationGate code={code} eventName={event.name} />;
-  const [seatRows, occupied, available] = await Promise.all([getDb().select().from(seats).where(eq(seats.hallId, participant.hallId)).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)), getDb().select({ seatId: reservationSeats.seatId }).from(reservationSeats).where(eq(reservationSeats.eventId, event.id)), getDb().select({ seatId: eventSeats.seatId }).from(eventSeats).where(eq(eventSeats.eventId, event.id))]);
-  const effectiveAvailable = effectiveEventAvailability(seatRows.map((seat) => ({ ...seat, templateSelectable: seat.selectable })), available.map((row) => row.seatId), event.lockedSeatHalf, event.centerAfterColumn);
-  return <SeatPicker code={code} eventName={event.name} seats={seatRows} initialAvailable={effectiveAvailable} initialOccupied={occupied.map((row) => row.seatId)} initialVersion={event.version} ticketTotal={participant.ticketTotal} centerAfterColumn={event.centerAfterColumn} skipLocationCheck={!isLocationCheckRequired(event.locationCheckEnabled, participant.locationExemptAt)} />; }
+export default async function ParticipantPage({ params }: { params: Promise<{ code: string }> }) {
+  const parsedCode = participantEventCodeSchema.safeParse((await params).code);
+  if (!parsedCode.success) notFound();
+  const code = parsedCode.data;
+  const [event] = await getDb()
+    .select({
+      id: events.id,
+      name: events.name,
+      status: events.status,
+      version: events.version,
+      locationCheckEnabled: events.locationCheckEnabled,
+      lotteryEnabled: events.lotteryEnabled,
+      participationMode: events.participationMode,
+      lockedSeatHalf: events.lockedSeatHalf,
+      centerAfterColumn: halls.centerAfterColumn,
+    })
+    .from(events)
+    .innerJoin(halls, eq(events.hallId, halls.id))
+    .where(eq(events.publicCode, code))
+    .limit(1);
+  if (!event) notFound();
+  const workflowClaim = await getConsecutiveWorkflowClaim();
+  if (workflowClaim?.code === code) {
+    const deviceHash = await getCurrentDeviceHash();
+    if (deviceHash) {
+      const workflow = await getConsecutiveWorkflowView(workflowClaim.workflowId, deviceHash, code);
+      if (workflow.status === "completed") return <ConsecutiveResultView view={workflow} />;
+      if (workflow.status !== "active")
+        return (
+          <main className="participant-shell">
+            <section className="participant-card">
+              <p className="eyebrow">连签已结束</p>
+              <h1>临时座位已释放</h1>
+              <p>请回到现场，让工作人员重新发行二维码。</p>
+            </section>
+          </main>
+        );
+      return <ConsecutiveSeatFlow code={code} initialView={workflow} />;
+    }
+  }
+  if (await findRestorableConsecutiveWorkflowForEvent(code))
+    return <ConsecutiveSessionRestore code={code} eventName={event.name} />;
+  if (event.status !== "open") notFound();
+  let participant;
+  try {
+    participant = await requireParticipantForEvent(code);
+  } catch (error) {
+    if (!(error instanceof DomainError) || error.code !== errorCodes.unauthorized) throw error;
+    const restorable = await findRestorableParticipantForEvent(code);
+    if (restorable) return <ParticipantSessionRestore code={code} eventName={event.name} />;
+    participant = null;
+  }
+  if (!participant) {
+    const entry = await getEntryClaim();
+    return event.participationMode === "preregistered" && entry?.eventId === event.id ? (
+      <ParticipantEntry code={code} eventName={event.name} />
+    ) : (
+      <main className="participant-shell">
+        <section className="participant-card">
+          <p className="eyebrow">安全入口</p>
+          <h1>请扫描现场二维码</h1>
+          <p>活动链接本身不包含选座资格，请使用现场屏幕上正在显示的动态二维码进入。</p>
+        </section>
+      </main>
+    );
+  }
+  const [reservation] = await getDb()
+    .select()
+    .from(reservations)
+    .where(
+      and(
+        eq(reservations.eventId, event.id),
+        eq(reservations.participantId, participant.participantId),
+      ),
+    )
+    .limit(1);
+  if (reservation) {
+    const serverNow = new Date();
+    const [seatRows, tickets, lotteryResults, todayRecordCount] = await Promise.all([
+      getDb()
+        .select({ rowLabel: seats.rowLabel, columnLabel: seats.columnLabel })
+        .from(reservationSeats)
+        .innerJoin(seats, eq(reservationSeats.seatId, seats.id))
+        .where(eq(reservationSeats.reservationId, reservation.id))
+        .orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
+      getDb()
+        .select({
+          name: ticketTypes.name,
+          quantity: participantTickets.quantity,
+          lotteryEligible: ticketTypes.lotteryEligible,
+        })
+        .from(participantTickets)
+        .innerJoin(ticketTypes, eq(participantTickets.ticketTypeId, ticketTypes.id))
+        .where(eq(participantTickets.participantId, participant.participantId))
+        .orderBy(asc(ticketTypes.sortOrder)),
+      getDb()
+        .select({ drawIndex: lotteryDraws.drawIndex, prizeName: lotteryDraws.prizeName })
+        .from(lotteryDraws)
+        .where(
+          and(
+            eq(lotteryDraws.eventId, event.id),
+            eq(lotteryDraws.participantId, participant.participantId),
+          ),
+        )
+        .orderBy(asc(lotteryDraws.drawIndex)),
+      participant.deviceHash
+        ? countTodaySeatRecords(participant.deviceHash, serverNow)
+        : Promise.resolve(0),
+    ]);
+    return (
+      <SuccessView
+        code={code}
+        eventName={event.name}
+        phoneLast4={participant.phoneLast4}
+        showPhoneLast4={event.participationMode === "preregistered"}
+        confirmedAt={reservation.confirmedAt.toISOString()}
+        serverTime={serverNow.toISOString()}
+        seats={seatRows.map((seat) => formatSeatLabel(seat.rowLabel, seat.columnLabel))}
+        tickets={tickets}
+        lotteryEnabled={event.lotteryEnabled}
+        initialLotteryResults={lotteryResults}
+        showTodayRecordsLink={todayRecordCount >= 2}
+      />
+    );
+  }
+  const location = await getLocationClaim();
+  if (
+    isLocationCheckRequired(event.locationCheckEnabled, participant.locationExemptAt) &&
+    (!location || location.participantId !== participant.participantId)
+  )
+    return <LocationGate code={code} eventName={event.name} />;
+  const [seatRows, occupied, available] = await Promise.all([
+    getDb()
+      .select()
+      .from(seats)
+      .where(eq(seats.hallId, participant.hallId))
+      .orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
+    getDb()
+      .select({ seatId: reservationSeats.seatId })
+      .from(reservationSeats)
+      .where(eq(reservationSeats.eventId, event.id)),
+    getDb()
+      .select({ seatId: eventSeats.seatId })
+      .from(eventSeats)
+      .where(eq(eventSeats.eventId, event.id)),
+  ]);
+  const effectiveAvailable = effectiveEventAvailability(
+    seatRows.map((seat) => ({ ...seat, templateSelectable: seat.selectable })),
+    available.map((row) => row.seatId),
+    event.lockedSeatHalf,
+    event.centerAfterColumn,
+  );
+  return (
+    <SeatPicker
+      code={code}
+      eventName={event.name}
+      seats={seatRows}
+      initialAvailable={effectiveAvailable}
+      initialOccupied={occupied.map((row) => row.seatId)}
+      initialVersion={event.version}
+      ticketTotal={participant.ticketTotal}
+      centerAfterColumn={event.centerAfterColumn}
+      skipLocationCheck={
+        !isLocationCheckRequired(event.locationCheckEnabled, participant.locationExemptAt)
+      }
+    />
+  );
+}

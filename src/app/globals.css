@@ -240,3 +240,16 @@ details[open] > summary .details-chevron, .select-field[data-open] .select-field
 .issue-event-summary { display: grid; gap: 10px; width: 100%; }
 .issue-event-summary section { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .active-workflows { margin-top: 18px; }
+.consecutive-seat-page > header { display: grid; gap: 10px; }
+.consecutive-step-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.consecutive-step-nav button { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--green); font-weight: 800; }
+.consecutive-step-nav button.active { border-color: var(--green); background: var(--green); color: white; }
+.consecutive-step-nav button span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.18); }
+.consecutive-selection-bar { flex-wrap: wrap; }
+.consecutive-selection-bar > div { flex: 1 1 220px; }
+.consecutive-history-card { margin: 24px auto; width: min(680px, calc(100% - 32px)); }
+.consecutive-result-shell { display: grid; gap: 20px; }
+.consecutive-result-list { display: grid; gap: 18px; }
+.consecutive-result-card { border: 2px solid var(--green); }
+.consecutive-result-card .lottery-summary { margin-top: 16px; }
+.lottery-drawing { text-align: center; }

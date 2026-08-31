@@ -6,10 +6,12 @@ import {
   findOpenParticipantsByDevice,
 } from "@/server/db/participant-device";
 import { uniqueDeviceParticipant } from "@/server/domain/participant-reentry";
+import { findRestorableConsecutiveWorkflow } from "@/server/domain/consecutive-checkin-workflow";
 import { tokenHash } from "./crypto";
 import {
   getConsecutiveWorkflowClaim,
   getParticipantClaim,
+  setConsecutiveWorkflowClaim,
   setParticipantClaim,
 } from "./participant-session";
 import { DomainError, errorCodes } from "@/shared/errors";
@@ -60,4 +62,18 @@ export async function requireConsecutiveWorkflowForEvent(code: string) {
   if (!parsedCode.success || !claim || claim.code !== parsedCode.data || !deviceHash)
     throw new DomainError(errorCodes.unauthorized, "Consecutive workflow session required", 401);
   return { workflowId: claim.workflowId, deviceHash, code: parsedCode.data };
+}
+
+export async function findRestorableConsecutiveWorkflowForEvent(code: string) {
+  const parsedCode = participantEventCodeSchema.safeParse(code);
+  const deviceHash = await getCurrentDeviceHash();
+  if (!parsedCode.success || !deviceHash) return null;
+  return findRestorableConsecutiveWorkflow(parsedCode.data, deviceHash);
+}
+
+export async function restoreConsecutiveWorkflowForEvent(code: string) {
+  const workflow = await findRestorableConsecutiveWorkflowForEvent(code);
+  if (!workflow) return null;
+  await setConsecutiveWorkflowClaim({ workflowId: workflow.id, code });
+  return workflow;
 }

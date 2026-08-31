@@ -105,3 +105,76 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
   await expect(page.getByRole("alert")).toHaveText("二维码已超时，请重新发行。");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+test("linked onsite issue keeps zero-ticket follow-up events out of the QR snapshot", async ({
+  page,
+}) => {
+  test.skip(!adminPassword, "E2E_ADMIN_PASSWORD is required for authenticated mutation tests");
+  await page.goto("/admin/events");
+  await loginIfNeeded(page);
+  const eventLinks = await page
+    .locator(".event-list a")
+    .evaluateAll((links) =>
+      links.map((link) => (link as HTMLAnchorElement).getAttribute("href")).filter(Boolean),
+    );
+  let found = false;
+  for (const eventHref of eventLinks) {
+    await page.goto(eventHref!);
+    const checkinLink = page.getByRole("link", { name: "现场二维码" });
+    if (!(await checkinLink.isVisible())) continue;
+    await checkinLink.click();
+    if ((await page.locator(".issue-event-group").count()) >= 2) {
+      found = true;
+      break;
+    }
+  }
+  test.skip(!found, "An open onsite event with a linked follow-up is required");
+
+  const groups = page.locator(".issue-event-group");
+  const sourceName = (await groups.nth(0).getByRole("heading", { level: 2 }).textContent())!;
+  let submitted: unknown;
+  await page.route("**/api/admin/events/*/qr", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    submitted = route.request().postDataJSON();
+    const serverTime = new Date();
+    await route.fulfill({
+      json: {
+        issueId: "00000000-0000-4000-8000-000000000099",
+        image: "data:image/png;base64,AA==",
+        expiresIn: 30,
+        expiresAt: new Date(serverTime.getTime() + 30_000).toISOString(),
+        serverTime: serverTime.toISOString(),
+        allocation: [
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            ticketTypeId: "00000000-0000-4000-8000-000000000002",
+            name: "普通票",
+            quantity: 1,
+          },
+        ],
+        events: [
+          {
+            eventId: "00000000-0000-4000-8000-000000000001",
+            eventName: sourceName,
+            ticketTotal: 1,
+            allocation: [
+              {
+                id: "00000000-0000-4000-8000-000000000002",
+                ticketTypeId: "00000000-0000-4000-8000-000000000002",
+                name: "普通票",
+                quantity: 1,
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+  await groups.nth(0).locator('input[type="radio"][value="1"]').first().check();
+  await page.getByRole("button", { name: "发行二维码" }).click();
+  await expect(page.getByRole("dialog")).toContainText(sourceName);
+  const allocations = (submitted as { allocations: Array<{ allocation: unknown[] }> }).allocations;
+  expect(allocations[0]?.allocation).toHaveLength(1);
+  expect(allocations[1]?.allocation).toHaveLength(0);
+  await expect(page.getByRole("dialog").locator(".issue-event-summary section")).toHaveCount(1);
+});

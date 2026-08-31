@@ -19,6 +19,7 @@ export type LocationClaim = Expiring & {
   verifiedAt: number;
 };
 export type ConsecutiveWorkflowClaim = Expiring & { workflowId: string; code: string };
+export type ConsecutiveLocationClaim = Expiring & { workflowId: string; verifiedAt: number };
 async function read<T extends Expiring>(name: string, purpose: string): Promise<T | null> {
   const token = (await cookies()).get(name)?.value;
   if (!token) return null;
@@ -84,4 +85,14 @@ export async function setConsecutiveWorkflowClaim(claim: Omit<ConsecutiveWorkflo
 }
 export async function getConsecutiveWorkflowClaim() {
   return read<ConsecutiveWorkflowClaim>("ps_consecutive", "consecutive-workflow-cookie");
+}
+export async function setConsecutiveLocationClaim(claim: Omit<ConsecutiveLocationClaim, "exp">) {
+  (await cookies()).set(
+    "ps_consecutive_location",
+    signJson({ ...claim, exp: Date.now() + 120_000 }, "consecutive-location-cookie"),
+    { ...cookieOptions, maxAge: 120 },
+  );
+}
+export async function getConsecutiveLocationClaim() {
+  return read<ConsecutiveLocationClaim>("ps_consecutive_location", "consecutive-location-cookie");
 }

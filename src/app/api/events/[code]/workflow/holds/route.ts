@@ -1,10 +1,13 @@
 import { z } from "zod";
 import {
+  consecutiveWorkflowNeedsLocation,
   consecutiveWorkflowSeatState,
   replaceConsecutiveSeatHolds,
 } from "@/server/domain/consecutive-checkin-workflow";
 import { requireConsecutiveWorkflowForEvent } from "@/server/security/participant-auth";
+import { getConsecutiveLocationClaim } from "@/server/security/participant-session";
 import { apiFailure, assertSameOrigin } from "@/server/security/request";
+import { DomainError, errorCodes } from "@/shared/errors";
 
 const eventIdSchema = z.string().uuid();
 const holdSchema = z.object({
@@ -35,6 +38,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ code
     const { code } = await params;
     const input = holdSchema.parse(await request.json());
     const claim = await requireConsecutiveWorkflowForEvent(code);
+    const location = await getConsecutiveLocationClaim();
+    if (
+      (await consecutiveWorkflowNeedsLocation(claim.workflowId)) &&
+      (!location || location.workflowId !== claim.workflowId)
+    )
+      throw new DomainError(errorCodes.locationRequired, "Fresh location required", 403);
     const result = await replaceConsecutiveSeatHolds(
       claim.workflowId,
       input.eventId,
