@@ -8,12 +8,24 @@ import { responseErrorMessage } from "@/shared/error-message";
 type LotteryResult = { drawIndex: number; prizeName: string | null };
 type TicketSummary = { name: string; quantity: number; lotteryEligible: boolean };
 
-function InlineBrandIcon({ className = "" }: { className?: string }) {
+export function InlineBrandIcon({ className = "" }: { className?: string }) {
   return <span className={`inline-brand-icon ${className}`.trim()} aria-hidden="true"><Image unoptimized width={512} height={512} src="/icon.svg" alt="" /></span>;
 }
 
-function LotteryPrizeName({ prizeName }: { prizeName: string | null }) {
+export function LotteryPrizeName({ prizeName }: { prizeName: string | null }) {
   return <strong className="lottery-prize-name">{prizeName ?? "未中奖"}{prizeName ? <InlineBrandIcon className="lottery-prize-icon" /> : null}</strong>;
+}
+
+export function LiveServerTime({ serverTime }: { serverTime: string }) {
+  const [nowIso, setNowIso] = useState(serverTime);
+
+  useEffect(() => {
+    const offset = new Date(serverTime).getTime() - Date.now();
+    const timer = setInterval(() => setNowIso(new Date(Date.now() + offset).toISOString()), 1000);
+    return () => clearInterval(timer);
+  }, [serverTime]);
+
+  return <div className="live-time"><span>当前时间</span><strong>{new Date(nowIso).toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>;
 }
 
 export function LotteryResultDialog({
@@ -64,19 +76,12 @@ export function LotteryResultDialog({
 }
 
 export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; showPhoneLast4?: boolean; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
-  const [nowIso, setNowIso] = useState(serverTime);
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
   const lotteryChances = lotteryEnabled ? tickets.filter((ticket) => ticket.lotteryEligible).reduce((sum, ticket) => sum + ticket.quantity, 0) : 0;
   const hasPendingLottery = lotteryChances > 0 && initialLotteryResults.length === 0;
   const [lotteryPhase, setLotteryPhase] = useState<"prompt" | "drawing" | "result" | "closed">(hasPendingLottery ? "prompt" : "closed");
   const [lotteryError, setLotteryError] = useState("");
   const closeLotteryResult = useCallback(() => setLotteryPhase("closed"), []);
-
-  useEffect(() => {
-    const offset = new Date(serverTime).getTime() - Date.now();
-    const timer = setInterval(() => setNowIso(new Date(Date.now() + offset).toISOString()), 1000);
-    return () => clearInterval(timer);
-  }, [serverTime]);
 
   async function startLottery() {
     setLotteryError("");
@@ -98,11 +103,10 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
     }
   }
 
-  const now = new Date(nowIso);
   return <main className="success-page">
     <aside className="success-notice" role="note"><InlineBrandIcon className="success-notice-icon" />请截图保存本页，方便后续核对座位</aside>
     <header className="success-heading"><p className="eyebrow">选座成功</p><h1>{eventName}</h1></header>
-    <div className="live-time"><span>当前时间</span><strong>{now.toLocaleTimeString("zh-CN", { hour12: false })}</strong></div>
+    <LiveServerTime serverTime={serverTime} />
     <section><p>你的座位</p><h2 className="confirmed-seats">{seats.map((seat) => <span className="confirmed-seat" key={seat}>{seat}</span>)}</h2></section>
     <div className="ticket-summary">{tickets.map((ticket) => <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>)}</div>
     {lotteryResults.length ? <section className="lottery-summary"><h2>抽奖结果</h2><ol>{lotteryResults.map((result) => <li key={result.drawIndex}>第 {result.drawIndex + 1} 次：<LotteryPrizeName prizeName={result.prizeName} /></li>)}</ol></section> : null}

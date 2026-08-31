@@ -61,6 +61,7 @@ export type ConsecutiveWorkflowStepView = {
 export type ConsecutiveWorkflowView = {
   id: string;
   status: "active" | "completed" | "cancelled" | "expired";
+  serverTime: string;
   claimedAt: string;
   hardExpiresAt: string;
   needsLocation: boolean;
@@ -331,6 +332,7 @@ export async function getConsecutiveWorkflowView(
   return {
     id: workflow.id,
     status: workflow.status,
+    serverTime: new Date(now).toISOString(),
     claimedAt: workflow.claimedAt.toISOString(),
     hardExpiresAt: workflow.hardExpiresAt.toISOString(),
     needsLocation: await consecutiveWorkflowNeedsLocation(workflow.id),

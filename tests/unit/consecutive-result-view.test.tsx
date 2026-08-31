@@ -28,6 +28,7 @@ describe("consecutive result view", () => {
     const view: ConsecutiveWorkflowView = {
       id: "workflow-1",
       status: "completed",
+      serverTime: "2026-08-31T10:00:00.000Z",
       claimedAt: "2026-08-31T09:55:00.000Z",
       hardExpiresAt: "2026-08-31T10:00:00.000Z",
       needsLocation: true,
@@ -46,6 +47,10 @@ describe("consecutive result view", () => {
     };
     const markup = renderToStaticMarkup(createElement(ConsecutiveResultView, { view }));
     expect(markup.match(/consecutive-result-card/g)).toHaveLength(2);
+    expect(markup).toContain("success-page consecutive-success-page");
+    expect(markup).toContain("请截图保存本页");
+    expect(markup).toContain("ticket-summary");
+    expect(markup).toContain("lottery-prize-icon");
     expect(markup.indexOf("第一场")).toBeLessThan(markup.indexOf("第二场"));
     expect(markup).toContain("此前已完成");
     expect(markup).toContain("海报");

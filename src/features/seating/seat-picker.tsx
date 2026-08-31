@@ -1,37 +1,19 @@
 "use client";
 
-import { Ban, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
-import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
+import { formatSeatLabel } from "@/shared/seat-label";
 import { responseErrorMessage } from "@/shared/error-message";
 import { SeatGridViewport } from "./seat-grid-viewport";
 import { TheaterMannersDialog } from "./theater-manners-dialog";
+import {
+  ParticipantSeatButton,
+  ParticipantSeatLegend,
+  type ParticipantSeatDto,
+} from "./participant-seat-state";
 
-export type SeatDto = {
-  id: string;
-  rowIndex: number;
-  columnIndex: number;
-  rowLabel: string;
-  columnLabel: string;
-  kind: "seat" | "aisle" | "empty";
-  selectable: boolean;
-  golden: boolean;
-};
-
-function SeatStateIcon({ state, size }: { state: "occupied" | "blocked"; size: 14 | 22 }) {
-  const Icon = state === "occupied" ? X : Ban;
-  return (
-    <Icon
-      className="seat-state-icon"
-      data-seat-state-icon={state}
-      aria-hidden="true"
-      size={size}
-      strokeWidth={2}
-    />
-  );
-}
+export type SeatDto = ParticipantSeatDto;
 
 export function SeatPicker({
   code,
@@ -273,22 +255,7 @@ export function SeatPicker({
             ariaLabel="可选座位区域"
             className="public-grid-viewport"
             layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
-            legend={
-              <div className="legend participant-legend" aria-label="参与者座位图图例">
-                <span className="available">可选</span>
-                <span className="golden">黄金区</span>
-                <span className="mine">我的选择</span>
-                <span className="occupied">
-                  <SeatStateIcon state="occupied" size={14} />
-                  他人已选
-                </span>
-                <span className="blocked">
-                  <SeatStateIcon state="blocked" size={14} />
-                  不可选
-                </span>
-                <span className="divider">左右半场中线</span>
-              </div>
-            }
+            legend={<ParticipantSeatLegend />}
             mobileMinimap
           >
             <div
@@ -318,37 +285,15 @@ export function SeatPicker({
                     {rowSeats.map((seat) => {
                       const isOccupied = occupied.has(seat.id);
                       const isMine = selected.includes(seat.id);
-                      const isBlocked =
-                        seat.kind === "seat" && (!seat.selectable || !available.has(seat.id));
-                      const label = formatSeatLabel(seat.rowLabel, seat.columnLabel);
-                      const stateLabel = isOccupied
-                        ? "已被他人选择"
-                        : isBlocked
-                          ? "不可选"
-                          : isMine
-                            ? "我的选择"
-                            : "可选";
                       return (
-                        <button
+                        <ParticipantSeatButton
                           key={seat.id}
-                          type="button"
-                          aria-label={`${label}：${stateLabel}`}
-                          disabled={seat.kind !== "seat" || (!isOccupied && isBlocked)}
-                          className={`public-seat ${seat.kind} ${seat.golden && !isBlocked && !isOccupied ? "golden" : ""} ${isOccupied ? "occupied" : ""} ${isBlocked && !isOccupied ? "blocked" : ""} ${isMine ? "mine" : ""}`}
-                          onClick={() => toggle(seat)}
-                        >
-                          {seat.kind === "seat" ? (
-                            isOccupied ? (
-                              <SeatStateIcon state="occupied" size={22} />
-                            ) : isBlocked ? (
-                              <SeatStateIcon state="blocked" size={22} />
-                            ) : (
-                              displaySeatNumber(seat.columnLabel)
-                            )
-                          ) : (
-                            ""
-                          )}
-                        </button>
+                          seat={seat}
+                          occupied={isOccupied}
+                          available={available.has(seat.id)}
+                          selected={isMine}
+                          onSelect={toggle}
+                        />
                       );
                     })}
                   </div>

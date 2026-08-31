@@ -1,6 +1,7 @@
 import {
   consecutiveWorkflowNeedsLocation,
   finalizeConsecutiveWorkflow,
+  getConsecutiveWorkflowView,
 } from "@/server/domain/consecutive-checkin-workflow";
 import { requireConsecutiveWorkflowForEvent } from "@/server/security/participant-auth";
 import { getConsecutiveLocationClaim } from "@/server/security/participant-session";
@@ -23,7 +24,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       claim.deviceHash,
       claim.code,
     );
-    return Response.json({ ok: true, ...result });
+    const view = await getConsecutiveWorkflowView(claim.workflowId, claim.deviceHash, claim.code);
+    return Response.json({ ok: true, ...result, view });
   } catch (error) {
     return apiFailure(error);
   }
