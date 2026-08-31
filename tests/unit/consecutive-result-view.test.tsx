@@ -49,6 +49,8 @@ describe("consecutive result view", () => {
     expect(markup.match(/consecutive-result-card/g)).toHaveLength(2);
     expect(markup).toContain("success-page consecutive-success-page");
     expect(markup).toContain("请截图保存本页");
+    expect(markup).toContain("<h1>选座结果</h1>");
+    expect(markup).not.toContain("同日活动结果");
     expect(markup).toContain("ticket-summary");
     expect(markup).toContain("lottery-prize-icon");
     expect(markup.indexOf("第一场")).toBeLessThan(markup.indexOf("第二场"));

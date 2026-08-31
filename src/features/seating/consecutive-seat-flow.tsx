@@ -50,7 +50,7 @@ export function ConsecutiveResultView({ view }: { view: WorkflowView }) {
       </aside>
       <header className="success-heading consecutive-success-heading">
         <p className="eyebrow">连签选座成功</p>
-        <h1>同日活动结果</h1>
+        <h1>选座结果</h1>
       </header>
       <LiveServerTime serverTime={view.serverTime} />
       <div className="consecutive-result-list">
