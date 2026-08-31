@@ -16,6 +16,24 @@ export function ConsecutiveCheckinFields({
   initialTargetIds: string[];
   candidates: ConsecutiveTargetOption[];
 }) {
+  const persistedSelectionKey = [...initialTargetIds].sort().join(",") || "disabled";
+
+  return (
+    <ConsecutiveCheckinFieldState
+      key={persistedSelectionKey}
+      initialTargetIds={initialTargetIds}
+      candidates={candidates}
+    />
+  );
+}
+
+function ConsecutiveCheckinFieldState({
+  initialTargetIds,
+  candidates,
+}: {
+  initialTargetIds: string[];
+  candidates: ConsecutiveTargetOption[];
+}) {
   const [enabled, setEnabled] = useState(initialTargetIds.length > 0);
   const [selected, setSelected] = useState(() => new Set(initialTargetIds));
 
