@@ -43,6 +43,7 @@ export const auditAction = pgEnum("audit_action", [
   "ticket_issue_created",
   "ticket_issue_claimed",
   "ticket_issue_replaced",
+  "consecutive_checkin_configuration_changed",
 ]);
 
 export const cinemas = pgTable("cinemas", {
@@ -123,6 +124,27 @@ export const events = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("events_status_starts_at_idx").on(table.status, table.startsAt)],
+);
+
+export const consecutiveCheckinLinks = pgTable(
+  "consecutive_checkin_links",
+  {
+    sourceEventId: uuid("source_event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    targetEventId: uuid("target_event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("consecutive_checkin_links_source_target_uidx").on(
+      table.sourceEventId,
+      table.targetEventId,
+    ),
+    index("consecutive_checkin_links_target_idx").on(table.targetEventId),
+    index("consecutive_checkin_links_source_idx").on(table.sourceEventId),
+  ],
 );
 
 export const ticketTypes = pgTable(

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import { eventConfigurationInputSchema, eventInputSchema } from "@/features/even
 import { getDb } from "@/server/db/client";
 import {
   eventAuditLogs,
+  consecutiveCheckinLinks,
   eventSeats,
   events,
   halls,
@@ -23,6 +24,10 @@ import {
   seats,
   ticketTypes,
 } from "@/server/db/schema";
+import {
+  consecutiveTargetViolation,
+  type ConsecutiveEventConfiguration,
+} from "@/server/domain/consecutive-checkin-config";
 import {
   describeAvailabilityChange,
   resolveEventAvailability,
@@ -44,6 +49,144 @@ function parseJsonFormField(formData: FormData, name: string): unknown {
   } catch {
     throw new DomainError(errorCodes.validation, `${name} 数据无效`);
   }
+}
+
+const consecutiveConfigurationSchema = z
+  .object({
+    id: z.string().uuid(),
+    enabled: z.preprocess(
+      (value) => value === true || value === "on" || value === "true",
+      z.boolean(),
+    ),
+    targetEventIds: z.array(z.string().uuid()).max(20),
+  })
+  .superRefine((input, context) => {
+    if (input.enabled && input.targetEventIds.length === 0)
+      context.addIssue({
+        code: "custom",
+        path: ["targetEventIds"],
+        message: "开启连签时至少选择一个活动",
+      });
+    if (new Set(input.targetEventIds).size !== input.targetEventIds.length)
+      context.addIssue({ code: "custom", path: ["targetEventIds"], message: "活动不能重复" });
+  });
+
+function eventConfigurationRow(row: {
+  id: string;
+  name: string;
+  status: "draft" | "open" | "ended";
+  participationMode: "onsite" | "preregistered";
+  startsAt: Date;
+  timeZone: string;
+  locationId: string;
+}): ConsecutiveEventConfiguration {
+  return row;
+}
+
+export async function updateConsecutiveCheckinAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdmin();
+  let parsed: ReturnType<typeof consecutiveConfigurationSchema.safeParse>;
+  try {
+    parsed = consecutiveConfigurationSchema.safeParse({
+      ...Object.fromEntries(formData),
+      targetEventIds: parseJsonFormField(formData, "targetEventIds"),
+    });
+  } catch {
+    return adminActionError("连签设置无效，请刷新后重试。", "INVALID_CONSECUTIVE_CONFIGURATION");
+  }
+  if (!parsed.success)
+    return adminActionError(
+      "连签设置无效，请至少选择一个符合条件的活动。",
+      "INVALID_CONSECUTIVE_CONFIGURATION",
+    );
+
+  try {
+    await getDb().transaction(async (tx) => {
+      const [source] = await tx
+        .select({
+          id: events.id,
+          name: events.name,
+          status: events.status,
+          participationMode: events.participationMode,
+          startsAt: events.startsAt,
+          timeZone: events.timeZone,
+          locationId: events.locationId,
+        })
+        .from(events)
+        .where(eq(events.id, parsed.data.id))
+        .limit(1)
+        .for("update");
+      if (!source) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
+      if (source.status === "ended" || source.participationMode !== "onsite")
+        throw new DomainError(
+          errorCodes.eventConflict,
+          "只有未结束的现场发行活动可以配置连签",
+          409,
+        );
+
+      const targetIds = parsed.data.enabled ? parsed.data.targetEventIds : [];
+      const targets = targetIds.length
+        ? await tx
+            .select({
+              id: events.id,
+              name: events.name,
+              status: events.status,
+              participationMode: events.participationMode,
+              startsAt: events.startsAt,
+              timeZone: events.timeZone,
+              locationId: events.locationId,
+            })
+            .from(events)
+            .where(inArray(events.id, targetIds))
+            .for("update")
+        : [];
+      if (targets.length !== targetIds.length)
+        throw new DomainError(errorCodes.validation, "部分连签活动不存在", 400);
+      for (const target of targets) {
+        if (target.id === source.id || consecutiveTargetViolation(source, target))
+          throw new DomainError(errorCodes.eventConflict, `${target.name} 不再符合连签条件`, 409);
+      }
+
+      await tx
+        .delete(consecutiveCheckinLinks)
+        .where(eq(consecutiveCheckinLinks.sourceEventId, source.id));
+      if (targets.length)
+        await tx
+          .insert(consecutiveCheckinLinks)
+          .values(
+            targets.map((target) => ({ sourceEventId: source.id, targetEventId: target.id })),
+          );
+      await tx.insert(eventAuditLogs).values({
+        eventId: source.id,
+        action: "consecutive_checkin_configuration_changed",
+        details: {
+          enabled: targets.length > 0,
+          targets: targets
+            .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime())
+            .map((target) => ({ id: target.id, name: target.name })),
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof DomainError) return adminActionError(error.message, error.code);
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "consecutive_checkin_configuration_save_failed",
+        eventId: parsed.data.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+    return adminActionError(
+      "连签设置保存失败，请稍后重试。",
+      "CONSECUTIVE_CONFIGURATION_SAVE_FAILED",
+    );
+  }
+  revalidatePath(`/admin/events/${parsed.data.id}`);
+  return adminActionSuccess("连签设置已保存。", "CONSECUTIVE_CONFIGURATION_SAVED");
 }
 
 export async function createEventAction(
@@ -161,7 +304,15 @@ export async function updateEventConfigurationAction(
   try {
     await getDb().transaction(async (tx) => {
       const [event] = await tx
-        .select({ status: events.status, participationMode: events.participationMode })
+        .select({
+          id: events.id,
+          name: events.name,
+          status: events.status,
+          participationMode: events.participationMode,
+          startsAt: events.startsAt,
+          timeZone: events.timeZone,
+          locationId: events.locationId,
+        })
         .from(events)
         .where(eq(events.id, input.id))
         .limit(1)
@@ -177,6 +328,58 @@ export async function updateEventConfigurationAction(
           .limit(1);
         if (existingParticipant)
           throw new DomainError(errorCodes.eventConflict, "已有参与者，不能切换参与方式", 409);
+      }
+
+      const affectedLinks = await tx
+        .select({
+          sourceEventId: consecutiveCheckinLinks.sourceEventId,
+          targetEventId: consecutiveCheckinLinks.targetEventId,
+        })
+        .from(consecutiveCheckinLinks)
+        .where(
+          or(
+            eq(consecutiveCheckinLinks.sourceEventId, input.id),
+            eq(consecutiveCheckinLinks.targetEventId, input.id),
+          ),
+        );
+      if (affectedLinks.length) {
+        const relatedIds = [
+          ...new Set(affectedLinks.flatMap((link) => [link.sourceEventId, link.targetEventId])),
+        ].filter((id) => id !== input.id);
+        const related = relatedIds.length
+          ? await tx
+              .select({
+                id: events.id,
+                name: events.name,
+                status: events.status,
+                participationMode: events.participationMode,
+                startsAt: events.startsAt,
+                timeZone: events.timeZone,
+                locationId: events.locationId,
+              })
+              .from(events)
+              .where(inArray(events.id, relatedIds))
+          : [];
+        const proposed = eventConfigurationRow({
+          ...event,
+          name: input.name,
+          participationMode: input.participationMode,
+          startsAt: input.startsAt,
+          timeZone: input.timeZone,
+          locationId: input.locationId,
+        });
+        const byId = new Map(related.map((row) => [row.id, eventConfigurationRow(row)]));
+        byId.set(input.id, proposed);
+        for (const link of affectedLinks) {
+          const source = byId.get(link.sourceEventId);
+          const target = byId.get(link.targetEventId);
+          if (!source || !target || consecutiveTargetViolation(source, target))
+            throw new DomainError(
+              errorCodes.eventConflict,
+              `当前修改会使“${source?.name ?? "未知活动"}”的连签关系失效，请先解除关联`,
+              409,
+            );
+        }
       }
 
       const existingTypes = await tx

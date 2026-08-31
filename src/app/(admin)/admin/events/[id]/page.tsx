@@ -9,6 +9,7 @@ import { EventStatusForm } from "@/features/events/event-status-form";
 import { EventSeatingStats } from "@/features/events/event-seating-stats";
 import { EventPrizeInventory } from "@/features/events/event-prize-inventory";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
+import { ConsecutiveCheckinFields } from "@/features/events/consecutive-checkin-fields";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
@@ -16,6 +17,7 @@ import { TimePickerField } from "@/features/forms/time-picker-field";
 import { getDb } from "@/server/db/client";
 import {
   cinemas,
+  consecutiveCheckinLinks,
   eventSeats,
   events,
   halls,
@@ -27,9 +29,10 @@ import {
   seats,
   ticketTypes,
 } from "@/server/db/schema";
+import { isConsecutiveTarget } from "@/server/domain/consecutive-checkin-config";
 import { requireAdmin } from "@/server/security/admin-session";
 import { formatLocalDateTime, supportedTimeZones } from "@/shared/date-time";
-import { updateEventConfigurationAction } from "../actions";
+import { updateConsecutiveCheckinAction, updateEventConfigurationAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +80,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     seatedCounts,
     occupiedCounts,
     awardedPrizeCounts,
+    configuredLinks,
+    linkableEvents,
   ] = await Promise.all([
     getDb()
       .select()
@@ -112,8 +117,37 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .from(lotteryDraws)
       .where(eq(lotteryDraws.eventId, id))
       .groupBy(lotteryDraws.prizeId),
+    getDb()
+      .select({ targetEventId: consecutiveCheckinLinks.targetEventId })
+      .from(consecutiveCheckinLinks)
+      .where(eq(consecutiveCheckinLinks.sourceEventId, id)),
+    getDb()
+      .select({
+        id: events.id,
+        name: events.name,
+        status: events.status,
+        participationMode: events.participationMode,
+        startsAt: events.startsAt,
+        timeZone: events.timeZone,
+        locationId: events.locationId,
+      })
+      .from(events)
+      .orderBy(asc(events.startsAt)),
   ]);
   const localStart = formatLocalDateTime(event.startsAt, event.timeZone);
+  const sourceConfiguration = {
+    id: event.id,
+    name: event.name,
+    status: event.status,
+    participationMode: event.participationMode,
+    startsAt: event.startsAt,
+    timeZone: event.timeZone,
+    locationId: event.locationId,
+  };
+  const configuredTargetIds = configuredLinks.map((link) => link.targetEventId);
+  const consecutiveCandidates = linkableEvents.filter((candidate) =>
+    isConsecutiveTarget(sourceConfiguration, candidate),
+  );
   return (
     <main className="admin-shell">
       <AdminBackButton href="/admin/events" label="活动" />
@@ -263,6 +297,50 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </section>
         </div>
       )}
+      {event.participationMode === "onsite" ? (
+        event.status !== "ended" ? (
+          <AdminActionForm
+            action={updateConsecutiveCheckinAction}
+            className="panel wide stack-form consecutive-config-form"
+          >
+            <div>
+              <p className="eyebrow">现场发行</p>
+              <h2>同日连续签到</h2>
+              <p className="muted">一次发行后，参与者可依次完成同地点的后续活动选座。</p>
+            </div>
+            <input type="hidden" name="id" value={event.id} />
+            <ConsecutiveCheckinFields
+              initialTargetIds={configuredTargetIds}
+              candidates={consecutiveCandidates.map((candidate) => ({
+                id: candidate.id,
+                name: candidate.name,
+                status: candidate.status === "open" ? "open" : "draft",
+                startsAtLabel: candidate.startsAt.toLocaleString("zh-CN", {
+                  timeZone: candidate.timeZone,
+                }),
+              }))}
+            />
+            <AdminSubmitButton pendingLabel="正在保存…">保存连签设置</AdminSubmitButton>
+          </AdminActionForm>
+        ) : configuredTargetIds.length ? (
+          <section className="panel wide">
+            <h2>同日连续签到</h2>
+            <p className="muted">活动已结束，连签设置不可修改。</p>
+            <ul className="record-list">
+              {linkableEvents
+                .filter((candidate) => configuredTargetIds.includes(candidate.id))
+                .map((candidate) => (
+                  <li key={candidate.id}>
+                    <strong>{candidate.name}</strong>
+                    <span>
+                      {candidate.startsAt.toLocaleString("zh-CN", { timeZone: candidate.timeZone })}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ) : null
+      ) : null}
       <EventSeatingStats
         seatedParticipantCount={Number(seatedCounts[0]?.value ?? 0)}
         occupiedSeatCount={Number(occupiedCounts[0]?.value ?? 0)}

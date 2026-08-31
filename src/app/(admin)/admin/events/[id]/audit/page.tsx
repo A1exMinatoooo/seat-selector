@@ -32,6 +32,7 @@ const actionLabels: Record<AuditAction, string> = {
   ticket_issue_created: "发行二维码",
   ticket_issue_claimed: "领取现场票",
   ticket_issue_replaced: "替换现场票",
+  consecutive_checkin_configuration_changed: "连签设置变更",
 };
 
 const statusLabels: Record<string, string> = { draft: "草稿", open: "开放中", ended: "已结束" };
@@ -66,6 +67,10 @@ function auditDetails(action: AuditAction, details: Record<string, unknown>): st
   if (action === "event_created") return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种`;
   if (action === "event_configuration_changed")
     return `配置 ${String(details.ticketTypeCount ?? 0)} 个票种；抽奖${details.lotteryEnabled === true ? "开启" : "关闭"}；${String(details.prizeCount ?? 0)} 项奖品`;
+  if (action === "consecutive_checkin_configuration_changed")
+    return details.enabled === true
+      ? `开启；关联 ${Array.isArray(details.targets) ? details.targets.length : 0} 场活动`
+      : "关闭";
   if (action === "event_status_changed")
     return `${statusLabels[String(details.from)] ?? String(details.from)} → ${statusLabels[String(details.to)] ?? String(details.to)}`;
   if (action === "seat_availability_changed") {

@@ -226,3 +226,11 @@ details[open] > summary .details-chevron, .select-field[data-open] .select-field
 @media (prefers-reduced-motion: reduce) {
   .admin-back-button, .qr-back-button, .export-menu > summary, .details-chevron, .select-field-chevron, .searchable-select-chevron, .time-picker-chevron, .select-field-trigger, .searchable-select-button, .date-picker-button, .date-picker-calendar > header button, .time-picker-trigger, .seat-grid-viewport-toolbar button { transition: none; }
 }
+.consecutive-config-form { margin-top: 18px; }
+.consecutive-targets { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; }
+.consecutive-targets legend { padding: 0 8px; font-weight: 800; }
+.consecutive-target-list { display: grid; gap: 10px; }
+.consecutive-target-list label { min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.consecutive-target-list input { width: 20px; height: 20px; min-height: 20px; }
+.consecutive-target-list span { display: grid; gap: 3px; }
+.consecutive-target-list small { color: var(--muted); }

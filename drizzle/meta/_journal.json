@@ -162,6 +162,13 @@
       "when": 1788012039178,
       "tag": "0022_common_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788146623477,
+      "tag": "0023_aspiring_venus",
+      "breakpoints": true
     }
   ]
 }
