@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsecutiveSeatFlow } from "@/features/seating/consecutive-seat-flow";
 import type { ConsecutiveWorkflowView } from "@/server/domain/consecutive-checkin-workflow";
@@ -8,7 +8,7 @@ import type { ConsecutiveWorkflowView } from "@/server/domain/consecutive-checki
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("@/features/seating/seat-grid-viewport", () => ({
-  SeatGridViewport: ({ children, legend }: { children: React.ReactNode; legend?: React.ReactNode }) => <div>{legend}{children}</div>,
+  SeatGridViewport: ({ children, legend }: { children: React.ReactNode; legend?: React.ReactNode }) => <div data-testid="seat-grid-scroll-area">{legend}{children}</div>,
 }));
 vi.mock("@/features/seating/theater-manners-dialog", () => ({ TheaterMannersDialog: () => null }));
 
@@ -57,6 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -83,5 +84,54 @@ describe("ConsecutiveSeatFlow", () => {
     render(<ConsecutiveSeatFlow code="ABC123" initialView={restored} />);
     expect(screen.getByRole("heading", { name: "您可参与 1 次抽奖" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "确定，开始抽奖" })).toBeTruthy();
+  });
+
+  it("shows current event context only after its title leaves the viewport", () => {
+    render(<ConsecutiveSeatFlow code="ABC123" initialView={view()} />);
+    const title = screen.getByRole("heading", { name: "第一场" });
+    vi.spyOn(title, "getBoundingClientRect").mockReturnValue({ bottom: -1 } as DOMRect);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 120 });
+
+    expect(screen.queryByText("正在选")).toBeNull();
+    fireEvent.scroll(screen.getByTestId("seat-grid-scroll-area"));
+    expect(screen.queryByText("正在选")).toBeNull();
+
+    fireEvent.scroll(window);
+    expect(screen.getByText("正在选").parentElement?.textContent).toMatch(/^正在选第一场，剩余 \d+ 秒$/);
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    fireEvent.scroll(window);
+    expect(screen.queryByText("正在选")).toBeNull();
+  });
+
+  it("keeps the scroll position and updates the notice for the next event", async () => {
+    render(<ConsecutiveSeatFlow code="ABC123" initialView={view()} />);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 120 });
+    const firstTitle = screen.getByRole("heading", { name: "第一场" });
+    vi.spyOn(firstTitle, "getBoundingClientRect").mockReturnValue({ bottom: -1 } as DOMRect);
+    fireEvent.scroll(window);
+
+    fireEvent.click(screen.getByRole("button", { name: "A排1座：可选" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交并选下一场" }));
+
+    const secondTitle = await screen.findByRole("heading", { name: "第二场" });
+    vi.spyOn(secondTitle, "getBoundingClientRect").mockReturnValue({ bottom: -1 } as DOMRect);
+    fireEvent.resize(window);
+    expect(window.scrollY).toBe(120);
+    expect(screen.getByText("正在选").parentElement?.textContent).toMatch(/^正在选第二场，剩余 \d+ 秒$/);
+  });
+
+  it("updates the remaining time in the floating notice", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T10:00:00.000Z"));
+    render(<ConsecutiveSeatFlow code="ABC123" initialView={view()} />);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 120 });
+    const title = screen.getByRole("heading", { name: "第一场" });
+    vi.spyOn(title, "getBoundingClientRect").mockReturnValue({ bottom: -1 } as DOMRect);
+    fireEvent.scroll(window);
+    expect(screen.getByText("，剩余 300 秒")).toBeTruthy();
+
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(screen.getByText("，剩余 299 秒")).toBeTruthy();
   });
 });

@@ -150,8 +150,10 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
   const [completedView, setCompletedView] = useState<WorkflowView | null>(null);
   const [finalSubmissionFailed, setFinalSubmissionFailed] = useState(false);
   const [showTheaterManners, setShowTheaterManners] = useState(false);
+  const [showSelectionNotice, setShowSelectionNotice] = useState(false);
   const [error, setError] = useState("");
   const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((new Date(initialView.hardExpiresAt).getTime() - Date.now()) / 1000)));
+  const eventTitleRef = useRef<HTMLHeadingElement>(null);
   const seatViewportRef = useRef<HTMLDivElement>(null);
   const current = steps[currentIndex];
   const currentEventId = current?.eventId;
@@ -184,6 +186,24 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
     const tick = window.setInterval(() => setRemaining(Math.max(0, Math.ceil((new Date(initialView.hardExpiresAt).getTime() - Date.now()) / 1000))), 1_000);
     return () => window.clearInterval(tick);
   }, [initialView.hardExpiresAt]);
+
+  useEffect(() => {
+    if (phase !== "selecting") return;
+
+    const updateSelectionNotice = () => {
+      const titleBottom = eventTitleRef.current?.getBoundingClientRect().bottom;
+      setShowSelectionNotice(window.scrollY > 0 && titleBottom !== undefined && titleBottom <= 0);
+    };
+
+    const initial = window.setTimeout(updateSelectionNotice, 0);
+    window.addEventListener("scroll", updateSelectionNotice, { passive: true });
+    window.addEventListener("resize", updateSelectionNotice);
+    return () => {
+      window.clearTimeout(initial);
+      window.removeEventListener("scroll", updateSelectionNotice);
+      window.removeEventListener("resize", updateSelectionNotice);
+    };
+  }, [currentEventId, phase]);
 
   useEffect(() => {
     const heartbeat = () => void fetch(`/api/events/${code}/workflow`, { method: "POST" }).then(async (response) => {
@@ -328,7 +348,7 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
     <main className="seat-page consecutive-seat-page">
       <header>
         <p className="eyebrow">同日连续签到 · 剩余 {remaining} 秒</p>
-        <h1>{current.eventName}</h1>
+        <h1 ref={eventTitleRef}>{current.eventName}</h1>
         <ol className="consecutive-step-nav" aria-label="连签活动进度">
           {steps.map((step, index) => {
             const submitted = step.historical || step.lockedSeatIds.length === step.ticketTotal;
@@ -336,6 +356,13 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
           })}
         </ol>
       </header>
+      {showSelectionNotice ? (
+        <aside className="consecutive-selection-notice">
+          <span>正在选</span>
+          <strong>{current.eventName}</strong>
+          <span>，剩余 {remaining} 秒</span>
+        </aside>
+      ) : null}
       {current.historical ? <section className="participant-card consecutive-history-card"><p className="eyebrow">此前已完成</p><h2>{current.confirmedSeats.join("、")}</h2><p>{current.tickets.map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</p></section> : (
         <section className="seat-map-wrap" ref={seatViewportRef}>
           <div className="screen">银幕方向</div>
