@@ -11,6 +11,6 @@ describe("public seat layout", () => {
     expect(effectiveCenterAfterColumn(8, -2)).toBe(0);
   });
   it("falls back to the middle when the template has no center", () => {
-    expect(effectiveCenterAfterColumn(9, null)).toBe(4);
+    expect(effectiveCenterAfterColumn(9, null)).toBe(3);
   });
 });

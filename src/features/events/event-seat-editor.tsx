@@ -36,6 +36,7 @@ export type EventHallLayout = {
   cinemaId: string;
   cinemaName: string;
   hallName: string;
+  centerAfterColumn?: number | null;
   seats: EventSeat[];
 };
 
@@ -77,7 +78,7 @@ export function EventSeatEditor({
   initialLockedSeatHalf = null,
   includeHallSelect = false,
   enableHalfLockControls = false,
-  centerAfterColumn = null,
+  centerAfterColumn: configuredCenter = null,
   planningToolsEnabled = false,
 }: {
   halls: EventHallLayout[];
@@ -92,6 +93,7 @@ export function EventSeatEditor({
 }) {
   const [hallId, setHallId] = useState(initialHallId);
   const hall = halls.find((item) => item.id === hallId) ?? halls[0];
+  const centerAfterColumn = hall?.centerAfterColumn === undefined ? configuredCenter : hall.centerAfterColumn;
   const defaultSeatIds = useMemo(
     () =>
       hall?.seats

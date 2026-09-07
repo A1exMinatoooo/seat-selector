@@ -1,3 +1,5 @@
+import { effectiveCenterAfterColumn } from "./seat-center";
+
 export type SeatPosition = {
   id: string;
   kind: "seat" | "aisle" | "empty";
@@ -101,7 +103,7 @@ export function quickOpenSeatRectangle(
 
 function halfBoundary(seats: PositionedSeat[], centerAfterColumn: number | null): number {
   const columns = seats.map((seat) => seat.columnIndex);
-  return centerAfterColumn ?? Math.floor((Math.min(...columns) + Math.max(...columns)) / 2);
+  return effectiveCenterAfterColumn(Math.max(...columns, -1) + 1, centerAfterColumn);
 }
 
 function isInHalf(seat: PositionedSeat, side: SeatHalf, boundary: number): boolean {

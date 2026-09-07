@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { asc, eq, isNull } from "drizzle-orm";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { AdminActionForm } from "@/features/admin/admin-action-form";
@@ -9,8 +8,7 @@ import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
 import { TimePickerField } from "@/features/forms/time-picker-field";
-import { getDb } from "@/server/db/client";
-import { cinemas, halls, locationPresets, seats } from "@/server/db/schema";
+import { getEventFormOptions } from "@/server/db/event-form-options";
 import { requireAdmin } from "@/server/security/admin-session";
 import { supportedTimeZones } from "@/shared/date-time";
 import { createEventAction } from "../actions";
@@ -19,28 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewEventPage() {
   await requireAdmin();
-  const [hallRows, locations, seatRows] = await Promise.all([
-    getDb()
-      .select({
-        id: halls.id,
-        hallName: halls.name,
-        cinemaId: cinemas.id,
-        cinemaName: cinemas.name,
-      })
-      .from(halls)
-      .innerJoin(cinemas, eq(halls.cinemaId, cinemas.id))
-      .where(isNull(halls.archivedAt))
-      .orderBy(asc(cinemas.name), asc(halls.name)),
-    getDb().select().from(locationPresets).orderBy(asc(locationPresets.name)),
-    getDb().select().from(seats).orderBy(asc(seats.rowIndex), asc(seats.columnIndex)),
-  ]);
-  const layouts = hallRows.map((hall) => ({
-    id: hall.id,
-    cinemaId: hall.cinemaId,
-    cinemaName: hall.cinemaName,
-    hallName: hall.hallName,
-    seats: seatRows.filter((seat) => seat.hallId === hall.id),
-  }));
+  const { hallRows, locations, layouts } = await getEventFormOptions();
   const timeZones = supportedTimeZones();
   return (
     <main className="admin-shell">

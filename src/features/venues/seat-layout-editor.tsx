@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SelectField } from "@/features/forms/select-field";
+import { effectiveCenterAfterColumn } from "@/server/domain/seat-center";
 import { SeatGridViewport } from "@/features/seating/seat-grid-viewport";
 import { generateSeatLabels, type LabelDirection, type LabelStyle } from "./seat-labels";
 import { displaySeatNumber, formatSeatLabel } from "@/shared/seat-label";
@@ -78,7 +79,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       ]) ?? [],
     ),
   );
-  const [center, setCenter] = useState(initialLayout?.centerAfterColumn ?? 6);
+  const [center, setCenter] = useState<number | null>(initialLayout?.centerAfterColumn ?? null);
   const painting = useRef(false);
   const painted = useRef(new Set<string>());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,6 +119,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
   }
   function resizeColumns(value: number) {
     setColumns(value);
+    setCenter((current) => current === null ? null : Math.min(current, value - 1));
   }
 
   function generateNumbers() {
@@ -195,10 +197,11 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
         <label>
           中线位于第几列后
           <NumericInput
-            min={1}
+            key={columns}
+            min={columns === 1 ? 0 : 1}
             max={columns}
-            value={center + 1}
-            onValueChange={(value) => setCenter(value - 1)}
+            value={effectiveCenterAfterColumn(columns, center) + 1}
+            onValueChange={(value) => setCenter(value === 0 ? null : value - 1)}
           />
         </label>
       </div>
