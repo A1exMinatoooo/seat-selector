@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConsecutiveWorkflowView } from "@/server/domain/consecutive-checkin-workflow";
 import { responseErrorMessage } from "@/shared/error-message";
 import { formatSeatLabel } from "@/shared/seat-label";
@@ -389,9 +389,8 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
       ) : null}
       {current.historical ? <section className="participant-card consecutive-history-card"><p className="eyebrow">此前已完成</p><h2>{current.confirmedSeats.join("、")}</h2><p>{current.tickets.map((ticket) => `${ticket.name} × ${ticket.quantity}`).join("、")}</p></section> : (
         <section className="seat-map-wrap" ref={seatViewportRef}>
-          <div className="screen">银幕方向</div>
-          <SeatGridViewport ariaLabel={`${current.eventName}可选座位区域`} className="public-grid-viewport" layoutKey={`${current.eventId}:${rowIndexes.length}:${columns}`} legend={<ParticipantSeatLegend />} mobileMinimap>
-            <div className={`public-seat-grid ${current.centerAfterColumn === null ? "" : "has-center-divider"}`} style={{ "--center-divider-column": (current.centerAfterColumn ?? Math.floor(columns / 2)) + 1 } as CSSProperties}>
+          <SeatGridViewport columns={columns} centerAfterColumn={current.centerAfterColumn} ariaLabel={`${current.eventName}可选座位区域`} className="public-grid-viewport" layoutKey={`${current.eventId}:${rowIndexes.length}:${columns}`} legend={<ParticipantSeatLegend />} mobileMinimap>
+            <div className="public-seat-grid">
               {rowIndexes.map((rowIndex) => {
                 const rowSeats = current.seats.filter((seat) => seat.rowIndex === rowIndex);
                 const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);

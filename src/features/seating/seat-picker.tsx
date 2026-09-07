@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { reportBrowserLocationFailure } from "./location-audit";
 import { formatSeatLabel } from "@/shared/seat-label";
 import { responseErrorMessage } from "@/shared/error-message";
@@ -263,9 +263,8 @@ export function SeatPicker({
         <h1>挑选你的座位</h1>
       </header>
       <section className="seat-map-wrap">
-        <div className="screen">银幕方向</div>
         <div ref={seatViewportRef}>
-          <SeatGridViewport
+          <SeatGridViewport columns={columns} centerAfterColumn={centerAfterColumn}
             ariaLabel="可选座位区域"
             className="public-grid-viewport"
             layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
@@ -273,12 +272,7 @@ export function SeatPicker({
             mobileMinimap
           >
             <div
-              className={`public-seat-grid ${centerAfterColumn === null ? "" : "has-center-divider"}`}
-              style={
-                {
-                  "--center-divider-column": (centerAfterColumn ?? Math.floor(columns / 2)) + 1,
-                } as CSSProperties
-              }
+              className="public-seat-grid"
             >
               {rowIndexes.map((rowIndex) => {
                 const rowSeats = seats.filter((seat) => seat.rowIndex === rowIndex);

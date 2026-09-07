@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  seatScreenPosition,
   centeredSeatGridScrollLeft,
   clampSeatGridScale,
   fitSeatGridHeightScale,
@@ -66,5 +67,14 @@ describe("seat grid viewport scale", () => {
       width: 100,
       height: 100,
     });
+  });
+});
+
+describe("seat screen placement", () => {
+  it("keeps the screen fully visible and points toward the true center", () => {
+    expect(seatScreenPosition(250, 500)).toEqual({ width: 240, screen: 250, direction: "center" });
+    expect(seatScreenPosition(-100, 500)).toEqual({ width: 240, screen: 132, direction: "left" });
+    expect(seatScreenPosition(800, 500)).toEqual({ width: 240, screen: 368, direction: "right" });
+    expect(seatScreenPosition(80, 160)).toEqual({ width: 136, screen: 80, direction: "center" });
   });
 });

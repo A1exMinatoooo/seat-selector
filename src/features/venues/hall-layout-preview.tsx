@@ -18,7 +18,7 @@ export function HallLayoutPreview({
   const columns = Math.max(...cells.map((cell) => cell.columnIndex), 0) + 1;
   const rowIndexes = [...new Set(cells.map((cell) => cell.rowIndex))];
   return (
-    <SeatGridViewport
+    <SeatGridViewport columns={columns} centerAfterColumn={centerAfterColumn}
       ariaLabel="已保存的影厅座位布局"
       className="preview-grid-viewport"
       layoutKey={`${cells.length}:${columns}:${centerAfterColumn ?? "none"}`}
@@ -43,7 +43,8 @@ export function HallLayoutPreview({
               <span className="seat-coordinate row" data-seat-row-coordinate={rowCells[0]?.rowLabel ?? rowIndex + 1} data-seat-row-key={`preview:${rowIndex}`}>{rowCells[0]?.rowLabel ?? rowIndex + 1}</span>
               {rowCells.map((cell) => (
                 <span
-                  className={`editor-seat saved-layout-seat ${cellMode(cell)} ${centerAfterColumn === cell.columnIndex ? "center-divider" : ""}`}
+                  data-seat-column={cell.columnIndex}
+                  className={`editor-seat saved-layout-seat ${cellMode(cell)}`}
                   title={formatSeatLabel(cell.rowLabel, cell.columnLabel)}
                   key={`${cell.rowIndex}:${cell.columnIndex}`}
                 >

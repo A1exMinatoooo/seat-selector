@@ -413,7 +413,7 @@ export function EventSeatEditor({
           </button>
         ) : null}
       </div>
-      <SeatGridViewport
+      <SeatGridViewport columns={columns} centerAfterColumn={centerAfterColumn}
         ariaLabel="活动座位开放区域"
         className="editor-grid-viewport"
         layoutKey={hall.id}
@@ -512,7 +512,8 @@ export function EventSeatEditor({
                       title={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}${isLocked ? "（已被选择，不能关闭）" : isHalfLocked ? "（基础开放，当前被半场锁定）" : ""}`}
                       aria-label={`${formatSeatLabel(seat.rowLabel, seat.columnLabel)}：${isLocked ? "已选" : isHalfLocked ? "半场锁定" : isAvailable ? "基础开放" : "基础关闭"}`}
                       aria-pressed={isAvailable}
-                      className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${seat.golden && isAvailable && !isHalfLocked ? "golden" : ""} ${isHalfLocked ? "half-locked" : ""} ${isLocked ? "locked" : ""} ${centerAfterColumn === seat.columnIndex ? "center-divider" : ""}`}
+                      data-seat-column={seat.columnIndex}
+                      className={`editor-seat ${seat.kind} ${isAvailable ? "available" : "blocked"} ${seat.golden && isAvailable && !isHalfLocked ? "golden" : ""} ${isHalfLocked ? "half-locked" : ""} ${isLocked ? "locked" : ""}`}
                       aria-disabled={interactionMode === "navigate" || undefined}
                       tabIndex={interactionMode === "navigate" ? -1 : undefined}
                       onPointerDown={(event) => {

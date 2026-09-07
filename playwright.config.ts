@@ -8,5 +8,12 @@ export default defineConfig({
     { name: "safari", use: { ...devices["Desktop Safari"] } },
     { name: "mobile", use: { ...devices["iPhone 14"] } },
   ],
-  webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+  webServer: [
+    { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+    {
+      command: "node tests/browser-fixture/server.mjs",
+      url: "http://127.0.0.1:3101",
+      reuseExistingServer: true,
+    },
+  ],
 });

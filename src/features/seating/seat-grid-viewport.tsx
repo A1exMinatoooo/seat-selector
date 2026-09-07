@@ -1,5 +1,6 @@
 "use client";
 
+import { effectiveCenterAfterColumn } from "@/server/domain/seat-center";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import {
   useCallback,
@@ -113,7 +114,19 @@ export function frozenSeatCoordinateTop(elementTop: number, viewportTop: number)
   return Math.round((elementTop - viewportTop) * 100) / 100;
 }
 
+export function seatScreenPosition(center: number, viewportWidth: number) {
+  const width = Math.min(240, Math.max(0, viewportWidth - 24));
+  const screen = Math.max(12 + width / 2, Math.min(viewportWidth - 12 - width / 2, center));
+  return {
+    width,
+    screen,
+    direction: center < screen - 1 ? "left" : center > screen + 1 ? "right" : "center",
+  };
+}
+
 type SeatGridViewportProps = {
+  columns?: number;
+  centerAfterColumn?: number | null;
   children: ReactNode;
   ariaLabel: string;
   className?: string;
@@ -123,6 +136,8 @@ type SeatGridViewportProps = {
   layoutKey?: string;
   mobileMinimap?: boolean;
 };
+
+type CenterGeometry = ReturnType<typeof seatScreenPosition> & { line: number };
 
 type FrozenCoordinate = { key: string; label: string; top: number; height: number };
 
@@ -144,6 +159,8 @@ function sameCoordinates(left: FrozenCoordinate[], right: FrozenCoordinate[]): b
 
 export function SeatGridViewport({
   children,
+  columns = 0,
+  centerAfterColumn = null,
   ariaLabel,
   className = "",
   gesturesEnabled = true,
@@ -152,6 +169,8 @@ export function SeatGridViewport({
   layoutKey = "default",
   mobileMinimap = false,
 }: SeatGridViewportProps) {
+  const boundary = effectiveCenterAfterColumn(columns, centerAfterColumn);
+  const [centerGeometry, setCenterGeometry] = useState<CenterGeometry | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -232,6 +251,23 @@ export function SeatGridViewport({
     const content = contentRef.current;
     if (!viewport || !content) return;
     const viewportRect = viewport.getBoundingClientRect();
+    const anchor = content.querySelector<HTMLElement>(`[data-seat-column="${Math.max(0, boundary)}"]`);
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const gap = parseFloat(getComputedStyle(anchor.parentElement!).columnGap) || 0;
+      const x = boundary < 0 ? rect.left - gap * scaleRef.current / 2 : rect.right + gap * scaleRef.current / 2;
+      const position = seatScreenPosition(x - viewportRect.left, viewport.clientWidth);
+      const nextGeometry = { line: Math.round((x - contentRect.left) / scaleRef.current * 1000) / 1000, ...position };
+      setCenterGeometry((current) =>
+        current?.line === nextGeometry.line &&
+        current.screen === nextGeometry.screen &&
+        current.width === nextGeometry.width &&
+        current.direction === nextGeometry.direction ? current : nextGeometry,
+      );
+    } else {
+      setCenterGeometry(null);
+    }
     const next = [...content.querySelectorAll<HTMLElement>("[data-seat-row-coordinate]")].map(
       (element, index) => {
         const rect = element.getBoundingClientRect();
@@ -244,7 +280,7 @@ export function SeatGridViewport({
       },
     );
     setFrozenCoordinates((current) => (sameCoordinates(current, next) ? current : next));
-  }, []);
+  }, [boundary]);
 
   const measureGrid = useCallback(() => {
     const content = contentRef.current;
@@ -318,7 +354,7 @@ export function SeatGridViewport({
       viewport.removeEventListener("scroll", noteScrollNavigation);
       observer.disconnect();
     };
-  }, [measureCoordinates, measureMinimapViewport, scale, showMinimapDuringNavigation]);
+  }, [measureCoordinates, measureMinimapViewport, scale, layoutKey, showMinimapDuringNavigation]);
 
   useLayoutEffect(() => {
     if (activeLayoutKeyRef.current !== layoutKey) {
@@ -477,6 +513,24 @@ export function SeatGridViewport({
         </button>
       </div>
       {interactionHint}
+      <div className="seat-screen-band" aria-label="银幕方向">
+        {centerGeometry ? (
+          <div
+            className="seat-screen-marker"
+            data-direction={centerGeometry.direction}
+            style={{ left: centerGeometry.screen, width: centerGeometry.width }}
+          >
+            <svg viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M 2 18 Q 100 -10 198 18" />
+            </svg>
+            <span>
+              {centerGeometry.direction === "left" ? "← 中线方向 · " : ""}
+              银幕方向
+              {centerGeometry.direction === "right" ? " · 中线方向 →" : ""}
+            </span>
+          </div>
+        ) : null}
+      </div>
       <div className="seat-grid-viewport-stage">
         {mobileMinimap ? (
           <div
@@ -509,6 +563,13 @@ export function SeatGridViewport({
           <div ref={canvasRef} className="seat-grid-viewport-canvas" style={canvasStyle}>
             <div ref={contentRef} className="seat-grid-scaled-content" style={contentStyle}>
               {children}
+              {centerGeometry ? (
+                <span
+                  className="seat-center-line"
+                  aria-hidden="true"
+                  style={{ left: centerGeometry.line, borderLeftWidth: 2 / scale, transform: `translateX(${-1 / scale}px)` }}
+                />
+              ) : null}
             </div>
           </div>
         </div>

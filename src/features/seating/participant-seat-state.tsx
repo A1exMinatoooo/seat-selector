@@ -80,6 +80,7 @@ export function ParticipantSeatButton({
   return (
     <button
       type="button"
+      data-seat-column={seat.columnIndex}
       aria-label={`${label}：${stateLabel}`}
       disabled={interactionDisabled || seat.kind !== "seat" || (!occupied && blocked)}
       className={`public-seat ${seat.kind} ${seat.golden && !blocked && !occupied ? "golden" : ""} ${occupied ? "occupied" : ""} ${blocked && !occupied ? "blocked" : ""} ${selected ? "mine" : ""}`}

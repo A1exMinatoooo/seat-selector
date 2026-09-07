@@ -332,7 +332,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
           </button>
         ))}
       </div>
-      <SeatGridViewport
+      <SeatGridViewport columns={columns} centerAfterColumn={center}
         ariaLabel="座位布局绘制区域"
         className="editor-grid-viewport"
         layoutKey={`${rowLabels.length}:${columns}`}
@@ -415,7 +415,8 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
                         aria-label={`${formatSeatLabel(cell.rowLabel, cell.columnLabel)}：${mode}`}
                         aria-disabled={tool === "navigate" || undefined}
                         tabIndex={tool === "navigate" ? -1 : undefined}
-                        className={`editor-seat ${mode} ${center === cell.columnIndex ? "center-divider" : ""}`}
+                        data-seat-column={cell.columnIndex}
+                        className={`editor-seat ${mode}`}
                         type="button"
                         key={`${cell.rowIndex}:${cell.columnIndex}`}
                         data-layout-seat
