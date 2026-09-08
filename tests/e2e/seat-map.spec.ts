@@ -276,6 +276,76 @@ for (const kind of ["preview", "editor", "event", "picker", "consecutive"]) {
   });
 }
 
+for (const kind of ["picker", "consecutive"]) {
+  test(`${kind}: participant states use the new palette and one fixed row axis`, async ({
+    page,
+  }) => {
+    await page.goto(`http://127.0.0.1:3101/?kind=${kind}&states=1&rows=4&columns=8`);
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 6000 });
+    const viewport = page.locator(".public-grid-viewport");
+    const seatCanvas = viewport.locator(".seat-grid-scaled-content");
+    const seat = (state: string) => seatCanvas.locator(`[data-seat-state="${state}"]`).first();
+
+    await expect(seat("available")).toHaveCSS("background-color", "rgb(232, 241, 237)");
+    await expect(seat("available")).toHaveCSS("color", "rgb(23, 79, 66)");
+    await expect(seat("golden")).toHaveCSS("background-color", "rgb(241, 247, 216)");
+    await expect(seat("blocked")).toHaveCSS("background-color", "rgb(236, 238, 235)");
+    await expect(seat("occupied")).toHaveCSS("background-color", "rgb(163, 59, 50)");
+
+    if (kind === "picker") {
+      await seatCanvas.locator('[data-seat-column="4"]').first().click();
+    }
+    await expect(seat("mine")).toHaveCSS("background-color", "rgb(23, 79, 66)");
+    await expect(seat("mine")).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    await expect(viewport.locator(".seat-grid-fixed-y-axis-track")).toHaveCount(1);
+    await expect(viewport.locator(".seat-grid-fixed-y-axis-label")).toHaveCount(4);
+    await expect(seatCanvas.locator(".public-seat-coordinate").first()).toHaveCSS(
+      "color",
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(seatCanvas.locator(".public-seat-coordinate").first()).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+
+    const axisGeometry = () =>
+      viewport.evaluate((element) => {
+        const track = element
+          .querySelector(".seat-grid-fixed-y-axis-track")!
+          .getBoundingClientRect();
+        const labels = [...element.querySelectorAll(".seat-grid-fixed-y-axis-label")].map((label) =>
+          label.getBoundingClientRect(),
+        );
+        const rows = [
+          ...element.querySelectorAll(
+            ".seat-grid-scaled-content > .public-seat-grid .public-seat-coordinate",
+          ),
+        ].map((row) => row.getBoundingClientRect());
+        return {
+          trackTop: track.top,
+          trackBottom: track.bottom,
+          firstLabelDelta: Math.abs(labels[0]!.top - rows[0]!.top),
+          lastLabelDelta: Math.abs(labels.at(-1)!.bottom - rows.at(-1)!.bottom),
+        };
+      });
+    await expect.poll(async () => (await axisGeometry()).firstLabelDelta).toBeLessThan(1.5);
+    await viewport.getByRole("button", { name: "放大座位网格" }).click();
+    await viewport.locator(".seat-grid-viewport-body").evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+      element.scrollTop = 40;
+    });
+    await expect
+      .poll(async () => {
+        const geometry = await axisGeometry();
+        return Math.max(geometry.firstLabelDelta, geometry.lastLabelDelta);
+      })
+      .toBeLessThan(1.5);
+    const moved = await axisGeometry();
+    expect(moved.trackBottom).toBeGreaterThan(moved.trackTop);
+  });
+}
+
 test("changing the event hall uses that hall’s saved center", async ({ page }) => {
   await page.goto("http://127.0.0.1:3101/?kind=event");
   await page.getByRole("button", { name: /影厅/ }).click();

@@ -676,6 +676,16 @@ export function SeatGridViewport({
     width: `${minimapViewport.width}%`,
     height: `${minimapViewport.height}%`,
   } satisfies CSSProperties;
+  const firstFrozenCoordinate = frozenCoordinates[0];
+  const lastFrozenCoordinate = frozenCoordinates.at(-1);
+  const frozenAxisTrackStyle =
+    firstFrozenCoordinate && lastFrozenCoordinate
+      ? ({
+          top: firstFrozenCoordinate.top,
+          height:
+            lastFrozenCoordinate.top + lastFrozenCoordinate.height - firstFrozenCoordinate.top,
+        } satisfies CSSProperties)
+      : undefined;
 
   return (
     <section
@@ -749,8 +759,15 @@ export function SeatGridViewport({
           </div>
         ) : null}
         <div className="seat-grid-fixed-y-axis" aria-hidden="true">
+          {frozenAxisTrackStyle ? (
+            <span className="seat-grid-fixed-y-axis-track" style={frozenAxisTrackStyle} />
+          ) : null}
           {frozenCoordinates.map((coordinate) => (
-            <span key={coordinate.key} style={{ top: coordinate.top, height: coordinate.height }}>
+            <span
+              className="seat-grid-fixed-y-axis-label"
+              key={coordinate.key}
+              style={{ top: coordinate.top, height: coordinate.height }}
+            >
               {coordinate.label}
             </span>
           ))}

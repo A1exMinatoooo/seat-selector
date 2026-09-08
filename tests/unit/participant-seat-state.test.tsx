@@ -42,11 +42,82 @@ describe("participant seat state", () => {
     expect(onSelect).toHaveBeenCalledOnce();
 
     view.rerender(
-      <ParticipantSeatButton seat={seat} occupied={false} available={false} selected={false} onSelect={onSelect} />,
+      <ParticipantSeatButton
+        seat={seat}
+        occupied={false}
+        available={false}
+        selected={false}
+        onSelect={onSelect}
+      />,
     );
     const blocked = screen.getByRole("button", { name: "A排1座：不可选" });
     expect(blocked.classList.contains("blocked")).toBe(true);
     expect(blocked.querySelector('[data-seat-state-icon="blocked"]')).toBeTruthy();
     expect((blocked as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("renders seat numbers for available, golden, and selected seats", () => {
+    const onSelect = vi.fn();
+    const view = render(
+      <ParticipantSeatButton
+        seat={seat}
+        occupied={false}
+        available
+        selected={false}
+        onSelect={onSelect}
+      />,
+    );
+    const available = screen.getByRole("button", { name: "A排1座：可选" });
+    expect(available.dataset.seatState).toBe("available");
+    expect(available.textContent).toBe("1");
+
+    view.rerender(
+      <ParticipantSeatButton
+        seat={{ ...seat, golden: true }}
+        occupied={false}
+        available
+        selected={false}
+        onSelect={onSelect}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "A排1座：可选" }).dataset.seatState).toBe("golden");
+
+    view.rerender(
+      <ParticipantSeatButton
+        seat={{ ...seat, golden: true }}
+        occupied={false}
+        available
+        selected
+        onSelect={onSelect}
+      />,
+    );
+    const selected = screen.getByRole("button", { name: "A排1座：我的选择" });
+    expect(selected.dataset.seatState).toBe("mine");
+    expect(selected.textContent).toBe("1");
+  });
+
+  it("gives occupied and blocked states priority over a stale selection", () => {
+    const onSelect = vi.fn();
+    const view = render(
+      <ParticipantSeatButton seat={seat} occupied available selected onSelect={onSelect} />,
+    );
+    const occupied = screen.getByRole("button", { name: "A排1座：已被他人选择" });
+    expect(occupied.dataset.seatState).toBe("occupied");
+    expect(occupied.classList.contains("mine")).toBe(false);
+    expect(occupied.querySelector('[data-seat-state-icon="occupied"]')).toBeTruthy();
+
+    view.rerender(
+      <ParticipantSeatButton
+        seat={seat}
+        occupied={false}
+        available={false}
+        selected
+        onSelect={onSelect}
+      />,
+    );
+    const blocked = screen.getByRole("button", { name: "A排1座：不可选" });
+    expect(blocked.dataset.seatState).toBe("blocked");
+    expect(blocked.classList.contains("mine")).toBe(false);
+    expect(blocked.querySelector('[data-seat-state-icon="blocked"]')).toBeTruthy();
   });
 });

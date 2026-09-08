@@ -394,7 +394,7 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
               {rowIndexes.map((rowIndex) => {
                 const rowSeats = current.seats.filter((seat) => seat.rowIndex === rowIndex);
                 const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);
-                return <div className="public-seat-row" style={{ gridTemplateColumns: `32px repeat(${columns}, 42px)` }} key={rowIndex}><span className="public-seat-coordinate" data-seat-row-coordinate={rowLabel} data-seat-row-key={`consecutive:${current.eventId}:${rowIndex}`}>{rowLabel}</span>{rowSeats.map((seat) => <ParticipantSeatButton key={seat.id} seat={seat} occupied={occupied.has(seat.id)} available={available.has(seat.id)} selected={selected.has(seat.id)} interactionDisabled={currentSubmitted} onSelect={toggleSeat} />)}</div>;
+                return <div className="public-seat-row" style={{ gridTemplateColumns: `32px repeat(${columns}, 42px)` }} key={rowIndex}><span className="public-seat-coordinate" data-seat-row-coordinate={rowLabel} data-seat-row-key={`consecutive:${current.eventId}:${rowIndex}`} aria-hidden="true">{rowLabel}</span>{rowSeats.map((seat) => <ParticipantSeatButton key={seat.id} seat={seat} occupied={occupied.has(seat.id)} available={available.has(seat.id)} selected={selected.has(seat.id)} interactionDisabled={currentSubmitted} onSelect={toggleSeat} />)}</div>;
               })}
             </div>
           </SeatGridViewport>

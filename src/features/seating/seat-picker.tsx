@@ -287,6 +287,7 @@ export function SeatPicker({
                       className="public-seat-coordinate"
                       data-seat-row-coordinate={rowLabel}
                       data-seat-row-key={`public:${rowIndex}`}
+                      aria-hidden="true"
                     >
                       {rowLabel}
                     </span>

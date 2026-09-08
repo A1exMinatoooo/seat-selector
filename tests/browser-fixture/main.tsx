@@ -10,6 +10,7 @@ const query = new URLSearchParams(location.search);
 const rows = Number(query.get("rows") ?? 20);
 const columns = Number(query.get("columns") ?? 30);
 const centerAfterColumn = query.has("center") ? Number(query.get("center")) : null;
+const statefulParticipantSeats = query.get("states") === "1";
 const cells = Array.from({ length: rows }, (_, rowIndex) =>
   Array.from({ length: columns }, (_, columnIndex) => ({
     id: `${rowIndex}:${columnIndex}`,
@@ -18,11 +19,16 @@ const cells = Array.from({ length: rows }, (_, rowIndex) =>
     rowLabel: String.fromCharCode(65 + rowIndex),
     columnLabel: String(columnIndex + 1),
     kind: columnIndex === Math.floor(columns / 2) - 1 ? ("aisle" as const) : ("seat" as const),
-    selectable: true,
-    golden: rowIndex > 8 && rowIndex < 15 && columnIndex > 9 && columnIndex < 19,
+    selectable: !(statefulParticipantSeats && rowIndex === 0 && columnIndex === 1),
+    golden:
+      (statefulParticipantSeats && rowIndex === 0 && columnIndex === 2) ||
+      (rowIndex > 8 && rowIndex < 15 && columnIndex > 9 && columnIndex < 19),
   })),
 ).flat();
-const available = cells.filter((c) => c.kind === "seat").map((c) => c.id);
+const occupied = statefulParticipantSeats ? ["0:0"] : [];
+const available = cells
+  .filter((c) => c.kind === "seat" && c.selectable && !occupied.includes(c.id))
+  .map((c) => c.id);
 const hall = {
   id: "hall",
   cinemaId: "cinema",
@@ -56,8 +62,8 @@ const step = {
   lotteryChances: 0,
   seats: cells,
   availableSeatIds: available,
-  occupiedSeatIds: [],
-  selectedSeatIds: [],
+  occupiedSeatIds: occupied,
+  selectedSeatIds: statefulParticipantSeats ? ["0:4"] : [],
 };
 createRoot(document.getElementById("root")!).render(
   <main style={{ maxWidth: 1100, margin: "24px auto", padding: "0 16px" }}>
@@ -91,7 +97,7 @@ createRoot(document.getElementById("root")!).render(
         eventName="测试观影活动"
         seats={cells}
         initialAvailable={available}
-        initialOccupied={[]}
+        initialOccupied={occupied}
         initialVersion={1}
         ticketTotal={1}
         centerAfterColumn={centerAfterColumn}

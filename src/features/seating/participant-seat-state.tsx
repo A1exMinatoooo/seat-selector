@@ -14,13 +14,9 @@ export type ParticipantSeatDto = {
   golden: boolean;
 };
 
-export function SeatStateIcon({
-  state,
-  size,
-}: {
-  state: "occupied" | "blocked";
-  size: 14 | 22;
-}) {
+type ParticipantSeatState = "available" | "golden" | "mine" | "occupied" | "blocked";
+
+export function SeatStateIcon({ state, size }: { state: "occupied" | "blocked"; size: 14 | 22 }) {
   const Icon = state === "occupied" ? X : Ban;
   return (
     <Icon
@@ -69,21 +65,31 @@ export function ParticipantSeatButton({
 }) {
   const blocked = seat.kind === "seat" && (!seat.selectable || !available);
   const label = formatSeatLabel(seat.rowLabel, seat.columnLabel);
-  const stateLabel = occupied
-    ? "已被他人选择"
+  const state: ParticipantSeatState = occupied
+    ? "occupied"
     : blocked
-      ? "不可选"
+      ? "blocked"
       : selected
-        ? "我的选择"
-        : "可选";
+        ? "mine"
+        : seat.golden
+          ? "golden"
+          : "available";
+  const stateLabel = {
+    available: "可选",
+    golden: "可选",
+    mine: "我的选择",
+    occupied: "已被他人选择",
+    blocked: "不可选",
+  }[state];
 
   return (
     <button
       type="button"
       data-seat-column={seat.columnIndex}
+      data-seat-state={seat.kind === "seat" ? state : undefined}
       aria-label={`${label}：${stateLabel}`}
       disabled={interactionDisabled || seat.kind !== "seat" || (!occupied && blocked)}
-      className={`public-seat ${seat.kind} ${seat.golden && !blocked && !occupied ? "golden" : ""} ${occupied ? "occupied" : ""} ${blocked && !occupied ? "blocked" : ""} ${selected ? "mine" : ""}`}
+      className={`public-seat ${seat.kind} ${seat.kind === "seat" ? state : ""}`}
       onClick={() => onSelect(seat)}
     >
       {seat.kind === "seat" ? (
