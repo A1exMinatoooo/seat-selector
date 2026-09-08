@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
 import { HallLayoutPreview } from "@/features/venues/hall-layout-preview";
 import { EventSeatEditor } from "@/features/events/event-seat-editor";
+import { LocationCheckFields } from "@/features/events/location-check-fields";
 import { SeatPicker } from "@/features/seating/seat-picker";
 import { ConsecutiveSeatFlow } from "@/features/seating/consecutive-seat-flow";
 import "@/app/globals.css";
@@ -37,6 +38,8 @@ const names: Record<string, string> = {
   event: "活动座位编辑",
   picker: "单场选座",
   consecutive: "连签选座",
+  "location-new": "新建活动",
+  "location-edit": "编辑活动",
 };
 const step = {
   eventId: "event",
@@ -59,7 +62,21 @@ const step = {
 createRoot(document.getElementById("root")!).render(
   <main style={{ maxWidth: 1100, margin: "24px auto", padding: "0 16px" }}>
     <h1>{names[kind]}</h1>
-    {kind === "editor" ? (
+    {kind === "location-new" || kind === "location-edit" ? (
+      <form data-testid="location-form">
+        <LocationCheckFields
+          defaultEnabled={kind === "location-edit"}
+          defaultRadiusMeters={kind === "location-edit" ? 750 : 1000}
+        >
+          <label>
+            活动地点
+            <select name="locationId" defaultValue="location">
+              <option value="location">测试地点</option>
+            </select>
+          </label>
+        </LocationCheckFields>
+      </form>
+    ) : kind === "editor" ? (
       <SeatLayoutEditor initialLayout={{ rows, columns, centerAfterColumn, cells }} />
     ) : kind === "event" ? (
       <EventSeatEditor

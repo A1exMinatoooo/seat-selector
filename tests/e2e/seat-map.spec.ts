@@ -138,3 +138,33 @@ test("changing the event hall uses that hall’s saved center", async ({ page })
     )
     .toBeLessThan(1.5);
 });
+
+for (const kind of ["location-new", "location-edit"]) {
+  test(`${kind}: location radius follows the switch without losing its value`, async ({ page }) => {
+    await page.goto(`http://127.0.0.1:3101/?kind=${kind}`);
+    await expect(page.getByLabel("活动地点")).toBeVisible();
+    const toggle = page.getByRole("checkbox", { name: "开启活动定位检查" });
+    const radius = page.locator('input[name="radiusMeters"]');
+    if (kind === "location-new") {
+      await expect(toggle).not.toBeChecked();
+      await expect(radius).toBeHidden();
+      await toggle.evaluate((element: HTMLInputElement) => element.click());
+      await expect(radius).toBeVisible();
+      await expect(radius).toHaveValue("1000");
+    } else {
+      await expect(toggle).toBeChecked();
+      await expect(radius).toBeVisible();
+      await expect(radius).toHaveValue("750");
+    }
+    await radius.fill("2500");
+    await toggle.evaluate((element: HTMLInputElement) => element.click());
+    await expect(radius).toBeHidden();
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-testid="location-form"]')
+          .evaluate((form) => new FormData(form as HTMLFormElement).get("radiusMeters")),
+      )
+      .toBe("2500");
+  });
+}

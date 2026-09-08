@@ -4,7 +4,7 @@ import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { AdminActionForm } from "@/features/admin/admin-action-form";
 import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
 import { EventSeatEditor } from "@/features/events/event-seat-editor";
-import { NumericInput } from "@/features/forms/numeric-input";
+import { LocationCheckFields } from "@/features/events/location-check-fields";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
 import { TimePickerField } from "@/features/forms/time-picker-field";
@@ -52,7 +52,7 @@ export default async function NewEventPage() {
             <DatePickerField name="startDate" label="开始日期" required />
             <TimePickerField name="startTime" label="开始时间" required />
           </div>
-          <div className="form-row">
+          <LocationCheckFields>
             <SelectField
               name="locationId"
               label="活动地点"
@@ -60,16 +60,7 @@ export default async function NewEventPage() {
               options={locations.map((location) => ({ id: location.id, label: location.name }))}
               required
             />
-            <label>
-              定位半径（米）
-              <NumericInput name="radiusMeters" min={50} max={100000} defaultValue={1000} />
-            </label>
-          </div>
-          <label className="switch-label">
-            <input name="locationCheckEnabled" type="checkbox" defaultChecked />
-            <span className="switch-control" aria-hidden="true" />
-            <span>开启活动定位检查</span>
-          </label>
+          </LocationCheckFields>
           <EventSeatEditor
             halls={layouts}
             initialHallId={hallRows[0]!.id}

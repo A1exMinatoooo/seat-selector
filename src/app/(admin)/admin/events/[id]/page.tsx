@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, count, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { EventSeatManagementForm } from "@/features/events/event-seat-management-form";
+import { LocationCheckFields } from "@/features/events/location-check-fields";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { AdminActionForm } from "@/features/admin/admin-action-form";
 import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
@@ -10,7 +11,6 @@ import { EventSeatingStats } from "@/features/events/event-seating-stats";
 import { EventPrizeInventory } from "@/features/events/event-prize-inventory";
 import { TicketTypeFields } from "@/features/events/ticket-type-fields";
 import { ConsecutiveCheckinFields } from "@/features/events/consecutive-checkin-fields";
-import { NumericInput } from "@/features/forms/numeric-input";
 import { SearchableSelectField, SelectField } from "@/features/forms/select-field";
 import { DatePickerField } from "@/features/forms/date-picker-field";
 import { TimePickerField } from "@/features/forms/time-picker-field";
@@ -209,7 +209,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               required
             />
           </div>
-          <div className="form-row">
+          <LocationCheckFields
+            defaultEnabled={event.locationCheckEnabled}
+            defaultRadiusMeters={event.radiusMeters}
+          >
             <SelectField
               name="locationId"
               label="活动地点"
@@ -217,25 +220,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               options={locations.map((location) => ({ id: location.id, label: location.name }))}
               required
             />
-            <label>
-              定位半径（米）
-              <NumericInput
-                name="radiusMeters"
-                min={50}
-                max={100000}
-                defaultValue={event.radiusMeters}
-              />
-            </label>
-          </div>
-          <label className="switch-label">
-            <input
-              name="locationCheckEnabled"
-              type="checkbox"
-              defaultChecked={event.locationCheckEnabled}
-            />
-            <span className="switch-control" aria-hidden="true" />
-            <span>开启活动定位检查</span>
-          </label>
+          </LocationCheckFields>
           <TicketTypeFields
             initialTypes={types.map((type) => ({
               id: type.id,

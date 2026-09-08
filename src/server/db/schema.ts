@@ -119,7 +119,7 @@ export const events = pgTable(
     version: integer("version").notNull().default(1),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
-    locationCheckEnabled: boolean("location_check_enabled").notNull().default(true),
+    locationCheckEnabled: boolean("location_check_enabled").notNull().default(false),
     lotteryEnabled: boolean("lottery_enabled").notNull().default(false),
     participationMode: eventParticipationMode("participation_mode").notNull().default("onsite"),
     maxTicketsPerIssue: integer("max_tickets_per_issue").notNull().default(7),
