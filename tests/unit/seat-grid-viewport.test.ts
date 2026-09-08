@@ -6,9 +6,13 @@ import {
   fitSeatGridHeightScale,
   fitSeatGridScale,
   frozenSeatCoordinateTop,
+  gestureSeatGridScale,
   pinchSeatGridScale,
+  seatGridFocalContentOffset,
+  seatGridFocusedScrollOffset,
   seatGridMinimapSize,
   seatGridMinimapViewport,
+  wheelSeatGridScale,
 } from "@/features/seating/seat-grid-viewport";
 
 describe("seat grid viewport scale", () => {
@@ -41,6 +45,27 @@ describe("seat grid viewport scale", () => {
     expect(pinchSeatGridScale(1, 100, 150)).toBe(1.5);
     expect(pinchSeatGridScale(0.5, 100, 50)).toBe(0.25);
     expect(pinchSeatGridScale(1.5, 100, 200)).toBe(2);
+  });
+
+  it("converts desktop trackpad pinch deltas into smooth bounded scale changes", () => {
+    expect(wheelSeatGridScale(1, -10)).toBeCloseTo(1.105, 3);
+    expect(wheelSeatGridScale(1, 10)).toBeCloseTo(0.905, 3);
+    expect(wheelSeatGridScale(2, -50)).toBe(2);
+    expect(wheelSeatGridScale(0.05, 50)).toBe(0.05);
+  });
+
+  it("converts Safari gesture scale without exceeding the shared limits", () => {
+    expect(gestureSeatGridScale(0.8, 1.5)).toBe(1.2);
+    expect(gestureSeatGridScale(1.5, 2)).toBe(2);
+    expect(gestureSeatGridScale(0.1, 0.1)).toBe(0.05);
+    expect(gestureSeatGridScale(1, Number.NaN)).toBe(1);
+  });
+
+  it("keeps the content under the gesture focal point stable after scaling", () => {
+    const contentOffset = seatGridFocalContentOffset(300, 180, 12, 1);
+    expect(contentOffset).toBe(468);
+    expect(seatGridFocusedScrollOffset(contentOffset, 180, 12, 1.5)).toBe(534);
+    expect(seatGridFocusedScrollOffset(20, 180, 12, 0.5)).toBe(0);
   });
 
   it("projects row coordinates into the fixed viewport overlay", () => {

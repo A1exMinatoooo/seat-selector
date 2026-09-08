@@ -67,7 +67,7 @@ describe("SeatPicker toast", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "start" });
-    expect(screen.getByRole("status").textContent).toBe("双指可放大缩小座位图");
+    expect(screen.getByRole("status").textContent).toBe("触屏或触控板双指捏合可缩放座位图");
     act(() => vi.advanceTimersByTime(1_000));
     const occupied = screen.getByRole("button", { name: "A排1座：已被他人选择" });
     const blocked = screen.getByRole("button", { name: "A排2座：不可选" });
@@ -101,16 +101,18 @@ describe("SeatPicker toast", () => {
       <SeatPicker
         code="summer-screening"
         eventName="夏日放映"
-        seats={[{
-          id: "seat-1",
-          rowIndex: 0,
-          columnIndex: 0,
-          rowLabel: "A",
-          columnLabel: "1",
-          kind: "seat",
-          selectable: true,
-          golden: false,
-        }]}
+        seats={[
+          {
+            id: "seat-1",
+            rowIndex: 0,
+            columnIndex: 0,
+            rowLabel: "A",
+            columnLabel: "1",
+            kind: "seat",
+            selectable: true,
+            golden: false,
+          },
+        ]}
         initialAvailable={["seat-1"]}
         initialOccupied={[]}
         initialVersion={1}

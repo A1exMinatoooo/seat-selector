@@ -119,7 +119,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
   }
   function resizeColumns(value: number) {
     setColumns(value);
-    setCenter((current) => current === null ? null : Math.min(current, value - 1));
+    setCenter((current) => (current === null ? null : Math.min(current, value - 1)));
   }
 
   function generateNumbers() {
@@ -332,24 +332,28 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
           </button>
         ))}
       </div>
-      <SeatGridViewport columns={columns} centerAfterColumn={center}
+      <SeatGridViewport
+        columns={columns}
+        centerAfterColumn={center}
         ariaLabel="座位布局绘制区域"
         className="editor-grid-viewport"
         layoutKey={`${rowLabels.length}:${columns}`}
-        legend={<div className="legend" aria-label="影厅模板编辑图例">
-          <span className="available">普通座位</span>
-          <span className="golden">黄金区</span>
-          <span className="blocked">不可选</span>
-          <span className="aisle">过道</span>
-          <span className="empty">空白</span>
-          <span className="divider">左右半场中线</span>
-        </div>}
+        legend={
+          <div className="legend" aria-label="影厅模板编辑图例">
+            <span className="available">普通座位</span>
+            <span className="golden">黄金区</span>
+            <span className="blocked">不可选</span>
+            <span className="aisle">过道</span>
+            <span className="empty">空白</span>
+            <span className="divider">左右半场中线</span>
+          </div>
+        }
         gesturesEnabled={tool === "navigate"}
         interactionHint={
           <p className="grid-interaction-hint muted" role="status" aria-live="polite">
             {tool === "navigate"
-              ? "当前为“无修改”模式：单指拖动可移动网格，双指可缩放；也可使用上方缩放按钮。"
-              : `当前为“${TOOL_LABELS[tool]}”模式：点击或拖动会修改座位；如需移动或双指缩放，请切换到“无修改”。`}
+              ? "当前为“无修改”模式：单指拖动或触控板双指滑动可移动网格，双指捏合可缩放；也可使用上方缩放按钮。"
+              : `当前为“${TOOL_LABELS[tool]}”模式：点击或拖动会修改座位；触控板双指捏合仍可缩放，如需移动请切换到“无修改”。`}
           </p>
         }
       >

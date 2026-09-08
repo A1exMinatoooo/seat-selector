@@ -15,6 +15,8 @@ const MIN_SCALE = 0.05;
 const MAX_SCALE = 2;
 const SCALE_STEP = 0.1;
 const VIEWPORT_PADDING = 24;
+const SCREEN_CLEARANCE = 48;
+const WHEEL_ZOOM_SENSITIVITY = 0.01;
 const MINIMAP_MAX_WIDTH = 136;
 const MINIMAP_MAX_HEIGHT = 96;
 const MINIMAP_HIDE_DELAY = 800;
@@ -74,6 +76,38 @@ export function pinchSeatGridScale(
 ): number {
   if (startDistance <= 0 || currentDistance <= 0) return clampSeatGridScale(startScale);
   return Math.round(clampSeatGridScale((startScale * currentDistance) / startDistance) * 100) / 100;
+}
+
+export function wheelSeatGridScale(currentScale: number, deltaY: number): number {
+  const boundedDelta = Math.min(50, Math.max(-50, deltaY));
+  return (
+    Math.round(
+      clampSeatGridScale(currentScale * Math.exp(-boundedDelta * WHEEL_ZOOM_SENSITIVITY)) * 1000,
+    ) / 1000
+  );
+}
+
+export function gestureSeatGridScale(startScale: number, gestureScale: number): number {
+  if (!Number.isFinite(gestureScale) || gestureScale <= 0) return clampSeatGridScale(startScale);
+  return Math.round(clampSeatGridScale(startScale * gestureScale) * 1000) / 1000;
+}
+
+export function seatGridFocalContentOffset(
+  scrollOffset: number,
+  focalOffset: number,
+  canvasOffset: number,
+  scale: number,
+): number {
+  return (scrollOffset + focalOffset - canvasOffset) / scale;
+}
+
+export function seatGridFocusedScrollOffset(
+  contentOffset: number,
+  focalOffset: number,
+  canvasOffset: number,
+  scale: number,
+): number {
+  return Math.max(0, canvasOffset + contentOffset * scale - focalOffset);
 }
 
 export function fitSeatGridScale(
@@ -188,6 +222,18 @@ export function SeatGridViewport({
     contentX: number;
     contentY: number;
   } | null>(null);
+  const gestureRef = useRef<{
+    scale: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
+  const pendingZoomRef = useRef<{
+    scale: number;
+    localX: number;
+    localY: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
   const [scale, setScale] = useState(1);
   const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
   const [frozenCoordinates, setFrozenCoordinates] = useState<FrozenCoordinate[]>([]);
@@ -204,11 +250,12 @@ export function SeatGridViewport({
     if (!viewport || gridSize.width <= 0 || gridSize.height <= 0) return;
     const nextScale = fitSeatGridScale(
       viewport.clientWidth,
-      viewport.clientHeight,
+      viewport.clientHeight - SCREEN_CLEARANCE,
       gridSize.width,
       gridSize.height,
     );
     applyingFitRef.current = true;
+    pendingZoomRef.current = null;
     scaleRef.current = nextScale;
     setScale(nextScale);
     viewport.scrollTo({ top: 0, left: 0 });
@@ -251,19 +298,29 @@ export function SeatGridViewport({
     const content = contentRef.current;
     if (!viewport || !content) return;
     const viewportRect = viewport.getBoundingClientRect();
-    const anchor = content.querySelector<HTMLElement>(`[data-seat-column="${Math.max(0, boundary)}"]`);
+    const anchor = content.querySelector<HTMLElement>(
+      `[data-seat-column="${Math.max(0, boundary)}"]`,
+    );
     if (anchor) {
       const rect = anchor.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       const gap = parseFloat(getComputedStyle(anchor.parentElement!).columnGap) || 0;
-      const x = boundary < 0 ? rect.left - gap * scaleRef.current / 2 : rect.right + gap * scaleRef.current / 2;
+      const x =
+        boundary < 0
+          ? rect.left - (gap * scaleRef.current) / 2
+          : rect.right + (gap * scaleRef.current) / 2;
       const position = seatScreenPosition(x - viewportRect.left, viewport.clientWidth);
-      const nextGeometry = { line: Math.round((x - contentRect.left) / scaleRef.current * 1000) / 1000, ...position };
+      const nextGeometry = {
+        line: Math.round(((x - contentRect.left) / scaleRef.current) * 1000) / 1000,
+        ...position,
+      };
       setCenterGeometry((current) =>
         current?.line === nextGeometry.line &&
         current.screen === nextGeometry.screen &&
         current.width === nextGeometry.width &&
-        current.direction === nextGeometry.direction ? current : nextGeometry,
+        current.direction === nextGeometry.direction
+          ? current
+          : nextGeometry,
       );
     } else {
       setCenterGeometry(null);
@@ -326,8 +383,29 @@ export function SeatGridViewport({
   );
 
   useLayoutEffect(() => {
+    const pending = pendingZoomRef.current;
     const viewport = viewportRef.current;
-    if (!viewport) return;
+    const canvas = canvasRef.current;
+    if (!pending || pending.scale !== scale || !viewport || !canvas) return;
+    viewport.scrollLeft = seatGridFocusedScrollOffset(
+      pending.contentX,
+      pending.localX,
+      canvas.offsetLeft,
+      scale,
+    );
+    viewport.scrollTop = seatGridFocusedScrollOffset(
+      pending.contentY,
+      pending.localY,
+      canvas.offsetTop,
+      scale,
+    );
+    pendingZoomRef.current = null;
+  }, [scale]);
+
+  useLayoutEffect(() => {
+    const currentViewport = viewportRef.current;
+    if (!currentViewport) return;
+    const viewport: HTMLDivElement = currentViewport;
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -402,13 +480,25 @@ export function SeatGridViewport({
       if (!geometry || geometry.distance <= 0) return;
       event.preventDefault();
       const rect = viewport.getBoundingClientRect();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
       const localX = geometry.centerX - rect.left;
       const localY = geometry.centerY - rect.top;
       pinchRef.current = {
         distance: geometry.distance,
         scale: scaleRef.current,
-        contentX: (viewport.scrollLeft + localX) / scaleRef.current,
-        contentY: (viewport.scrollTop + localY) / scaleRef.current,
+        contentX: seatGridFocalContentOffset(
+          viewport.scrollLeft,
+          localX,
+          canvas.offsetLeft,
+          scaleRef.current,
+        ),
+        contentY: seatGridFocalContentOffset(
+          viewport.scrollTop,
+          localY,
+          canvas.offsetTop,
+          scaleRef.current,
+        ),
       };
       userAdjustedViewRef.current = true;
     }
@@ -424,12 +514,16 @@ export function SeatGridViewport({
       const rect = viewport.getBoundingClientRect();
       const localX = geometry.centerX - rect.left;
       const localY = geometry.centerY - rect.top;
+      if (nextScale === scaleRef.current) return;
+      pendingZoomRef.current = {
+        scale: nextScale,
+        localX,
+        localY,
+        contentX: pinch.contentX,
+        contentY: pinch.contentY,
+      };
       scaleRef.current = nextScale;
       setScale(nextScale);
-      requestAnimationFrame(() => {
-        viewport.scrollLeft = pinch.contentX * nextScale - localX;
-        viewport.scrollTop = pinch.contentY * nextScale - localY;
-      });
     }
 
     function endPinch(event: TouchEvent) {
@@ -448,8 +542,116 @@ export function SeatGridViewport({
     };
   }, [gesturesEnabled]);
 
+  useLayoutEffect(() => {
+    const currentViewport = viewportRef.current;
+    if (!currentViewport) return;
+    const viewport: HTMLDivElement = currentViewport;
+
+    type SafariGestureEvent = Event & {
+      clientX?: number;
+      clientY?: number;
+      scale?: number;
+    };
+
+    function localPoint(event: SafariGestureEvent) {
+      const rect = viewport.getBoundingClientRect();
+      return {
+        x: (event.clientX ?? rect.left + rect.width / 2) - rect.left,
+        y: (event.clientY ?? rect.top + rect.height / 2) - rect.top,
+      };
+    }
+
+    function applyFocusedScale(
+      nextScale: number,
+      localX: number,
+      localY: number,
+      contentX: number,
+      contentY: number,
+    ) {
+      if (nextScale === scaleRef.current) return;
+      userAdjustedViewRef.current = true;
+      pendingZoomRef.current = { scale: nextScale, localX, localY, contentX, contentY };
+      scaleRef.current = nextScale;
+      setScale(nextScale);
+      showMinimapDuringNavigation();
+    }
+
+    function handleWheel(event: WheelEvent) {
+      if (!event.ctrlKey || gestureRef.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const deltaMultiplier =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 16
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? viewport.clientHeight
+            : 1;
+      const currentScale = scaleRef.current;
+      const nextScale = wheelSeatGridScale(currentScale, event.deltaY * deltaMultiplier);
+      if (nextScale === currentScale) return;
+      applyFocusedScale(
+        nextScale,
+        localX,
+        localY,
+        seatGridFocalContentOffset(viewport.scrollLeft, localX, canvas.offsetLeft, currentScale),
+        seatGridFocalContentOffset(viewport.scrollTop, localY, canvas.offsetTop, currentScale),
+      );
+    }
+
+    function beginGesture(event: SafariGestureEvent) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      event.preventDefault();
+      const point = localPoint(event);
+      gestureRef.current = {
+        scale: scaleRef.current,
+        contentX: seatGridFocalContentOffset(
+          viewport.scrollLeft,
+          point.x,
+          canvas.offsetLeft,
+          scaleRef.current,
+        ),
+        contentY: seatGridFocalContentOffset(
+          viewport.scrollTop,
+          point.y,
+          canvas.offsetTop,
+          scaleRef.current,
+        ),
+      };
+    }
+
+    function changeGesture(event: SafariGestureEvent) {
+      const gesture = gestureRef.current;
+      if (!gesture) return;
+      event.preventDefault();
+      const point = localPoint(event);
+      const nextScale = gestureSeatGridScale(gesture.scale, event.scale ?? 1);
+      applyFocusedScale(nextScale, point.x, point.y, gesture.contentX, gesture.contentY);
+    }
+
+    function endGesture() {
+      gestureRef.current = null;
+    }
+
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    viewport.addEventListener("gesturestart", beginGesture as EventListener, { passive: false });
+    viewport.addEventListener("gesturechange", changeGesture as EventListener, { passive: false });
+    viewport.addEventListener("gestureend", endGesture);
+    return () => {
+      viewport.removeEventListener("wheel", handleWheel);
+      viewport.removeEventListener("gesturestart", beginGesture as EventListener);
+      viewport.removeEventListener("gesturechange", changeGesture as EventListener);
+      viewport.removeEventListener("gestureend", endGesture);
+    };
+  }, [showMinimapDuringNavigation]);
+
   function updateScale(nextScale: number) {
     userAdjustedViewRef.current = true;
+    pendingZoomRef.current = null;
     const normalizedScale = Math.round(clampSeatGridScale(nextScale) * 100) / 100;
     scaleRef.current = normalizedScale;
     setScale(normalizedScale);
@@ -513,11 +715,12 @@ export function SeatGridViewport({
         </button>
       </div>
       {interactionHint}
-      <div className="seat-screen-band" aria-label="银幕方向">
+      <div className="seat-grid-viewport-stage">
         {centerGeometry ? (
           <div
             className="seat-screen-marker"
             data-direction={centerGeometry.direction}
+            aria-label="银幕方向"
             style={{ left: centerGeometry.screen, width: centerGeometry.width }}
           >
             <svg viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">
@@ -530,8 +733,6 @@ export function SeatGridViewport({
             </span>
           </div>
         ) : null}
-      </div>
-      <div className="seat-grid-viewport-stage">
         {mobileMinimap ? (
           <div
             className={`seat-grid-minimap ${minimapVisible ? "visible" : ""}`}
@@ -567,7 +768,11 @@ export function SeatGridViewport({
                 <span
                   className="seat-center-line"
                   aria-hidden="true"
-                  style={{ left: centerGeometry.line, borderLeftWidth: 2 / scale, transform: `translateX(${-1 / scale}px)` }}
+                  style={{
+                    left: centerGeometry.line,
+                    borderLeftWidth: 2 / scale,
+                    transform: `translateX(${-1 / scale}px)`,
+                  }}
                 />
               ) : null}
             </div>

@@ -13,6 +13,7 @@ for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
     const viewport = page.locator(".seat-grid-viewport");
     const marker = viewport.locator(".seat-screen-marker");
     await expect(marker).toBeVisible();
+    await expect(viewport.locator(".seat-screen-band")).toHaveCount(0);
     if (kind === "picker" || kind === "consecutive") {
       await expect(page.locator(".screen")).toHaveCount(0);
       await expect(page.locator(".seat-screen-marker")).toHaveCount(1);
@@ -25,8 +26,8 @@ for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
         const line = element
           .querySelector(".seat-grid-scaled-content > .seat-center-line")!
           .getBoundingClientRect();
-        const marker = element.querySelector(".seat-screen-marker")!.getBoundingClientRect();
-        const band = element.querySelector(".seat-screen-band")!.getBoundingClientRect();
+        const markerElement = element.querySelector<HTMLElement>(".seat-screen-marker")!;
+        const marker = markerElement.getBoundingClientRect();
         const anchor = element
           .querySelector('.seat-grid-scaled-content [data-seat-column="14"]')!
           .getBoundingClientRect();
@@ -34,22 +35,28 @@ for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
           .querySelector('.seat-grid-scaled-content [data-seat-column="15"]')!
           .getBoundingClientRect();
         const body = element.querySelector(".seat-grid-viewport-body")!.getBoundingClientRect();
+        const firstSeat = element
+          .querySelector(".seat-grid-scaled-content [data-seat-row-coordinate]")!
+          .getBoundingClientRect();
         return {
           delta: Math.abs(line.left + line.width / 2 - (anchor.right + next.left) / 2),
           markerLeft: marker.left,
           markerRight: marker.right,
-          bandLeft: band.left,
-          bandRight: band.right,
-          bandBottom: band.bottom,
+          bodyLeft: body.left,
+          bodyRight: body.right,
           bodyTop: body.top,
+          bodyBottom: body.bottom,
+          firstSeatTop: firstSeat.top,
           markerTop: marker.top,
           markerBottom: marker.bottom,
+          markerPointerEvents: getComputedStyle(markerElement).pointerEvents,
         };
       });
     await expect.poll(async () => (await geometry()).delta).toBeLessThan(1.5);
     const initial = await geometry();
-    expect(initial.bandBottom).toBeLessThanOrEqual(initial.bodyTop);
-    expect(initial.markerBottom).toBeLessThanOrEqual(initial.bandBottom);
+    expect(initial.markerTop).toBeGreaterThanOrEqual(initial.bodyTop);
+    expect(initial.markerBottom).toBeLessThan(initial.firstSeatTop);
+    expect(initial.markerPointerEvents).toBe("none");
     await viewport.screenshot({ path: testInfo.outputPath(`${kind}-fit.png`) });
     await viewport.getByRole("button", { name: "恢复座位网格为百分之百" }).click();
     for (let i = 0; i < 5; i++)
@@ -64,8 +71,9 @@ for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
       initial.markerRight - initial.markerLeft,
       1,
     );
-    expect(moved.markerLeft).toBeGreaterThanOrEqual(moved.bandLeft);
-    expect(moved.markerRight).toBeLessThanOrEqual(moved.bandRight);
+    expect(moved.markerLeft).toBeGreaterThanOrEqual(moved.bodyLeft);
+    expect(moved.markerRight).toBeLessThanOrEqual(moved.bodyRight);
+    expect(moved.markerBottom).toBeLessThanOrEqual(moved.bodyBottom);
     expect(Math.abs(moved.markerTop - initial.markerTop)).toBeLessThan(1);
     expect(moved.delta).toBeLessThan(1.5);
     await viewport.screenshot({ path: testInfo.outputPath(`${kind}-edge.png`) });
@@ -73,7 +81,7 @@ for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
     await expect
       .poll(async () => {
         const g = await geometry();
-        return g.markerRight <= g.bandRight;
+        return g.markerRight <= g.bodyRight;
       })
       .toBe(true);
     await viewport.getByRole("button", { name: "缩放以显示完整座位网格" }).click();
@@ -105,6 +113,151 @@ test("default boundary updates with column count and configured centers remain a
       }),
     )
     .toBeLessThan(1.5);
+});
+
+for (const kind of ["editor", "preview", "event", "picker", "consecutive"]) {
+  test(`${kind}: trackpad pinch zooms around its focus in every interaction mode`, async ({
+    page,
+  }) => {
+    await page.goto(`http://127.0.0.1:3101/?kind=${kind}`);
+    if (kind === "editor") await page.getByRole("button", { name: "可选", exact: true }).click();
+    if (kind === "event") await page.getByRole("button", { name: "调整可选区域" }).click();
+
+    const viewport = page.locator(".seat-grid-viewport");
+    const body = viewport.locator(".seat-grid-viewport-body");
+    await viewport.getByRole("button", { name: "恢复座位网格为百分之百" }).click();
+    const result = await body.evaluate(async (element) => {
+      const viewport = element as HTMLDivElement;
+      viewport.scrollLeft = 240;
+      viewport.scrollTop = 120;
+      const canvas = viewport.querySelector<HTMLElement>(".seat-grid-viewport-canvas")!;
+      const scaleButton = viewport
+        .closest(".seat-grid-viewport")!
+        .querySelector<HTMLButtonElement>('[aria-label="恢复座位网格为百分之百"]')!;
+      const rect = viewport.getBoundingClientRect();
+      const localX = rect.width * 0.62;
+      const localY = rect.height * 0.58;
+      const contentPoint = () => ({
+        x:
+          (viewport.scrollLeft + localX - canvas.offsetLeft) /
+          (Number.parseFloat(scaleButton.textContent!) / 100),
+        y:
+          (viewport.scrollTop + localY - canvas.offsetTop) /
+          (Number.parseFloat(scaleButton.textContent!) / 100),
+      });
+      const before = contentPoint();
+      const ordinaryWheel = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + localX,
+        clientY: rect.top + localY,
+        deltaY: 12,
+      });
+      viewport.dispatchEvent(ordinaryWheel);
+      const pinchWheel = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + localX,
+        clientY: rect.top + localY,
+        ctrlKey: true,
+        deltaY: -20,
+      });
+      viewport.dispatchEvent(pinchWheel);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+      const scale = Number.parseFloat(scaleButton.textContent!) / 100;
+      const after = {
+        x: (viewport.scrollLeft + localX - canvas.offsetLeft) / scale,
+        y: (viewport.scrollTop + localY - canvas.offsetTop) / scale,
+      };
+      return {
+        ordinaryPrevented: ordinaryWheel.defaultPrevented,
+        pinchPrevented: pinchWheel.defaultPrevented,
+        scale,
+        focalDeltaX: Math.abs(before.x - after.x),
+        focalDeltaY: Math.abs(before.y - after.y),
+      };
+    });
+    expect(result.ordinaryPrevented).toBe(false);
+    expect(result.pinchPrevented).toBe(true);
+    expect(result.scale).toBeGreaterThan(1);
+    expect(result.focalDeltaX).toBeLessThan(2);
+    expect(result.focalDeltaY).toBeLessThan(2);
+  });
+}
+
+for (const { kind, modes } of [
+  { kind: "editor", modes: ["可选", "不可选", "黄金区", "过道", "空白"] },
+  { kind: "event", modes: ["调整可选区域", "框选模式"] },
+]) {
+  test(`${kind}: trackpad pinch remains active in each editing mode`, async ({ page }) => {
+    await page.goto(`http://127.0.0.1:3101/?kind=${kind}`);
+    const viewport = page.locator(".seat-grid-viewport");
+    const body = viewport.locator(".seat-grid-viewport-body");
+    for (const mode of modes) {
+      await page.getByRole("button", { name: mode, exact: true }).click();
+      await viewport.getByRole("button", { name: "恢复座位网格为百分之百" }).click();
+      await body.evaluate(async (element) => {
+        const rect = element.getBoundingClientRect();
+        element.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2,
+            ctrlKey: true,
+            deltaY: -10,
+          }),
+        );
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      });
+      await expect(viewport.getByRole("button", { name: "恢复座位网格为百分之百" })).not.toHaveText(
+        "100%",
+      );
+    }
+  });
+}
+
+test("Safari gesture events zoom the seat map around the gesture focus", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "safari");
+  await page.goto("http://127.0.0.1:3101/?kind=preview");
+  const viewport = page.locator(".seat-grid-viewport");
+  await viewport.getByRole("button", { name: "恢复座位网格为百分之百" }).click();
+  const result = await viewport.locator(".seat-grid-viewport-body").evaluate(async (element) => {
+    const body = element as HTMLDivElement;
+    const rect = body.getBoundingClientRect();
+    const dispatch = (type: string, scale: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        clientX: { value: rect.left + rect.width / 2 },
+        clientY: { value: rect.top + rect.height / 2 },
+        scale: { value: scale },
+      });
+      body.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const startPrevented = dispatch("gesturestart", 1);
+    const changePrevented = dispatch("gesturechange", 1.3);
+    dispatch("gestureend", 1.3);
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+    return {
+      startPrevented,
+      changePrevented,
+      scale: Number.parseFloat(
+        body
+          .closest(".seat-grid-viewport")!
+          .querySelector<HTMLButtonElement>('[aria-label="恢复座位网格为百分之百"]')!.textContent!,
+      ),
+    };
+  });
+  expect(result.startPrevented).toBe(true);
+  expect(result.changePrevented).toBe(true);
+  expect(result.scale).toBe(130);
 });
 
 for (const kind of ["preview", "editor", "event", "picker", "consecutive"]) {

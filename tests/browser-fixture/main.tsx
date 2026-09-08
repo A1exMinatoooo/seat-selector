@@ -83,6 +83,7 @@ createRoot(document.getElementById("root")!).render(
         halls={[hall, { ...hall, id: "other", hallName: "偏置中线影厅", centerAfterColumn: 3 }]}
         initialHallId="hall"
         includeHallSelect
+        planningToolsEnabled
       />
     ) : kind === "picker" ? (
       <SeatPicker

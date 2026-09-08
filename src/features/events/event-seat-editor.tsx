@@ -93,7 +93,8 @@ export function EventSeatEditor({
 }) {
   const [hallId, setHallId] = useState(initialHallId);
   const hall = halls.find((item) => item.id === hallId) ?? halls[0];
-  const centerAfterColumn = hall?.centerAfterColumn === undefined ? configuredCenter : hall.centerAfterColumn;
+  const centerAfterColumn =
+    hall?.centerAfterColumn === undefined ? configuredCenter : hall.centerAfterColumn;
   const defaultSeatIds = useMemo(
     () =>
       hall?.seats
@@ -357,7 +358,9 @@ export function EventSeatEditor({
         >
           全部关闭
         </button>
-        <span>{available.size} 个座位基础开放 · {effectiveAvailableSeatIds.length} 个当前可选</span>
+        <span>
+          {available.size} 个座位基础开放 · {effectiveAvailableSeatIds.length} 个当前可选
+        </span>
         {planningToolsEnabled ? (
           <button
             type="button"
@@ -413,26 +416,30 @@ export function EventSeatEditor({
           </button>
         ) : null}
       </div>
-      <SeatGridViewport columns={columns} centerAfterColumn={centerAfterColumn}
+      <SeatGridViewport
+        columns={columns}
+        centerAfterColumn={centerAfterColumn}
         ariaLabel="活动座位开放区域"
         className="editor-grid-viewport"
         layoutKey={hall.id}
-        legend={<div className="legend" aria-label="活动开放范围图例">
-          <span className="available">基础开放</span>
-          <span className="golden">黄金区</span>
-          <span className="blocked">基础关闭</span>
-          <span className="half-locked">半场锁定</span>
-          <span className="reserved">已被选择</span>
-          <span className="divider">左右半场中线</span>
-        </div>}
+        legend={
+          <div className="legend" aria-label="活动开放范围图例">
+            <span className="available">基础开放</span>
+            <span className="golden">黄金区</span>
+            <span className="blocked">基础关闭</span>
+            <span className="half-locked">半场锁定</span>
+            <span className="reserved">已被选择</span>
+            <span className="divider">左右半场中线</span>
+          </div>
+        }
         gesturesEnabled={interactionMode === "navigate"}
         interactionHint={
           <p className="grid-interaction-hint muted" role="status" aria-live="polite">
             {interactionMode === "navigate"
-              ? "当前为“无修改”模式：单指拖动可移动网格，双指可缩放；也可使用上方缩放按钮。"
+              ? "当前为“无修改”模式：单指拖动或触控板双指滑动可移动网格，双指捏合可缩放；也可使用上方缩放按钮。"
               : interactionMode === "rectangle"
-                ? "当前为“框选模式”：在座位区域拖出矩形，框内可选且未锁定的座位会逐个切换开放、关闭状态，框外不变；按 Esc 可取消未完成框选。"
-                : "当前为“调整可选区域”模式：点击或拖动可开放、关闭座位；如需移动或双指缩放，请切换到“无修改”。"}
+                ? "当前为“框选模式”：在座位区域拖出矩形，框内可选且未锁定的座位会逐个切换开放、关闭状态，框外不变；触控板双指捏合仍可缩放，按 Esc 可取消未完成框选。"
+                : "当前为“调整可选区域”模式：点击或拖动可开放、关闭座位；触控板双指捏合仍可缩放，如需移动请切换到“无修改”。"}
           </p>
         }
       >

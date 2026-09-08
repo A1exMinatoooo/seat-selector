@@ -80,7 +80,7 @@ export function SeatPicker({
   const closeTheaterManners = useCallback(() => {
     setShowTheaterManners(false);
     seatViewportRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
-    showToast("双指可放大缩小座位图");
+    showToast("触屏或触控板双指捏合可缩放座位图");
   }, [showToast]);
 
   const reportDisplaced = useCallback(async () => {
@@ -264,16 +264,16 @@ export function SeatPicker({
       </header>
       <section className="seat-map-wrap">
         <div ref={seatViewportRef}>
-          <SeatGridViewport columns={columns} centerAfterColumn={centerAfterColumn}
+          <SeatGridViewport
+            columns={columns}
+            centerAfterColumn={centerAfterColumn}
             ariaLabel="可选座位区域"
             className="public-grid-viewport"
             layoutKey={`${rowIndexes.length}:${columns}:${seats.length}`}
             legend={<ParticipantSeatLegend />}
             mobileMinimap
           >
-            <div
-              className="public-seat-grid"
-            >
+            <div className="public-seat-grid">
               {rowIndexes.map((rowIndex) => {
                 const rowSeats = seats.filter((seat) => seat.rowIndex === rowIndex);
                 const rowLabel = rowSeats[0]?.rowLabel ?? String(rowIndex + 1);

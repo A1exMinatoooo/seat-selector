@@ -41,7 +41,7 @@ describe("seat grid interaction modes", () => {
     for (const markup of [eventEditor, layoutEditor]) {
       expect(markup).toMatch(/<button[^>]*aria-pressed="true"[^>]*>无修改<\/button>/);
       expect(markup).toContain("gestures-enabled");
-      expect(markup).toContain("单指拖动可移动网格，双指可缩放");
+      expect(markup).toContain("触控板双指滑动可移动网格，双指捏合可缩放");
     }
   });
 

@@ -83,7 +83,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .seat-grid-viewport.gestures-disabled .seat-grid-viewport-body { touch-action: none; }
 .editor-grid-viewport.gestures-enabled .seat-grid button { pointer-events: none; }.editor-grid-viewport.gestures-enabled .seat-grid-viewport-body { cursor: grab; }
 .seat-grid-viewport-body:focus-visible { outline: 3px solid rgba(23,79,66,.2); outline-offset: -3px; }
-.seat-grid-viewport-canvas { position: relative; margin-inline: auto; }
+.seat-grid-viewport-canvas { position: relative; margin: 48px auto 0; }
 .seat-grid-scaled-content { position: absolute; top: 0; left: 0; width: max-content; transform-origin: top left; }
 .preview-grid-viewport .seat-grid-viewport-body { height: min(62svh, 640px); }
 .public-grid-viewport { width: min(1100px, 100%); margin: 0 auto; }
@@ -295,12 +295,8 @@ details[open] > summary .details-chevron, .select-field[data-open] .select-field
   .consecutive-result-card .ticket-summary { justify-content: flex-start; }
 }
 
-/* Screen stays outside the scrolling body; its horizontal anchor follows the measured boundary. */
-.seat-screen-band { position: relative; height: 48px; overflow: hidden; pointer-events: none; background: var(--cream); border-bottom: 1px solid var(--line); }
-.seat-screen-marker { position: absolute; top: 5px; transform: translateX(-50%); text-align: center; color: var(--green); }
+/* The screen floats inside the seat viewport and never captures seat interactions. */
+.seat-screen-marker { position: absolute; z-index: 7; top: 12px; transform: translateX(-50%); text-align: center; color: var(--green); pointer-events: none; }
 .seat-screen-marker svg { display: block; width: 100%; height: 20px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 2; }
 .seat-screen-marker span { display: block; font-size: 11px; line-height: 18px; white-space: nowrap; }
 .seat-center-line { position: absolute; z-index: 2; top: 0; bottom: 0; border-left: 2px dashed #8c8981; transform: translateX(-1px); pointer-events: none; }
-.seat-grid-viewport .seat-grid-viewport-body { height: calc(min(58svh, 680px) - 48px); }
-.preview-grid-viewport .seat-grid-viewport-body { height: calc(min(62svh, 640px) - 48px); }
-.public-grid-viewport .seat-grid-viewport-body { height: calc(min(62svh, 720px) - 48px); }
