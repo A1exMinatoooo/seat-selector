@@ -11,6 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Project rules
 
 - Before starting any work, read `CONTRIBUTING.md`.
+- When development requires local environment simulation, use the isolated test environment in [CONTRIBUTING.md](CONTRIBUTING.md#本地模拟测试环境) for real-database and end-to-end business checks; follow its startup and reset-safety instructions.
 - Keep business rules in `src/server/domain` and database access in `src/server/db`.
 - Validate every external input with Zod and preserve stable public error codes.
 - Include migrations and tests with schema-changing features.

@@ -6,3 +6,4 @@ backups
 pgdata
 playwright-report
 test-results
+_local-test/

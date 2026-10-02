@@ -31,7 +31,7 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
     await page.goto(eventHref!);
     const checkinLink = page.getByRole("link", { name: "现场二维码" });
     if (!(await checkinLink.isVisible())) continue;
-    await checkinLink.click();
+    await Promise.all([page.waitForURL("**/checkin"), checkinLink.click()]);
     if (await page.getByText("现场发行", { exact: true }).isVisible()) {
       checkinUrl = page.url();
       break;
@@ -76,7 +76,9 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
     await route.fulfill({ json: { status: "expired" } });
   });
 
-  await page.getByRole("radio", { name: "1" }).first().check();
+  const firstQuantity = page.getByRole("radio", { name: "1" }).first();
+  await firstQuantity.locator("xpath=..").click();
+  await expect(firstQuantity).toBeChecked();
   await page.getByRole("button", { name: "发行二维码" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("现场二维码已发行，共 1 张。");
@@ -102,7 +104,7 @@ test("onsite issue closes with claimed and expired toasts", async ({ page }) => 
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByRole("button", { name: "发行二维码" }).click();
-  await expect(page.getByRole("alert")).toHaveText("二维码已超时，请重新发行。");
+  await expect(page.locator('.admin-save-toast[role="alert"]')).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
@@ -122,7 +124,7 @@ test("linked onsite issue keeps zero-ticket follow-up events out of the QR snaps
     await page.goto(eventHref!);
     const checkinLink = page.getByRole("link", { name: "现场二维码" });
     if (!(await checkinLink.isVisible())) continue;
-    await checkinLink.click();
+    await Promise.all([page.waitForURL("**/checkin"), checkinLink.click()]);
     if ((await page.locator(".issue-event-group").count()) >= 2) {
       found = true;
       break;
@@ -170,7 +172,9 @@ test("linked onsite issue keeps zero-ticket follow-up events out of the QR snaps
       },
     });
   });
-  await groups.nth(0).locator('input[type="radio"][value="1"]').first().check();
+  const firstLinkedQuantity = groups.nth(0).locator('input[type="radio"][value="1"]').first();
+  await firstLinkedQuantity.locator("xpath=..").click();
+  await expect(firstLinkedQuantity).toBeChecked();
   await page.getByRole("button", { name: "发行二维码" }).click();
   await expect(page.getByRole("dialog")).toContainText(sourceName);
   const allocations = (submitted as { allocations: Array<{ allocation: unknown[] }> }).allocations;

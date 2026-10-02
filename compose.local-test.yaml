@@ -1,0 +1,19 @@
+name: pickseat-local-test
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: pickseat_local_test
+      POSTGRES_DB: pickseat_local_test
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Explicit local test password required}
+    ports:
+      - "127.0.0.1:${LOCAL_TEST_DB_PORT:?Explicit local test port required}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pickseat_local_test -d pickseat_local_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  db-data:
