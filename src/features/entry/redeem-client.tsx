@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { userFacingErrorMessage } from "@/shared/error-message";
 
@@ -23,21 +23,30 @@ export function RedeemClient({ code, token }: { code: string; token: string }) {
   const [state, setState] = useState<RedeemState>({ phase: "verifying" });
   const [attempt, setAttempt] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(5);
+  const redemption = useRef<{ code: string; token: string; attempt: number; result: Promise<{ ok: boolean; error?: string }> } | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/entry/redeem", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code, token }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (response.ok) {
+    let active = true;
+    // Redeeming rotates a one-use QR; effect replay must observe the same request.
+    if (!redemption.current || redemption.current.code !== code || redemption.current.token !== token || redemption.current.attempt !== attempt) {
+      const result = fetch("/api/entry/redeem", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, token }),
+      }).then(async (response) => {
+        if (response.ok) return { ok: true };
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error };
+      });
+      redemption.current = { code, token, attempt, result };
+    }
+    void redemption.current.result
+      .then((body) => {
+        if (!active) return;
+        if (body.ok) {
           router.replace(`/e/${code}`);
           return;
         }
-        const body = (await response.json().catch(() => ({}))) as { error?: string };
         const errorCode = body.error ?? "INTERNAL_ERROR";
         if (errorCode === "SELECTION_ALREADY_COMPLETED") {
           setSecondsRemaining(5);
@@ -50,11 +59,11 @@ export function RedeemClient({ code, token }: { code: string; token: string }) {
           retryable: retryableErrorCodes.has(errorCode),
         });
       })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+      .catch(() => {
+        if (!active) return;
         setState({ phase: "error", code: "NETWORK_ERROR", retryable: true });
       });
-    return () => controller.abort();
+    return () => { active = false; };
   }, [attempt, code, router, token]);
 
   useEffect(() => {

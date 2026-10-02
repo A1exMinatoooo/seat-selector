@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RedeemClient } from "@/features/entry/redeem-client";
 
@@ -21,6 +22,23 @@ afterEach(() => {
 });
 
 describe("RedeemClient", () => {
+  it("redeems a one-use QR successfully when Strict Mode replays the effect", async () => {
+    let consumed = false;
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => {
+      if (consumed) return Promise.resolve(Response.json({ error: "FORBIDDEN" }, { status: 403 }));
+      consumed = true;
+      return new Promise<Response>((resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        queueMicrotask(() => resolve(Response.json({ ok: true })));
+      });
+    }));
+
+    render(<StrictMode><RedeemClient code="summer-screening" token="one-use-ticket-token" /></StrictMode>);
+
+    await waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/e/summer-screening"));
+    expect(screen.queryByRole("heading", { name: "当前无法进入活动" })).toBeNull();
+  });
+
   it("shows a non-dismissible completed dialog and links to today's records", async () => {
     vi.stubGlobal(
       "fetch",
