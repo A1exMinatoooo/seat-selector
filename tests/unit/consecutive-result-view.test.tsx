@@ -24,38 +24,35 @@ const baseStep: ConsecutiveWorkflowView["steps"][number] = {
 };
 
 describe("consecutive result view", () => {
-  it("renders ordered, bordered event results and marks historical records", () => {
+  it("preserves ordered results and shows historical seats without inventing lottery outcomes", () => {
     const view: ConsecutiveWorkflowView = {
       id: "workflow-1",
       status: "completed",
-      serverTime: "2026-08-31T10:00:00.000Z",
-      claimedAt: "2026-08-31T09:55:00.000Z",
-      hardExpiresAt: "2026-08-31T10:00:00.000Z",
+      serverTime: "2026-08-07T08:02:18.000Z",
+      claimedAt: "2026-08-07T08:00:00.000Z",
+      hardExpiresAt: "2026-08-07T08:05:00.000Z",
       needsLocation: true,
       steps: [
-        baseStep,
-        {
-          ...baseStep,
-          eventId: "event-2",
-          eventName: "第二场",
-          historical: true,
-          sortOrder: 1,
-          confirmedSeats: ["B2"],
-          lotteryResults: [],
-        },
+        { ...baseStep, eventName: "连续首场", confirmedAt: "2026-08-07T08:00:00.000Z", confirmedSeats: ["A排1座", "A排2座"], lotteryResults: [{ drawIndex: 0, prizeName: null }, { drawIndex: 1, prizeName: "海报" }] },
+        { ...baseStep, eventId: "event-2", eventName: "连续后场", historical: true, sortOrder: 1, confirmedAt: "2026-08-07T07:00:00.000Z", confirmedSeats: ["B排8座"], lotteryResults: [] },
       ],
     };
     const markup = renderToStaticMarkup(createElement(ConsecutiveResultView, { view }));
-    expect(markup.match(/consecutive-result-card/g)).toHaveLength(2);
-    expect(markup).toContain("success-page consecutive-success-page");
-    expect(markup).toContain("请截图保存本页");
-    expect(markup).toContain("<h1>选座结果</h1>");
-    expect(markup).not.toContain("同日活动结果");
-    expect(markup).toContain("ticket-summary");
-    expect(markup).toContain("lottery-prize-icon");
-    expect(markup.indexOf("第一场")).toBeLessThan(markup.indexOf("第二场"));
-    expect(markup).toContain("此前已完成");
+    const firstEventPosition = markup.indexOf("连续首场");
+    const historicalPosition = markup.indexOf("此前已完成");
+    const historicalEventPosition = markup.indexOf("连续后场");
+    const historicalMarkup = markup.slice(historicalPosition);
+
+    expect(firstEventPosition).toBeGreaterThanOrEqual(0);
+    expect(firstEventPosition).toBeLessThan(historicalPosition);
+    expect(historicalEventPosition).toBeGreaterThan(historicalPosition);
+    expect(markup).toContain("第 1 次：");
+    expect(markup).toContain("未中奖");
     expect(markup).toContain("海报");
-    expect(markup).toContain("B2");
+    expect(markup).toContain("A排1座");
+    expect(markup).toContain("A排2座");
+    expect(historicalMarkup).toContain("此前已完成");
+    expect(historicalMarkup).toContain("B排8座");
+    expect(historicalMarkup).not.toContain("抽奖结果");
   });
 });

@@ -12,7 +12,8 @@ import {
   type ParticipantSeatDto,
 } from "./participant-seat-state";
 import { SeatGridViewport } from "./seat-grid-viewport";
-import { InlineBrandIcon, LiveServerTime, LotteryPrizeName } from "./success-view";
+import { LiveServerTime, LotteryPrizeName, ScreenshotNotice } from "./success-view";
+import { ReservationTicket } from "./reservation-ticket";
 import { TheaterMannersDialog } from "./theater-manners-dialog";
 
 type WorkflowView = ConsecutiveWorkflowView;
@@ -44,51 +45,29 @@ function hasPendingLottery(steps: WorkflowStep[]) {
 export function ConsecutiveResultView({ view }: { view: WorkflowView }) {
   return (
     <main className="success-page consecutive-success-page">
-      <aside className="success-notice" role="note">
-        <InlineBrandIcon className="success-notice-icon" />
-        请截图保存本页，方便后续核对座位
-      </aside>
+      <ScreenshotNotice />
       <header className="success-heading consecutive-success-heading">
-        <p className="eyebrow">连签选座成功</p>
-        <h1>选座结果</h1>
+        <h1>连签选座成功</h1>
+        <p>选座结果</p>
       </header>
       <LiveServerTime serverTime={view.serverTime} />
       <div className="consecutive-result-list">
         {view.steps.map((step, index) => (
-          <section className="consecutive-result-card" key={step.eventId}>
-            <header>
-              <p className="eyebrow">
-                第 {index + 1} 场{step.historical ? " · 此前已完成" : ""}
+          <ReservationTicket
+            key={step.eventId}
+            compact
+            eventName={step.eventName}
+            seats={step.confirmedSeats}
+            tickets={step.tickets}
+            lotteryResults={step.lotteryResults}
+            confirmedAt={step.confirmedAt}
+            header={
+              <p className="ticket-step">
+                <span>第 {index + 1} 场</span>
+                {step.historical ? <span className="ticket-history">此前已完成</span> : null}
               </p>
-              <h2>{step.eventName}</h2>
-            </header>
-            <div className="consecutive-result-seats" aria-label="你的座位">
-              {step.confirmedSeats.map((seat) => <strong key={seat}>{seat}</strong>)}
-            </div>
-            <div className="ticket-summary">
-              {step.tickets.map((ticket) => (
-                <span key={ticket.name}>{ticket.name} × {ticket.quantity}</span>
-              ))}
-            </div>
-            {step.lotteryResults.length ? (
-              <section className="lottery-summary consecutive-lottery-summary">
-                <h3>抽奖结果</h3>
-                <ol>
-                  {step.lotteryResults.map((result) => (
-                    <li key={result.drawIndex}>
-                      第 {result.drawIndex + 1} 次：
-                      <LotteryPrizeName prizeName={result.prizeName} />
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
-            {step.confirmedAt ? (
-              <p className="consecutive-confirmed-at">
-                确认时间 {new Date(step.confirmedAt).toLocaleString("zh-CN", { hour12: false })}
-              </p>
-            ) : null}
-          </section>
+            }
+          />
         ))}
       </div>
     </main>

@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T15:56:16.431Z",
+  "title": "Design System: Pick Your Seat · Reservation Results",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "ink",
+        "canonical": "#15201d",
+        "tonalRamp": [
+          "oklch(from #15201d 0.15 c h)",
+          "oklch(from #15201d 0.264 c h)",
+          "oklch(from #15201d 0.379 c h)",
+          "oklch(from #15201d 0.493 c h)",
+          "oklch(from #15201d 0.607 c h)",
+          "oklch(from #15201d 0.721 c h)",
+          "oklch(from #15201d 0.836 c h)",
+          "oklch(from #15201d 0.95 c h)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "canonical": "#65716d",
+        "tonalRamp": [
+          "oklch(from #65716d 0.15 c h)",
+          "oklch(from #65716d 0.264 c h)",
+          "oklch(from #65716d 0.379 c h)",
+          "oklch(from #65716d 0.493 c h)",
+          "oklch(from #65716d 0.607 c h)",
+          "oklch(from #65716d 0.721 c h)",
+          "oklch(from #65716d 0.836 c h)",
+          "oklch(from #65716d 0.95 c h)"
+        ]
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "cream",
+        "canonical": "#f3f0e8",
+        "tonalRamp": [
+          "oklch(from #f3f0e8 0.15 c h)",
+          "oklch(from #f3f0e8 0.264 c h)",
+          "oklch(from #f3f0e8 0.379 c h)",
+          "oklch(from #f3f0e8 0.493 c h)",
+          "oklch(from #f3f0e8 0.607 c h)",
+          "oklch(from #f3f0e8 0.721 c h)",
+          "oklch(from #f3f0e8 0.836 c h)",
+          "oklch(from #f3f0e8 0.95 c h)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "paper",
+        "canonical": "#fffdf7",
+        "tonalRamp": [
+          "oklch(from #fffdf7 0.15 c h)",
+          "oklch(from #fffdf7 0.264 c h)",
+          "oklch(from #fffdf7 0.379 c h)",
+          "oklch(from #fffdf7 0.493 c h)",
+          "oklch(from #fffdf7 0.607 c h)",
+          "oklch(from #fffdf7 0.721 c h)",
+          "oklch(from #fffdf7 0.836 c h)",
+          "oklch(from #fffdf7 0.95 c h)"
+        ]
+      },
+      "green": {
+        "role": "primary",
+        "displayName": "green",
+        "canonical": "#174f42",
+        "tonalRamp": [
+          "oklch(from #174f42 0.15 c h)",
+          "oklch(from #174f42 0.264 c h)",
+          "oklch(from #174f42 0.379 c h)",
+          "oklch(from #174f42 0.493 c h)",
+          "oklch(from #174f42 0.607 c h)",
+          "oklch(from #174f42 0.721 c h)",
+          "oklch(from #174f42 0.836 c h)",
+          "oklch(from #174f42 0.95 c h)"
+        ]
+      },
+      "lime": {
+        "role": "accent",
+        "displayName": "lime",
+        "canonical": "#d6ef73",
+        "tonalRamp": [
+          "oklch(from #d6ef73 0.15 c h)",
+          "oklch(from #d6ef73 0.264 c h)",
+          "oklch(from #d6ef73 0.379 c h)",
+          "oklch(from #d6ef73 0.493 c h)",
+          "oklch(from #d6ef73 0.607 c h)",
+          "oklch(from #d6ef73 0.721 c h)",
+          "oklch(from #d6ef73 0.836 c h)",
+          "oklch(from #d6ef73 0.95 c h)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "line",
+        "canonical": "#dcd8cc",
+        "tonalRamp": [
+          "oklch(from #dcd8cc 0.15 c h)",
+          "oklch(from #dcd8cc 0.264 c h)",
+          "oklch(from #dcd8cc 0.379 c h)",
+          "oklch(from #dcd8cc 0.493 c h)",
+          "oklch(from #dcd8cc 0.607 c h)",
+          "oklch(from #dcd8cc 0.721 c h)",
+          "oklch(from #dcd8cc 0.836 c h)",
+          "oklch(from #dcd8cc 0.95 c h)"
+        ]
+      },
+      "lime-hover": {
+        "role": "accent",
+        "displayName": "lime-hover",
+        "canonical": "#cbe465",
+        "tonalRamp": [
+          "oklch(from #cbe465 0.15 c h)",
+          "oklch(from #cbe465 0.264 c h)",
+          "oklch(from #cbe465 0.379 c h)",
+          "oklch(from #cbe465 0.493 c h)",
+          "oklch(from #cbe465 0.607 c h)",
+          "oklch(from #cbe465 0.721 c h)",
+          "oklch(from #cbe465 0.836 c h)",
+          "oklch(from #cbe465 0.95 c h)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "seats": {
+        "displayName": "Seats",
+        "purpose": "普通成功页已确认座位。"
+      },
+      "compact-seats": {
+        "displayName": "Compact seats",
+        "purpose": "今日记录、连签和状态票座位。"
+      },
+      "prizes": {
+        "displayName": "Winning prizes",
+        "purpose": "预约级中奖结果。"
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "确认时间、手机尾号、开始时间。"
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Reservation ticket",
+      "kind": "card",
+      "refersTo": "reservation-ticket",
+      "description": "一张预约一个票面，合成示例。",
+      "html": "<article class=\"ds-ticket\"><h2>夏日放映</h2><p>你的座位</p><strong>A排1座</strong><footer>确认时间　2026/08/07 10:00:00</footer></article>",
+      "css": ".ds-ticket{width:min(560px,100%);min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);text-align:left;overflow-wrap:anywhere}.ds-ticket h2{margin:20px;font-size:22px;line-height:1.4}.ds-ticket p{margin:20px;color:var(--muted);font-size:14px}.ds-ticket>strong{display:block;margin:20px;font-size:48px;font-weight:800;line-height:1.2;letter-spacing:-.02em}.ds-ticket footer{padding:16px 20px;border-top:1px dashed var(--line);font-size:12px;line-height:1.6}"
+    },
+    {
+      "name": "Winning field",
+      "kind": "custom",
+      "refersTo": "winning-field",
+      "description": "预约级中奖字段，合成示例。",
+      "html": "<section class=\"ds-winning\"><h3>中奖奖品</h3><strong>第 2 次：海报</strong></section>",
+      "css": ".ds-winning{padding:12px;border-radius:6px;background:var(--lime);color:var(--ink);overflow-wrap:anywhere}.ds-winning h3{margin:0 0 6px;font-size:14px;line-height:1.5;font-weight:600}.ds-winning strong{font-size:24px;font-weight:700;line-height:1.45}"
+    },
+    {
+      "name": "Losing field",
+      "kind": "custom",
+      "refersTo": "losing-field",
+      "description": "中性未中奖字段，保留抽奖编号。",
+      "html": "<section class=\"ds-losing\"><h3>抽奖结果</h3><span>第 1 次：未中奖</span></section>",
+      "css": ".ds-losing{padding:12px;border-radius:6px;background:var(--cream);color:var(--ink)}.ds-losing h3{margin:0 0 6px;font-size:14px;line-height:1.5;font-weight:600}.ds-losing span{font-size:14px;font-weight:400;line-height:1.6}"
+    },
+    {
+      "name": "Records link",
+      "kind": "button",
+      "refersTo": "records-link",
+      "description": "今日选座记录入口。",
+      "html": "<a class=\"ds-records\" href=\"/records/today\">查看今日选座记录</a>",
+      "css": ".ds-records{width:min(560px,100%);min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--lime);border-radius:8px;background:var(--lime);color:var(--ink);font-weight:700;text-decoration:none}.ds-records:hover{background:#cbe465}.ds-records:focus-visible{outline:3px solid var(--green);outline-offset:4px}"
+    },
+    {
+      "name": "Historical marker",
+      "kind": "chip",
+      "description": "连签中此前已完成的场次标记；不是交互控件。",
+      "html": "<span class=\"ds-history\">此前已完成</span>",
+      "css": ".ds-history{display:inline-block;padding:3px 8px;border-radius:6px;background:var(--green);color:var(--paper);font-size:12px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "完整可核对的电子票根",
+    "overview": "本记录限定普通选座成功、今日选座记录、连签结果及其边界状态，不替代管理员、选座器或抽奖弹窗的既有设计。依据用户批准的五分区概念检查板与实际运行后的组件、样式和截图，不将生成图中的尺寸误差固化为规范。",
+    "keyCharacteristics": [
+      "一次预约一张票；奖品属于整个预约。",
+      "座位第一焦点，中奖第二焦点，票种与时间随后。",
+      "原始持票鸭 icon、单行深绿截图 pill、暖纸色平面票根。",
+      "长内容完整换行，多个记录垂直排列。"
+    ],
+    "rules": [],
+    "dos": [
+      "Do 保留完整数据与预约归属，活动名、票种和奖品自然换行。",
+      "Do 直接引用项目原始 icon，保留完整截图提醒。",
+      "Do 分别保留今日记录顺序与连签场次顺序。",
+      "Do 使用字号与字重弱化未中奖，不牺牲小字可读性。"
+    ],
+    "donts": [
+      "Don't 按座位拆票或将奖品配对至单个座位。",
+      "Don't 为普通成功页补造影院、影厅、开始时间、二维码、编号或兑换操作。",
+      "Don't 将无抽奖结果当作未中奖，或以中奖色强调未中奖。",
+      "Don't 省略长标签、截图提醒或为了首屏截断票面。"
+    ]
+  }
+}

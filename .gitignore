@@ -12,3 +12,4 @@ pgdata/
 .DS_Store
 *.tsbuildinfo
 _local-test/
+.impeccable/review/

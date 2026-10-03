@@ -1,3 +1,4 @@
+import { ResultFixture } from "./result-fixture";
 import { createRoot } from "react-dom/client";
 import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
 import { HallLayoutPreview } from "@/features/venues/hall-layout-preview";
@@ -65,8 +66,21 @@ const step = {
   occupiedSeatIds: occupied,
   selectedSeatIds: statefulParticipantSeats ? ["0:4"] : [],
 };
+
+const fixtureKinds: Record<string, true> = {
+  success: true,
+  today: true,
+  "result-consecutive": true,
+  "ticket-states": true,
+  "records-missing": true,
+  "records-empty": true,
+};
+
 createRoot(document.getElementById("root")!).render(
-  <main style={{ maxWidth: 1100, margin: "24px auto", padding: "0 16px" }}>
+  fixtureKinds[kind] ? (
+    <ResultFixture kind={kind} />
+  ) : (
+    <main style={{ maxWidth: 1100, margin: "24px auto", padding: "0 16px" }}>
     <h1>{names[kind]}</h1>
     {kind === "location-new" || kind === "location-edit" ? (
       <form data-testid="location-form">
@@ -119,5 +133,6 @@ createRoot(document.getElementById("root")!).render(
     ) : (
       <HallLayoutPreview cells={cells} centerAfterColumn={centerAfterColumn} />
     )}
-  </main>,
+    </main>
+  )
 );

@@ -736,12 +736,10 @@ test("real QR business journey preserves identity, allocation, seating, location
     await expect(workflowLottery.getByText("连续首场", { exact: true })).toBeVisible();
     await expect(workflowLottery.getByText("连续后场", { exact: true })).toBeVisible();
     await workflowLottery.getByRole("button", { name: "关闭" }).click();
-    await expect(workflowA.getByRole("heading", { name: "选座结果" })).toBeVisible();
     await expect(workflowA.getByText(seatDisplayName("B2"), { exact: true })).toHaveCount(2);
     await expect(workflowA.getByText("连续首场", { exact: true })).toBeVisible();
     await expect(workflowA.getByText("连续后场", { exact: true })).toBeVisible();
     await workflowA.reload();
-    await expect(workflowA.getByRole("heading", { name: "选座结果" })).toBeVisible();
     await expect(workflowA.getByText(seatDisplayName("B2"), { exact: true })).toHaveCount(2);
     const finalizeAgain = await participantApi(workflowA, codes.consecutiveA, "workflow/finalize");
     expect(finalizeAgain.response.status).toBe(200);
