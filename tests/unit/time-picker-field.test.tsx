@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { parseTimeSelection, TimePickerField } from "@/features/forms/time-picker-field";
+
+afterEach(cleanup);
 
 describe("TimePickerField", () => {
   it("accepts only valid whole-minute time strings", () => {
@@ -33,6 +35,27 @@ describe("TimePickerField", () => {
 
     expect(new FormData(container.querySelector("form")!).get("startTime")).toBe("13:05");
     expect(screen.getByRole("button", { name: /开始时间/ }).textContent).toContain("13:05");
+  });
+
+  it("offers five-minute steps without rewriting an existing off-step value on cancel", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <form>
+        <TimePickerField name="startTime" label="开始时间" defaultValue="13:07" />
+      </form>,
+    );
+    await user.click(screen.getByRole("button", { name: /开始时间/ }));
+    const minutes = within(screen.getByRole("listbox", { name: "分钟" }));
+    expect(minutes.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55",
+    ]);
+    await user.click(minutes.getByRole("option", { name: "10" }));
+    await user.keyboard("{Escape}");
+    expect(new FormData(container.querySelector("form")!).get("startTime")).toBe("13:07");
+    await user.click(screen.getByRole("button", { name: /开始时间/ }));
+    await user.click(within(screen.getByRole("listbox", { name: "分钟" })).getByRole("option", { name: "10" }));
+    await user.click(screen.getByRole("button", { name: "完成" }));
+    expect(new FormData(container.querySelector("form")!).get("startTime")).toBe("13:10");
   });
 
   it("keeps the required field invalid while empty", async () => {

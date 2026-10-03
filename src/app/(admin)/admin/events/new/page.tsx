@@ -9,6 +9,7 @@ import { SearchableSelectField, SelectField } from "@/features/forms/select-fiel
 import { DatePickerField } from "@/features/forms/date-picker-field";
 import { TimePickerField } from "@/features/forms/time-picker-field";
 import { getEventFormOptions } from "@/server/db/event-form-options";
+import { eventStartDefaults } from "@/server/domain/event-start-defaults";
 import { requireAdmin } from "@/server/security/admin-session";
 import { supportedTimeZones } from "@/shared/date-time";
 import { createEventAction } from "../actions";
@@ -19,6 +20,7 @@ export default async function NewEventPage() {
   await requireAdmin();
   const { hallRows, locations, layouts } = await getEventFormOptions();
   const timeZones = supportedTimeZones();
+  const start = eventStartDefaults(new Date(), "Asia/Shanghai");
   return (
     <main className="admin-shell">
       <AdminBackButton href="/admin/events" label="活动" />
@@ -49,8 +51,8 @@ export default async function NewEventPage() {
             />
           </div>
           <div className="form-row">
-            <DatePickerField name="startDate" label="开始日期" required />
-            <TimePickerField name="startTime" label="开始时间" required />
+            <DatePickerField name="startDate" label="开始日期" defaultValue={start.date} required />
+            <TimePickerField name="startTime" label="开始时间" defaultValue={start.time} required />
           </div>
           <LocationCheckFields>
             <SelectField

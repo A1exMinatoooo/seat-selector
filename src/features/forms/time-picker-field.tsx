@@ -13,7 +13,7 @@ import {
 } from "react-aria-components";
 
 const HOURS = Array.from({ length: 24 }, (_, value) => String(value).padStart(2, "0"));
-const MINUTES = Array.from({ length: 60 }, (_, value) => String(value).padStart(2, "0"));
+const MINUTES = Array.from({ length: 12 }, (_, value) => String(value * 5).padStart(2, "0"));
 
 export function parseTimeSelection(value?: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(value ?? "");
