@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-02T15:56:16.431Z",
+  "generatedAt": "2026-10-03T08:33:54.226Z",
   "title": "Design System: Pick Your Seat · Reservation Results",
   "extensions": {
     "colorMeta": {
@@ -143,9 +143,35 @@
         "purpose": "确认时间、手机尾号、开始时间。"
       }
     },
-    "shadows": [],
-    "motion": [],
-    "breakpoints": []
+    "shadows": [
+      {
+        "name": "form-popover",
+        "value": "0 12px 32px rgba(25,45,39,.12)",
+        "purpose": "下拉、日期和时间弹层；电子票根仍不使用阴影。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "field-state",
+        "value": "border-color .16s ease, background-color .16s ease",
+        "purpose": "文本与数值字段的边框和背景状态过渡；prefers-reduced-motion: reduce 时关闭。"
+      },
+      {
+        "name": "picker-state",
+        "value": "color .18s ease, background-color .18s ease, border-color .18s ease",
+        "purpose": "选择器按钮状态过渡；prefers-reduced-motion: reduce 时关闭。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-calendar",
+        "value": "360px"
+      },
+      {
+        "name": "single-column-forms",
+        "value": "720px"
+      }
+    ]
   },
   "components": [
     {
@@ -186,6 +212,41 @@
       "description": "连签中此前已完成的场次标记；不是交互控件。",
       "html": "<span class=\"ds-history\">此前已完成</span>",
       "css": ".ds-history{display:inline-block;padding:3px 8px;border-radius:6px;background:var(--green);color:var(--paper);font-size:12px}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "description": "系统文本字段：48px 最小高度、10px 圆角，展示默认、禁用与错误状态；不替代业务校验。",
+      "html": "<div class=\"ds-fields\"><label>活动名称<input class=\"ds-field\" placeholder=\"例如：八月特别观影会\"></label><label>禁用内容<input class=\"ds-field\" value=\"当前不可编辑\" disabled></label><label>票数<input class=\"ds-field\" type=\"number\" value=\"0\" aria-invalid=\"true\" aria-describedby=\"ds-field-error\"></label><span id=\"ds-field-error\" class=\"ds-field-error\">请输入不小于 1 的数字</span></div>",
+      "css": "*,*::before,*::after{box-sizing:border-box}.ds-fields{display:grid;gap:10px;font-family:Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;color:var(--ink,#15201d)}.ds-fields label{display:grid;gap:10px}.ds-field{min-width:0;min-height:var(--field-height,48px);max-width:100%;border:1px solid var(--field-border,#89958e);border-radius:var(--field-radius,10px);padding:11px 14px;background:white;color:var(--ink,#15201d);font:16px/24px Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;caret-color:var(--green,#174f42);transition:border-color .16s ease,background-color .16s ease}.ds-field::placeholder{color:var(--field-placeholder,#596760);opacity:1}.ds-field:focus-visible{outline:2px solid var(--green,#174f42);outline-offset:3px;border-color:var(--green,#174f42)}.ds-field:disabled{color:var(--field-placeholder,#596760);background:var(--field-disabled,#eeeee8);cursor:not-allowed}.ds-field[aria-invalid=true]{border-color:var(--field-error,#b42318)}.ds-field-error{color:var(--field-error,#b42318);font-size:13px;font-weight:700;line-height:1.5}@media(prefers-reduced-motion:reduce){.ds-field{transition:none}}"
+    },
+    {
+      "name": "Select field",
+      "kind": "input",
+      "description": "下拉选择外观预览：长选项完整换行，选中项浅绿底、深绿粗体和勾选；实际键盘交互由应用中的 React Aria 及搜索组件负责。",
+      "html": "<div class=\"ds-select\"><label id=\"ds-select-label\">活动地点</label><button class=\"ds-select-trigger\" type=\"button\" aria-labelledby=\"ds-select-label ds-select-value\"><span id=\"ds-select-value\">用于检查完整换行的超长选项名称：影院、影厅与活动地点均应清晰可读</span><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button><div class=\"ds-select-options\"><div class=\"ds-select-option ds-select-selected\"><span>合成通用地点</span><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg></div><div class=\"ds-select-option\">手机定位测试地点</div></div></div>",
+      "css": "*,*::before,*::after{box-sizing:border-box}.ds-select{display:grid;gap:10px;color:var(--ink,#15201d);font:16px/24px Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif}.ds-select-trigger{width:100%;min-height:var(--field-height,48px);padding:11px 14px;border:1px solid var(--field-border,#89958e);border-radius:var(--field-radius,10px);display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:color .18s ease,background-color .18s ease,border-color .18s ease}.ds-select-trigger span{min-width:0;overflow-wrap:anywhere}.ds-select svg{flex:none}.ds-select-trigger svg{color:var(--field-placeholder,#596760)}.ds-select-trigger:hover{background:var(--cream,#f3f0e8)}.ds-select-trigger:focus-visible{outline:2px solid var(--green,#174f42);outline-offset:3px;border-color:var(--green,#174f42)}.ds-select-options{padding:6px;border:1px solid var(--field-border,#89958e);border-radius:12px;background:var(--paper,#fffdf7);box-shadow:0 12px 32px rgba(25,45,39,.12)}.ds-select-option{min-height:44px;padding:10px 12px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:12px;overflow-wrap:anywhere}.ds-select-selected{color:var(--green,#174f42);background:#e7eee6;font-weight:700}@media(prefers-reduced-motion:reduce){.ds-select-trigger{transition:none}}"
+    },
+    {
+      "name": "Date field",
+      "kind": "input",
+      "description": "日期分段与日历按钮外观预览；实际控件保留分段键盘输入、44px 日期单元及 320px 窄屏日历定位。",
+      "html": "<div class=\"ds-date\"><label id=\"ds-date-label\">开始日期</label><div class=\"ds-date-control\"><span class=\"ds-date-value\">2026 / 10 / 3</span><button type=\"button\" aria-label=\"打开日历 开始日期\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M8 2v4M16 2v4M3 10h18\"/><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/></svg></button></div></div>",
+      "css": "*,*::before,*::after{box-sizing:border-box}.ds-date{display:grid;gap:10px;color:var(--ink,#15201d);font:16px/24px Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif}.ds-date-control{width:100%;min-height:var(--field-height,48px);border:1px solid var(--field-border,#89958e);border-radius:var(--field-radius,10px);display:flex;align-items:stretch;background:white}.ds-date-control:focus-within{outline:2px solid var(--green,#174f42);outline-offset:3px;border-color:var(--green,#174f42)}.ds-date-value{min-width:0;padding:0 14px;flex:1;display:flex;align-items:center;font-variant-numeric:tabular-nums}.ds-date-control button{width:46px;min-height:46px;padding:0;flex:none;border:0;border-left:1px solid var(--line,#dcd8cc);border-radius:0 9px 9px 0;display:grid;place-items:center;color:var(--green,#174f42);background:transparent;cursor:pointer;transition:color .18s ease,background-color .18s ease,border-color .18s ease}.ds-date-control button:hover{background:var(--cream,#f3f0e8)}.ds-date-control button:focus-visible{outline:2px solid var(--green,#174f42);outline-offset:-4px}@media(prefers-reduced-motion:reduce){.ds-date-control button{transition:none}}"
+    },
+    {
+      "name": "Time field",
+      "kind": "input",
+      "description": "时间按钮与已选值外观预览；实际弹层分列选择小时/分钟，预览草稿后“完成”才提交 HH:mm，Escape 取消不改变已确认值。",
+      "html": "<div class=\"ds-time\"><label id=\"ds-time-label\">开始时间</label><button class=\"ds-time-trigger\" type=\"button\" aria-label=\"开始时间，18:30\"><span>18:30</span><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/></svg></button></div>",
+      "css": "*,*::before,*::after{box-sizing:border-box}.ds-time{display:grid;gap:10px;color:var(--ink,#15201d);font:16px/24px Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif}.ds-time-trigger{width:100%;min-height:var(--field-height,48px);padding:11px 14px;border:1px solid var(--field-border,#89958e);border-radius:var(--field-radius,10px);display:flex;align-items:center;justify-content:space-between;gap:12px;color:inherit;background:white;cursor:pointer;text-align:left;font:inherit;font-variant-numeric:tabular-nums;transition:color .18s ease,background-color .18s ease,border-color .18s ease}.ds-time-trigger svg{flex:none;color:var(--green,#174f42)}.ds-time-trigger:hover{background:var(--cream,#f3f0e8)}.ds-time-trigger:focus-visible{outline:2px solid var(--green,#174f42);outline-offset:3px;border-color:var(--green,#174f42)}@media(prefers-reduced-motion:reduce){.ds-time-trigger{transition:none}}"
+    },
+    {
+      "name": "Switch",
+      "kind": "input",
+      "description": "可操作的开关预览；标签至少 44px，选中深绿，键盘焦点独立描边。",
+      "html": "<label class=\"ds-switch\"><input type=\"checkbox\"><span class=\"ds-switch-control\" aria-hidden=\"true\"></span>开启活动定位检查</label>",
+      "css": "*,*::before,*::after{box-sizing:border-box}.ds-switch{position:relative;min-height:44px;display:inline-flex;align-items:center;gap:10px;color:var(--ink,#15201d);font:700 16px/24px Arial,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;cursor:pointer}.ds-switch input{position:absolute;width:1px;height:1px;min-height:0;padding:0;opacity:0;pointer-events:none}.ds-switch-control{position:relative;width:46px;height:26px;flex:none;border:1px solid var(--field-border,#89958e);border-radius:999px;background:var(--field-disabled,#eeeee8);transition:background .18s ease}.ds-switch-control::after{content:\"\";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--field-placeholder,#596760);transition:transform .18s ease}.ds-switch input:checked+.ds-switch-control{border-color:var(--green,#174f42);background:var(--green,#174f42)}.ds-switch input:checked+.ds-switch-control::after{transform:translateX(20px);background:white}.ds-switch input:focus-visible+.ds-switch-control{outline:2px solid var(--green,#174f42);outline-offset:3px}.ds-switch:has(input:disabled){color:var(--field-placeholder,#596760);cursor:not-allowed}.ds-switch input:disabled+.ds-switch-control{opacity:.55}@media(prefers-reduced-motion:reduce){.ds-switch-control,.ds-switch-control::after{transition:none}}"
     }
   ],
   "narrative": {
