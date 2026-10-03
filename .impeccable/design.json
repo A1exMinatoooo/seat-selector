@@ -204,7 +204,7 @@
       "refersTo": "records-link",
       "description": "今日选座记录入口。",
       "html": "<a class=\"ds-records\" href=\"/records/today\">查看今日选座记录</a>",
-      "css": ".ds-records{width:min(560px,100%);min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--lime);border-radius:8px;background:var(--lime);color:var(--ink);font-weight:700;text-decoration:none}.ds-records:hover{background:#cbe465}.ds-records:focus-visible{outline:3px solid var(--green);outline-offset:4px}"
+      "css": ".ds-records{width:min(560px,100%);min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 20px;border:1px solid var(--lime);border-radius:8px;background:var(--lime);color:var(--ink);font-weight:700;text-decoration:none}.ds-records:hover{background:#cbe465}.ds-records:focus-visible{outline:3px solid var(--paper);outline-offset:4px}"
     },
     {
       "name": "Historical marker",
@@ -255,7 +255,7 @@
     "keyCharacteristics": [
       "一次预约一张票；奖品属于整个预约。",
       "座位第一焦点，中奖第二焦点，票种与时间随后。",
-      "原始持票鸭 icon、单行深绿截图 pill、暖纸色平面票根。",
+      "原始持票鸭 icon、暖米色单行截图 pill、深绿成功页与暖纸色平面票根。",
       "长内容完整换行，多个记录垂直排列。"
     ],
     "rules": [],
