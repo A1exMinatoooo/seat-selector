@@ -10,6 +10,7 @@ type ReservationTicketProps = {
   confirmedAt?: string | null;
   phoneLast4?: string;
   compact?: boolean;
+  completionMotion?: boolean;
   header?: ReactNode;
   details?: ReactNode;
 };
@@ -37,12 +38,13 @@ export function ReservationTicket({
   compact = false,
   header,
   details,
+  completionMotion = false,
 }: ReservationTicketProps) {
   const winning = lotteryResults.filter((result) => result.prizeName !== null);
   const losing = lotteryResults.filter((result) => result.prizeName === null);
 
   return (
-    <article className={`reservation-ticket${compact ? " reservation-ticket-compact" : ""}`}>
+    <article className={`reservation-ticket${compact ? " reservation-ticket-compact" : ""}${completionMotion ? " reservation-ticket--settle" : ""}`}>
       <div className="ticket-body">
         <header className="ticket-heading">
           {header}

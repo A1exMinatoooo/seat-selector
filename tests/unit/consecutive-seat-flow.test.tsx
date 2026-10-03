@@ -47,6 +47,10 @@ function view(): ConsecutiveWorkflowView {
 
 beforeEach(() => {
   refresh.mockReset();
+  vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    disconnect() {}
+  });
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/holds") && init?.method !== "PUT")

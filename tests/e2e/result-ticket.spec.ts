@@ -91,3 +91,36 @@ test("consecutive results retain step order, historical marker, and completed ou
   await expect(tickets.nth(1).getByRole("region", { name: "抽奖结果" })).toHaveCount(0);
 });
 
+
+test("completion settles new tickets once and leaves historical and recorded tickets still", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(`${fixtureUrl}/?kind=success`);
+  const ticket = page.getByRole("article");
+  await expect(ticket.getByText("A排1座", { exact: true })).toBeVisible();
+  const clock = page.locator(".live-time strong");
+  const initialClock = await clock.textContent();
+  const startTime = await ticket.evaluate(async (element) => {
+    const animation = element.getAnimations()[0];
+    if (!animation) throw new Error("Newly completed ticket did not settle");
+    await animation.finished;
+    return animation.startTime;
+  });
+  await expect.poll(() => clock.textContent()).not.toBe(initialClock);
+  expect(await ticket.evaluate((element) => element.getAnimations()[0]?.startTime)).toBe(startTime);
+
+  await page.goto(`${fixtureUrl}/?kind=result-consecutive`);
+  const tickets = page.getByRole("article");
+  await expect(tickets).toHaveCount(2);
+  expect(await tickets.nth(0).evaluate((element) => element.getAnimations().length)).toBe(1);
+  expect(await tickets.nth(1).evaluate((element) => element.getAnimations().length)).toBe(0);
+  await page.goto(`${fixtureUrl}/?kind=today`);
+  await expect(page.getByRole("article")).toHaveCount(2);
+  expect(await page.getByRole("article").evaluateAll((elements) => elements.every((element) => element.getAnimations().length === 0))).toBe(true);
+});
+
+test("reduced motion keeps completion static and immediately readable", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${fixtureUrl}/?kind=result-consecutive`);
+  await expect(page.getByText("A排1座", { exact: true })).toBeVisible();
+  expect(await page.getByRole("article").evaluateAll((elements) => elements.every((element) => element.getAnimations().length === 0 && getComputedStyle(element).transform === "none"))).toBe(true);
+});

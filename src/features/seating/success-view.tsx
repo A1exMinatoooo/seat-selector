@@ -13,6 +13,27 @@ export function InlineBrandIcon({ className = "" }: { className?: string }) {
   return <span className={`inline-brand-icon ${className}`.trim()} aria-hidden="true"><Image unoptimized width={512} height={512} src="/icon.svg" alt="" /></span>;
 }
 
+export function useResultMotionVisibility() {
+  const [motionPaused, setMotionPaused] = useState(true);
+
+  useEffect(() => {
+    const updateVisibility = () => setMotionPaused(document.hidden);
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
+
+  return motionPaused;
+}
+
+export function CompletionCheckline() {
+  return (
+    <svg className="completion-checkline" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m4 12.5 5 5L20 6" pathLength="1" />
+    </svg>
+  );
+}
+
 export function ScreenshotNotice() {
   return (
     <aside className="success-notice" role="note">
@@ -86,6 +107,7 @@ export function LotteryResultDialog({
 }
 
 export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true, confirmedAt, serverTime, seats, tickets, lotteryEnabled, initialLotteryResults, showTodayRecordsLink }: { code: string; eventName: string; phoneLast4: string; showPhoneLast4?: boolean; confirmedAt: string; serverTime: string; seats: string[]; tickets: TicketSummary[]; lotteryEnabled: boolean; initialLotteryResults: LotteryResult[]; showTodayRecordsLink: boolean }) {
+  const motionPaused = useResultMotionVisibility();
   const [lotteryResults, setLotteryResults] = useState(initialLotteryResults);
   const lotteryChances = lotteryEnabled ? tickets.filter((ticket) => ticket.lotteryEligible).reduce((sum, ticket) => sum + ticket.quantity, 0) : 0;
   const hasPendingLottery = lotteryChances > 0 && initialLotteryResults.length === 0;
@@ -119,11 +141,12 @@ export function SuccessView({ code, eventName, phoneLast4, showPhoneLast4 = true
     }
   }
 
-  return <main className="success-page">
+  return <main className="success-page" data-motion-paused={motionPaused ? "true" : undefined}>
     <ScreenshotNotice />
-    <header className="success-heading"><h1>选座成功</h1></header>
+    <header className="success-heading"><CompletionCheckline /><h1>选座成功</h1></header>
     <LiveServerTime serverTime={serverTime} />
     <ReservationTicket
+      completionMotion
       eventName={eventName}
       seats={seats}
       tickets={tickets}

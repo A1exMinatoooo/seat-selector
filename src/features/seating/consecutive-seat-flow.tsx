@@ -12,9 +12,10 @@ import {
   type ParticipantSeatDto,
 } from "./participant-seat-state";
 import { SeatGridViewport } from "./seat-grid-viewport";
-import { LiveServerTime, LotteryPrizeName, ScreenshotNotice } from "./success-view";
+import { CompletionCheckline, LiveServerTime, LotteryPrizeName, ScreenshotNotice, useResultMotionVisibility } from "./success-view";
 import { ReservationTicket } from "./reservation-ticket";
 import { TheaterMannersDialog } from "./theater-manners-dialog";
+import { useSelectionBarSpace } from "./use-selection-bar-space";
 
 type WorkflowView = ConsecutiveWorkflowView;
 type WorkflowStep = WorkflowView["steps"][number];
@@ -43,10 +44,14 @@ function hasPendingLottery(steps: WorkflowStep[]) {
 }
 
 export function ConsecutiveResultView({ view }: { view: WorkflowView }) {
+  const motionPaused = useResultMotionVisibility();
+  const hasNewlyCompletedStep = view.steps.some((step) => !step.historical);
+
   return (
-    <main className="success-page consecutive-success-page">
+    <main className="success-page consecutive-success-page" data-motion-paused={motionPaused ? "true" : undefined}>
       <ScreenshotNotice />
       <header className="success-heading consecutive-success-heading">
+        {hasNewlyCompletedStep ? <CompletionCheckline /> : null}
         <h1>连签选座成功</h1>
         <p>选座结果</p>
       </header>
@@ -56,6 +61,7 @@ export function ConsecutiveResultView({ view }: { view: WorkflowView }) {
           <ReservationTicket
             key={step.eventId}
             compact
+            completionMotion={!step.historical}
             eventName={step.eventName}
             seats={step.confirmedSeats}
             tickets={step.tickets}
@@ -116,6 +122,7 @@ export function ConsecutiveLotteryResultDialog({
 
 export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initialView: WorkflowView }) {
   const router = useRouter();
+  const selectionBarRef = useSelectionBarSpace();
   const initialSteps = initialView.steps.map((step) => ({ ...step, lockedSeatIds: step.selectedSeatIds }));
   const initiallyLocked = initialSteps.every(
     (step) => step.historical || step.lockedSeatIds.length === step.ticketTotal,
@@ -379,7 +386,7 @@ export function ConsecutiveSeatFlow({ code, initialView }: { code: string; initi
           </SeatGridViewport>
         </section>
       )}
-      <footer className="selection-bar consecutive-selection-bar">
+      <footer ref={selectionBarRef} className="selection-bar consecutive-selection-bar">
         <div><strong>{current.historical ? "本场已完成" : `已选 ${current.selectedSeatIds.length}/${current.ticketTotal}`}</strong><span>{current.historical ? current.confirmedSeats.join("、") : selectedLabels.join("、") || "请在上方点选座位"}</span></div>
         <button className="button primary" disabled={busy || !selectionComplete} onClick={() => void submitCurrentStep()}>{busy ? "正在提交…" : buttonLabel}</button>
       </footer>

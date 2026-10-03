@@ -7,6 +7,7 @@ import { formatSeatLabel } from "@/shared/seat-label";
 import { responseErrorMessage } from "@/shared/error-message";
 import { SeatGridViewport } from "./seat-grid-viewport";
 import { TheaterMannersDialog } from "./theater-manners-dialog";
+import { useSelectionBarSpace } from "./use-selection-bar-space";
 import {
   ParticipantSeatButton,
   ParticipantSeatLegend,
@@ -37,6 +38,7 @@ export function SeatPicker({
   skipLocationCheck: boolean;
 }) {
   const router = useRouter();
+  const selectionBarRef = useSelectionBarSpace();
   const [selected, setSelected] = useState<string[]>([]);
   const [occupied, setOccupied] = useState(() => new Set(initialOccupied));
   const [available, setAvailable] = useState(() => new Set(initialAvailable));
@@ -312,7 +314,7 @@ export function SeatPicker({
           </SeatGridViewport>
         </div>
       </section>
-      <footer className="selection-bar">
+      <footer ref={selectionBarRef} className="selection-bar">
         <div>
           <strong>
             已选 {selected.length}/{ticketTotal}
