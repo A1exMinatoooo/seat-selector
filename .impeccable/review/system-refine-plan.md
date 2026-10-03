@@ -1,18 +1,27 @@
 # 已批准的全系统 refine 实施计划
 
-## 状态与新会话入口
+## 实施状态与历史入口
 
-用户已确认修复方案，要求本会话准备计划、**新会话实施**。本文件是实施交接，不是再次征求设计方向。当前生产组件尚未应用方案。
+四个实施阶段已落地，真实隔离业务回归与可达的集成验收已完成；不是待实施计划。工程结果：lint/typecheck/build 通过、262 项单测通过、Playwright 139 通过/12 按 desktop-only 真实 DB 约定跳过。设备依赖项未冒充通过，详见 audit 顶部。
 
-新会话可直接使用以下指令：
+### 本次实现提交
+
+- `312d1d1`：撤销保护、QR重试和身份恢复。
+- `ceb8486`：响应式层级、共享控件和工具栏。
+- `e53fe93`：全表单失败保留、字段错误关联及真实回归用例。
+- `20cf87a`：可达的确认条和普通/连签完成反馈。
+
+
+以下保留原实施入口作为历史依据，不是再次要求实施或重新选择方向：
 
 > 按 `.impeccable/review/system-refine-plan.md` 实施已批准的全系统 refine。先读 CONTRIBUTING.md、PRODUCT.md、DESIGN.md 和完整检查报告，运行一次 Impeccable context；保持现有色彩和业务规则，完成全部阶段，不只修三个高优先级问题。依照已确认检查板落地全站 polish、普通/连签成功 delight、表单 harden/clarify 和中文 typeset；真实隔离环境验证，完整回归，更新文档并按功能提交。
 
 ### 已有证据
 
 - `.impeccable/review/system-refine-checkboard.html`：29个页面/组件样例的当前/建议方案、边界与完成动效；可离线打开，是已批准视觉参考。
-- `.impeccable/review/system-refine-checkboard.png`：当前检查板总览。
+- `.impeccable/review/system-refine-checkboard.png`：历史批准检查板总览，不是本次实现截图。
 - `.impeccable/review/system-refine-audit.md`：完整表单矩阵、源码事实、浏览器实测、风险与具体文案建议。
+- `.impeccable/review/system-refine-implemented.html` / `.png`：本次已实现的独立验收板及总览，含全部29个表面、原生200%浏览器缩放和短屏预览证据。
 - 检查板初始提交 `b13c41f`；补充检查及截图修正提交 `15d4f91`。以最新工作区和历史为准，不回滚用户后续修改。
 - `_local-test/refine-review/proposal.css`：本机保留的预览样式，不受版本控制，**不是实施前提**。缺失时依照已提交HTML中的样式演示及本计划实现；不得将整份预览CSS直接追加到生产。
 

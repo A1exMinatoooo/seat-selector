@@ -3,7 +3,7 @@ name: Pick Your Seat · Reservation Results
 description: 以已确认座位为中心的现代电子票根；仅记录本次结果页范围。
 colors:
   ink: "#15201d"
-  muted: "#65716d"
+  muted: "#596760"
   cream: "#f3f0e8"
   paper: "#fffdf7"
   green: "#174f42"
@@ -12,24 +12,24 @@ colors:
   lime-hover: "#cbe465"
 typography:
   seats:
-    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif'
     fontSize: "48px"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   compact-seats:
-    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif'
     fontSize: "32px"
     fontWeight: 800
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   prizes:
-    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif'
     fontSize: "24px"
     fontWeight: 700
     lineHeight: 1.45
   metadata:
-    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontFamily: 'Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif'
     fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.6
@@ -87,7 +87,7 @@ components:
 
 ## Typography
 
-继承 Arial、PingFang SC、Microsoft YaHei、sans-serif，不引入新字体。座位：普通成功页 48px/800/1.2；今日记录、连签与紧凑状态票 32px/800/1.2。中奖结果 24px/700/1.45。活动标题 22px/1.4；票种摘要 16px/700/1.5；票面标签 14px/1.5；确认时间、手机尾号与开始时间 12px/1.6，数字使用 tabular-nums。
+继承 Arial、PingFang SC、Microsoft YaHei，之后追加已安装的 Noto Sans CJK SC、Noto Sans SC 回退；不下载字体，不将 system-ui 改为首选。座位：普通成功页 48px/800/1.2；今日记录、连签与紧凑状态票 32px/800/1.2。中奖结果 24px/700/1.45。活动标题 22px/1.4；票种摘要 16px/700/1.5；票面标签 14px/1.5；确认时间、手机尾号与开始时间 12px/1.6，数字使用 tabular-nums。
 
 截图提醒字体 `clamp(12px, 3.3vw, 14px)`，文案不换行；icon 为 24px × 24px，完整图案 contain，不裁切。
 
@@ -150,3 +150,24 @@ components:
 - 错误文字自然换行，不为不存在的错误预留固定空行；数值校验沿用现有约束。减少动态效果偏好关闭控件过渡。
 
 验收入口：`tests/browser-fixture/?kind=forms`（由 fixture server 提供）；回归覆盖搜索键盘选择、禁用状态、时间确认/取消、必填焦点、真实 FormData 值与窄屏日历定位。
+
+## 已批准全系统 refine
+
+本节覆盖管理端、发行/身份入口、普通/连签选座及结果；是既有深绿、青柠、米色和暖纸色世界的精修，不改变领域资格、座位状态语义色、路由、品牌图案或预约归属。
+
+- 辅助文字统一 `#596760`。中文/混排眉题字距 `.02em`，中文标题字距 `0`、行高约 `1.2`；英文 `NOW SHOWING` 保留 `.18em`。任务标题 `clamp(30px, 4vw, 44px)`，移动管理标题 32px，成功标题 30px；表单仍为 16px/24px。
+- 共享主按钮 48px、10px 圆角；行操作及移除目标至少 44px、8px 圆角。面板 16px 圆角、24px 内边距（移动 20px）；登录和身份卡去除阴影，保留品牌色与阅读顺序。
+- 座位缩放工具栏依据容器换行，不用右对齐横向溢出隐藏左侧按钮。表格保留内部横向滚动、说明及键盘焦点；移动首列作为参照，不删字段和操作。短屏影厅预览允许整段滚动。
+- 普通/连签底栏只使用 `left:50%` 与 `translateX(-50%)`、有界宽度。底部安全区保留；`ResizeObserver` 根据实际确认条高度调整正文留白，长座位标签完整换行。
+- 表单级摘要保留稳定公共错误消息；安全字段错误同时出现在字段旁并通过 `aria-describedby` 关联，摘要可定位可见控件。动态行以稳定 key 关联提交错误，移除后不把旧错误转交新行；失败不重置用户输入或文件。
+- 完成反馈只用于新完成结果：32px 青柠底、深绿短勾线 420ms；票根轻落定 420ms，连签统一延迟 160ms、总序列 580ms。内容第一帧可读；历史票和今日记录无庆祝，普通状态更新不重新播放。减少动态时为静态勾线、无位移；页面隐藏时暂停，卸载自然移除。
+
+实际设备字体证据：本机 Chromium 的“建立选座活动”命中 PingFang SC / PingFangSC-Semibold，6 个中文 glyph、非自定义字体。系统回退声明不等于 Windows/Android/Linux 的实际命中；手机键盘、安全区、系统文字放大须按对应设备记录，不能由 CSS 宽度模拟宣称通过。
+
+验收产物：`.impeccable/review/system-refine-implemented.html` 与同名 PNG。四宽度 116 次表面观察没有页面横溢，缩放按钮都在容器内。320px 普通确认条增高至约 135px 时，正文底部留白同步约 175px；390px 普通/连签确认条边界为 12–378px、底边 832px（844px 视口）。确认条截图使用真实视口，不以全页截图代替 fixed 布局证据。
+
+新建、草稿、影厅实测 Chrome 原生 `defaultZoom=2`：1440px 窗口的 `innerWidth=720`、DPR=4，工具栏完整且无页面横溢；完成后恢复为 1。320×480px 影厅预览：438px 可视高度、654px 内容高度，`overflow-y:auto`，关闭按钮可见，滚动 216px 到达底部。
+
+完成动效在 Chromium/WebKit 的现有三项目回归中验证新票落定、时钟更新不重播、历史票与今日记录零庆祝，以及减少动态时无位移。后台暂停使用 `visibilitychange` 与卸载清理实现；当前自动化上下文切页/最小化仍返回 `document.hidden=false`，因此真实后台切换未标为设备验收通过。
+
+最终一次 Impeccable detect 返回 1 项 Arial 常见字体 warning 和 209 项字号/圆角/颜色规范 advisory。保留 Arial 是已批准的字体边界；规范扫描提醒未当作零问题证明，也不为了消除提醒修复无关 sidecar 漂移。
