@@ -170,8 +170,9 @@ export default async function EventAuditPage({ params }: { params: Promise<{ id:
         <span>最近 {logs.length} 条 · 时间精确到毫秒</span>
       </header>
       <section className="panel wide">
+        {logs.length ? <p className="muted">表格可横向滚动查看完整记录。</p> : null}
         {logs.length ? (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="审计日志，可横向滚动">
             <table>
               <thead>
                 <tr>

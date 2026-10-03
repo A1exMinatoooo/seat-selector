@@ -5,7 +5,7 @@
   --home-accent: #174f42;
   --home-highlight: #d6ef73;
   --home-text: #17201d;
-  --home-muted: #66716d;
+  --home-muted: #596760;
   --home-border: #d9d3c5;
   min-height: 100svh;
   padding: 12px;
@@ -55,7 +55,7 @@
 .nowShowing {
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -67,8 +67,8 @@
   max-width: 896px;
   font-size: 36px;
   font-weight: 700;
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .lede {

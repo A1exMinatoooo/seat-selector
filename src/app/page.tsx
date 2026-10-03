@@ -33,7 +33,7 @@ export default function HomePage() {
 
         <div className={styles.showcase} data-testid="home-showcase">
           <div className={styles.showcaseHeading}>
-            <p className={styles.nowShowing}>NOW SHOWING</p>
+            <p className={styles.nowShowing} lang="en">NOW SHOWING</p>
             <h2>一张票，一次可靠的现场体验</h2>
           </div>
           <div className={styles.features} aria-label="产品能力">
