@@ -144,6 +144,7 @@ describe("onsite QR issue toast", () => {
   it("revokes the active issue and preserves the selected quantities", async () => {
     const fetchMock = fetchForIssue();
     vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderOnsiteBoard();
     const quantity = screen.getByRole<HTMLInputElement>("radio", { name: "1" });
     fireEvent.click(quantity);
@@ -169,8 +170,10 @@ describe("onsite QR issue toast", () => {
       return Response.json({ status: "active" });
     });
     vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderOnsiteBoard();
-    fireEvent.click(screen.getByRole("radio", { name: "1" }));
+    const quantity = screen.getByRole<HTMLInputElement>("radio", { name: "1" });
+    fireEvent.click(quantity);
     fireEvent.click(screen.getByRole("button", { name: "发行二维码" }));
     await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("button", { name: "撤销二维码" }));
@@ -180,6 +183,10 @@ describe("onsite QR issue toast", () => {
     );
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByRole("button", { name: "撤销二维码" })).toBeTruthy();
+    expect(quantity.checked).toBe(true);
+    expect((screen.getByRole("button", { name: "撤销二维码" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
   });
 
   it("shows an error toast without an inline duplicate", async () => {
@@ -195,5 +202,99 @@ describe("onsite QR issue toast", () => {
       expect(screen.getByRole("alert").textContent).toBe("提交的信息有误，请检查后重试。"),
     );
     expect(document.querySelector(".form-error")).toBeNull();
+  });
+  it("does not send an issue revocation request when confirmation is cancelled", async () => {
+    const fetchMock = fetchForIssue();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderOnsiteBoard();
+    fireEvent.click(screen.getByRole("radio", { name: "1" }));
+    fireEvent.click(screen.getByRole("button", { name: "发行二维码" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "撤销二维码" }));
+
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(0);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("retains the QR error during a retry, disables repeat clicks, and recovers after failure", async () => {
+    let finishRetry!: (response: Response) => void;
+    let callCount = 0;
+    const fetchMock = vi.fn(async () => {
+      callCount += 1;
+      if (callCount === 1)
+        return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+      if (callCount === 2)
+        return await new Promise<Response>((resolve) => {
+          finishRetry = resolve;
+        });
+      return Response.json(issueResponse());
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <AdminToastProvider>
+        <QrBoard eventId="event-1" eventName="八月观影会" backHref="/admin/events/event-1" />
+      </AdminToastProvider>,
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toContain("系统暂时遇到问题");
+    fireEvent.click(screen.getByRole("button", { name: "重新加载二维码" }));
+    const retrying = await screen.findByRole("button", { name: "正在重新加载…" });
+    expect((retrying as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toContain("系统暂时遇到问题");
+
+    finishRetry(Response.json({ error: "INTERNAL_ERROR" }, { status: 500 }));
+    expect((await screen.findByRole("alert")).textContent).toContain("系统暂时遇到问题");
+    fireEvent.click(await screen.findByRole("button", { name: "重新加载二维码" }));
+
+    expect(await screen.findByAltText("八月观影会 动态入场二维码")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps a consecutive workflow visible and releases its row after a failed revoke", async () => {
+    const workflow = {
+      id: "workflow-1",
+      claimedAt: "2026-08-01T10:00:00.000Z",
+      hardExpiresAt: "2026-08-01T11:00:00.000Z",
+      events: ["第一场", "第二场"],
+    };
+    let finishDelete!: (response: Response) => void;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "DELETE")
+        return await new Promise<Response>((resolve) => {
+          finishDelete = resolve;
+        });
+      return Response.json({ workflows: [workflow] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <AdminToastProvider>
+        <QrBoard
+          eventId="event-1"
+          eventName="八月观影会"
+          backHref="/admin/events/event-1"
+          participationMode="onsite"
+          issueEvents={[
+            { id: "event-1", name: "第一场", maxTicketsPerIssue: 7, ticketTypes: [] },
+            { id: "event-2", name: "第二场", maxTicketsPerIssue: 7, ticketTypes: [] },
+          ]}
+        />
+      </AdminToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "撤销连签" }));
+    const pending = await screen.findByRole("button", { name: "撤销中…" });
+    fireEvent.click(pending);
+    expect((pending as HTMLButtonElement).disabled).toBe(true);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
+
+    finishDelete(Response.json({ error: "INTERNAL_ERROR" }, { status: 500 }));
+    expect((await screen.findByRole("alert")).textContent).toContain("系统暂时遇到问题");
+    expect(screen.getByText("第一场 → 第二场")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "撤销连签" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
   });
 });

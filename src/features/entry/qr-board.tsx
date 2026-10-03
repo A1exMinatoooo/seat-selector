@@ -82,6 +82,10 @@ function RotatingQrBoard({
   backHref: string;
 }) {
   const [data, setData] = useState<QrData>();
+  const dataRef = useRef<QrData | undefined>(undefined);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   useEffect(() => {
     let active = true;
     let inFlight = false;
@@ -94,15 +98,22 @@ function RotatingQrBoard({
           cache: "no-store",
           signal: controller.signal,
         });
-        if (response.ok) {
-          const nextData = (await response.json()) as QrData;
-          if (active) setData(nextData);
+        if (!response.ok) throw new Error(await responseErrorMessage(response));
+        const nextData = (await response.json()) as QrData;
+        if (active) {
+          dataRef.current = nextData;
+          setData(nextData);
+          setLoadError("");
         }
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError"))
-          console.error("QR refresh failed", error);
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        console.error("QR refresh failed", cause);
+        if (active && !dataRef.current) {
+          setLoadError(cause instanceof Error ? cause.message : "二维码加载失败，请重试。");
+        }
       } finally {
         inFlight = false;
+        if (active && retryCount > 0) setRetrying(false);
       }
     };
     void load();
@@ -112,7 +123,7 @@ function RotatingQrBoard({
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [eventId]);
+  }, [eventId, retryCount]);
   return (
     <main className="qr-screen">
       <div>
@@ -132,6 +143,21 @@ function RotatingQrBoard({
           <BrandedQrCode src={data.image} alt={`${eventName} 动态入场二维码`} />
           <strong>二维码将在 {data.expiresIn} 秒内更新</strong>
           <time>{new Date(data.serverTime).toLocaleString("zh-CN")}</time>
+        </div>
+      ) : loadError ? (
+        <div className="qr-frame">
+          <p className="form-error" role="alert">{loadError}</p>
+          <button
+            className="button primary"
+            type="button"
+            disabled={retrying}
+            onClick={() => {
+              setRetrying(true);
+              setRetryCount((count) => count + 1);
+            }}
+          >
+            {retrying ? "正在重新加载…" : "重新加载二维码"}
+          </button>
         </div>
       ) : (
         <div className="qr-frame loading">正在生成安全二维码…</div>
@@ -159,6 +185,8 @@ function OnsiteIssueBoard({
   const [remaining, setRemaining] = useState(0);
   const [busy, setBusy] = useState(false);
   const [activeWorkflows, setActiveWorkflows] = useState<ActiveWorkflow[]>([]);
+  const [pendingWorkflowIds, setPendingWorkflowIds] = useState<Set<string>>(() => new Set());
+  const pendingWorkflowIdsRef = useRef(new Set<string>());
   const confirmationFailureShownRef = useRef(false);
   const mutationControllerRef = useRef<AbortController | undefined>(undefined);
   const showToast = useAdminToast();
@@ -319,7 +347,8 @@ function OnsiteIssueBoard({
   }
 
   async function cancelIssue() {
-    if (!issue) return;
+    if (!issue || phase !== "active") return;
+    if (!window.confirm("撤销二维码后，参与者将无法继续使用此二维码领取票券。继续吗？")) return;
     const currentIssue = issue;
     const controller = new AbortController();
     mutationControllerRef.current = controller;
@@ -343,15 +372,23 @@ function OnsiteIssueBoard({
   }
 
   async function revokeWorkflow(workflowId: string) {
+    if (pendingWorkflowIdsRef.current.has(workflowId)) return;
+    if (!window.confirm("撤销该连签后，将释放其临时座位。确认继续吗？")) return;
+    pendingWorkflowIdsRef.current.add(workflowId);
+    setPendingWorkflowIds(new Set(pendingWorkflowIdsRef.current));
     try {
       const response = await fetch(`/api/admin/events/${eventId}/qr?workflowId=${workflowId}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(await responseErrorMessage(response));
+      setActiveWorkflows((workflows) => workflows.filter((workflow) => workflow.id !== workflowId));
       showToast("success", "进行中的连签已撤销，临时座位已释放。");
       await loadActiveWorkflows();
     } catch (cause) {
       showToast("error", cause instanceof Error ? cause.message : "连签撤销失败。");
+    } finally {
+      pendingWorkflowIdsRef.current.delete(workflowId);
+      setPendingWorkflowIds(new Set(pendingWorkflowIdsRef.current));
     }
   }
 
@@ -442,9 +479,10 @@ function OnsiteIssueBoard({
                   <button
                     className="text-button danger"
                     type="button"
+                    disabled={pendingWorkflowIds.has(workflow.id)}
                     onClick={() => void revokeWorkflow(workflow.id)}
                   >
-                    撤销连签
+                    {pendingWorkflowIds.has(workflow.id) ? "撤销中…" : "撤销连签"}
                   </button>
                 </div>
               </li>
@@ -520,3 +558,4 @@ function OnsiteIssueBoard({
     </main>
   );
 }
+

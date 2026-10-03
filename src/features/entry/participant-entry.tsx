@@ -53,10 +53,19 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
         router.refresh();
       }
     } catch (cause) {
+      if (candidateToken) {
+        setCandidates([]);
+        setStep(phoneRemainder ? "full-phone" : "tail");
+      }
       setError(userFacingErrorMessage(cause instanceof Error ? cause.message : undefined));
     } finally {
       setBusy(false);
     }
+  }
+  function returnToInput() {
+    setCandidates([]);
+    setError("");
+    setStep(phoneRemainder ? "full-phone" : "tail");
   }
   return (
     <main className="participant-shell">
@@ -67,30 +76,36 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
           {step === "tail"
             ? "请输入报名时使用的手机尾号。"
             : step === "full-phone"
-              ? "请输入报名时使用的手机号剩余部分。"
+              ? "请输入手机号末四位之前的数字。"
               : `尾号 ${tail} 有重复，请从清单中选择你的昵称。`}
         </p>
         {step === "tail" ? (
-          <label>
+          <label htmlFor="participant-tail">
             手机尾号
             <input
+              id="participant-tail"
               inputMode="numeric"
               maxLength={4}
               value={tail}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "participant-entry-error" : undefined}
               onChange={(e) => setTail(e.target.value.replace(/\D/g, ""))}
             />
           </label>
         ) : null}
         {step === "full-phone" ? (
-          <label>
+          <label htmlFor="participant-phone-remainder">
             手机号
             <span className="phone-remainder-field">
               <input
+                id="participant-phone-remainder"
                 autoFocus
                 inputMode="numeric"
                 autoComplete="tel"
                 maxLength={11}
                 aria-label={`手机号尾号 ${tail} 前的剩余数字`}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "participant-entry-error" : undefined}
                 value={phoneRemainder}
                 onChange={(e) => setPhoneRemainder(e.target.value.replace(/\D/g, ""))}
               />
@@ -122,7 +137,7 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
           </div>
         ) : null}
         {error ? (
-          <p className="form-error" role="alert">
+          <p className="form-error" id="participant-entry-error" role="alert">
             {error}
           </p>
         ) : null}
@@ -138,7 +153,11 @@ export function ParticipantEntry({ code, eventName }: { code: string; eventName:
           >
             {busy ? "请稍候…" : "继续"}
           </button>
-        ) : null}
+        ) : (
+          <button className="button" type="button" disabled={busy} onClick={returnToInput}>
+            重新输入身份信息
+          </button>
+        )}
       </section>
     </main>
   );
