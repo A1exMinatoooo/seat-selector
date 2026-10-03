@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -46,7 +46,12 @@ type SelectFieldProps = CommonProps & {
 function OptionList({ options }: { options: SelectOption[] }) {
   return options.map((option) => (
     <ListBoxItem id={option.id} key={option.id} textValue={option.label}>
-      {option.label}
+      {({ isSelected }) => (
+        <>
+          <span className="select-option-label">{option.label}</span>
+          {isSelected ? <Check className="select-option-check" size={18} aria-hidden="true" /> : null}
+        </>
+      )}
     </ListBoxItem>
   ));
 }
@@ -126,6 +131,8 @@ export function SearchableSelectField({
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const labelId = useId();
+  const errorId = useId();
+  const [invalid, setInvalid] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(defaultValue ?? null);
   const [inputValue, setInputValue] = useState(
     () => options.find((option) => option.id === defaultValue)?.label ?? "",
@@ -139,7 +146,7 @@ export function SearchableSelectField({
       );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || disabled) return;
     function closeOnOutsidePointer(event: PointerEvent) {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
         setOpen(false);
@@ -149,9 +156,10 @@ export function SearchableSelectField({
     }
     window.addEventListener("pointerdown", closeOnOutsidePointer);
     return () => window.removeEventListener("pointerdown", closeOnOutsidePointer);
-  }, [open, options, selectedKey]);
+  }, [open, options, selectedKey, disabled]);
 
   function openAllOptions() {
+    if (disabled) return;
     setShowAll(true);
     setOpen(true);
   }
@@ -160,6 +168,7 @@ export function SearchableSelectField({
     setSelectedKey(option.id);
     setInputValue(option.label);
     inputRef.current?.setCustomValidity("");
+    setInvalid(false);
     inputRef.current?.focus();
     setOpen(false);
   }
@@ -168,8 +177,8 @@ export function SearchableSelectField({
     if (!["ArrowDown", "ArrowUp", "Home", "End", "Escape"].includes(event.key)) return;
     event.preventDefault();
     if (event.key === "Escape") {
-      setOpen(false);
       inputRef.current?.focus();
+      setOpen(false);
       return;
     }
     const optionElements = [
@@ -218,13 +227,18 @@ export function SearchableSelectField({
           aria-controls={listboxId}
           aria-expanded={open}
           aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? errorId : undefined}
           autoComplete="off"
           required={required}
           disabled={disabled}
           value={inputValue}
           onFocus={openAllOptions}
+          onInvalid={() => setInvalid(true)}
           onChange={(event) => {
             setInputValue(event.target.value);
+            setInvalid(false);
             setSelectedKey(null);
             setShowAll(false);
             setOpen(true);
@@ -236,18 +250,25 @@ export function SearchableSelectField({
               setOpen(false);
               const selected = options.find((option) => option.id === selectedKey);
               setInputValue(selected?.label ?? "");
-            } else if (event.key === "ArrowDown") {
+            } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
-              if (!open) openAllOptions();
-              requestAnimationFrame(() =>
-                rootRef.current?.querySelector<HTMLButtonElement>('[role="option"]')?.focus(),
-              );
+              const last = event.key === "ArrowUp";
+              const focusOption = () => {
+                const items = rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+                items?.[last ? items.length - 1 : 0]?.focus();
+              };
+              if (open) focusOption();
+              else {
+                openAllOptions();
+                requestAnimationFrame(focusOption);
+              }
             }
           }}
         />
         <button
           type="button"
           className="searchable-select-button"
+          disabled={disabled}
           aria-label="展开选项"
           aria-controls={listboxId}
           aria-expanded={open}
@@ -265,13 +286,14 @@ export function SearchableSelectField({
           />
         </button>
       </div>
-      <input type="hidden" name={name} value={selectedKey ?? ""} />
+      {invalid ? <span className="field-error" id={errorId} role="alert">请选择列表中的时区</span> : null}
+      <input type="hidden" name={name} value={selectedKey ?? ""} disabled={disabled} />
       <div
         id={listboxId}
         className="select-field-popover select-field-listbox searchable-select-listbox"
         role="listbox"
         aria-label={label ?? ariaLabel}
-        hidden={!open}
+        hidden={!open || disabled}
       >
         {filteredOptions.map((option) => (
           <button
@@ -287,10 +309,11 @@ export function SearchableSelectField({
             onClick={() => selectOption(option)}
             onKeyDown={moveOptionFocus}
           >
-            {option.label}
+            <span className="select-option-label">{option.label}</span>
+            {option.id === selectedKey ? <Check className="select-option-check" size={18} aria-hidden="true" /> : null}
           </button>
         ))}
-        {filteredOptions.length === 0 ? <p className="select-field-empty">没有匹配项</p> : null}
+        {filteredOptions.length === 0 ? <p className="select-field-empty" role="status">没有匹配项</p> : null}
       </div>
     </div>
   );

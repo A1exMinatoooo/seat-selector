@@ -53,7 +53,7 @@ export function DatePickerField({
           </Button>
         </Group>
         <FieldError className="field-error" />
-        <Popover className="date-picker-popover">
+        <Popover className="date-picker-popover" containerPadding={2}>
           <Dialog>
             <Calendar className="date-picker-calendar">
               <header>
@@ -69,7 +69,9 @@ export function DatePickerField({
                 <CalendarGridHeader>
                   {(day) => <CalendarHeaderCell>{day}</CalendarHeaderCell>}
                 </CalendarGridHeader>
-                <CalendarGridBody>{(date) => <CalendarCell date={date} />}</CalendarGridBody>
+                <CalendarGridBody>
+                  {(date) => <CalendarCell date={date} className="date-picker-cell" />}
+                </CalendarGridBody>
               </CalendarGrid>
             </Calendar>
           </Dialog>

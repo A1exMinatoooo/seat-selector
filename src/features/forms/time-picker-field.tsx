@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Clock3 } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import {
   Button,
@@ -87,58 +87,72 @@ export function TimePickerField({
           aria-describedby={invalid ? errorId : undefined}
         >
           <span>{value || "--:--"}</span>
-          <ChevronDown
-            className="time-picker-chevron"
-            aria-hidden="true"
-            size={18}
-            strokeWidth={2}
-          />
+          <Clock3 className="time-picker-clock" aria-hidden="true" size={18} strokeWidth={2} />
         </Button>
         <Popover className="time-picker-popover" placement="bottom end">
-          <Dialog className="time-picker-dialog" aria-label="选择时间">
-            <div className="time-picker-columns">
-              <div>
-                <strong>小时</strong>
-                <ListBox
-                  aria-label="小时"
-                  selectionMode="single"
-                  selectedKeys={draftHour ? [draftHour] : []}
-                  onSelectionChange={(keys) => setDraftHour(selectedKey(keys as Set<React.Key>))}
-                >
-                  {HOURS.map((hour) => (
-                    <ListBoxItem id={hour} key={hour} textValue={hour}>
-                      {hour}
-                    </ListBoxItem>
-                  ))}
-                </ListBox>
-              </div>
-              <div>
-                <strong>分钟</strong>
-                <ListBox
-                  aria-label="分钟"
-                  selectionMode="single"
-                  selectedKeys={draftMinute ? [draftMinute] : []}
-                  onSelectionChange={(keys) => setDraftMinute(selectedKey(keys as Set<React.Key>))}
-                >
-                  {MINUTES.map((minute) => (
-                    <ListBoxItem id={minute} key={minute} textValue={minute}>
-                      {minute}
-                    </ListBoxItem>
-                  ))}
-                </ListBox>
-              </div>
-            </div>
-            <Button
-              className="button primary time-picker-confirm"
-              isDisabled={!draftHour || !draftMinute}
-              onPress={commit}
+          <Dialog aria-label="选择时间">
+            <div
+              className="time-picker-dialog"
+              onKeyDownCapture={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                event.stopPropagation();
+                changeOpen(false);
+              }}
             >
-              完成
-            </Button>
+              <output className="time-picker-preview" aria-live="polite" aria-atomic="true">
+                <span>当前选择</span>
+                <strong>
+                  {draftHour && draftMinute ? `${draftHour}:${draftMinute}` : "请选择小时和分钟"}
+                </strong>
+              </output>
+              <div className="time-picker-columns">
+                <div>
+                  <strong>小时</strong>
+                  <ListBox
+                    aria-label="小时"
+                    selectionMode="single"
+                    selectedKeys={draftHour ? [draftHour] : []}
+                    onSelectionChange={(keys) => setDraftHour(selectedKey(keys as Set<React.Key>))}
+                  >
+                    {HOURS.map((hour) => (
+                      <ListBoxItem id={hour} key={hour} textValue={hour}>
+                        {hour}
+                      </ListBoxItem>
+                    ))}
+                  </ListBox>
+                </div>
+                <div>
+                  <strong>分钟</strong>
+                  <ListBox
+                    aria-label="分钟"
+                    selectionMode="single"
+                    selectedKeys={draftMinute ? [draftMinute] : []}
+                    onSelectionChange={(keys) =>
+                      setDraftMinute(selectedKey(keys as Set<React.Key>))
+                    }
+                  >
+                    {MINUTES.map((minute) => (
+                      <ListBoxItem id={minute} key={minute} textValue={minute}>
+                        {minute}
+                      </ListBoxItem>
+                    ))}
+                  </ListBox>
+                </div>
+              </div>
+              <Button
+                className="button primary time-picker-confirm"
+                isDisabled={!draftHour || !draftMinute}
+                onPress={commit}
+              >
+                完成
+              </Button>
+            </div>
           </Dialog>
         </Popover>
       </DialogTrigger>
       <input
+        aria-hidden="true"
         className="time-picker-native-input"
         name={name}
         value={value}
@@ -147,7 +161,9 @@ export function TimePickerField({
         tabIndex={-1}
         autoComplete="off"
         onChange={() => undefined}
-        onInvalid={() => {
+        onInvalid={(event) => {
+          // Keep native submission blocked, but replace its hidden-field focus with the visible trigger.
+          event.preventDefault();
           setInvalid(true);
           triggerRef.current?.focus();
         }}

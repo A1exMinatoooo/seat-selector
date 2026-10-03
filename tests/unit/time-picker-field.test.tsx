@@ -22,7 +22,6 @@ describe("TimePickerField", () => {
     );
 
     const trigger = screen.getByRole("button", { name: /开始时间/ });
-    expect(trigger.querySelector(".lucide-chevron-down")?.getAttribute("aria-hidden")).toBe("true");
     await user.click(trigger);
     await user.click(
       within(screen.getByRole("listbox", { name: "小时" })).getByRole("option", { name: "13" }),

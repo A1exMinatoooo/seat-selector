@@ -1,3 +1,4 @@
+import { FormFixture } from "./form-fixture";
 import { ResultFixture } from "./result-fixture";
 import { createRoot } from "react-dom/client";
 import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
@@ -77,7 +78,7 @@ const fixtureKinds: Record<string, true> = {
 };
 
 createRoot(document.getElementById("root")!).render(
-  fixtureKinds[kind] ? (
+  kind === "forms" ? <FormFixture /> : fixtureKinds[kind] ? (
     <ResultFixture kind={kind} />
   ) : (
     <main style={{ maxWidth: 1100, margin: "24px auto", padding: "0 16px" }}>
