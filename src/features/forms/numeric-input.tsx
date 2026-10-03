@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type InputHTMLAttributes } from "react";
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from "react";
 import {
   numericInputError,
   validNumericValue,
@@ -38,6 +38,8 @@ export function NumericInput({
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const initialDraft = useRef(String(value ?? defaultValue ?? ""));
   const [draft, setDraft] = useState(() => String(value ?? defaultValue ?? ""));
   const [touched, setTouched] = useState(false);
   const constraints = { min, max, step };
@@ -48,6 +50,19 @@ export function NumericInput({
   useEffect(() => {
     onValidityChange?.(validationError === null);
   }, [onValidityChange, validationError]);
+  useEffect(() => {
+    const input = inputRef.current;
+    const form = input?.form;
+    if (!form || value !== undefined || draftValue !== undefined) return;
+
+    function resetDraft() {
+      setDraft(initialDraft.current);
+      setTouched(false);
+    }
+
+    form.addEventListener("reset", resetDraft);
+    return () => form.removeEventListener("reset", resetDraft);
+  }, [draftValue, value]);
 
   return (
     <span className="numeric-input-field">
@@ -55,6 +70,7 @@ export function NumericInput({
         {...inputProps}
         id={inputId}
         className={className}
+        ref={inputRef}
         type="number"
         min={min}
         max={max}
@@ -62,7 +78,7 @@ export function NumericInput({
         required={required}
         value={currentDraft}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : inputProps["aria-describedby"]}
+        aria-describedby={error ? [inputProps["aria-describedby"], errorId].filter(Boolean).join(" ") : inputProps["aria-describedby"]}
         onChange={(event) => {
           const nextDraft = event.target.value;
           if (draftValue === undefined) setDraft(nextDraft);

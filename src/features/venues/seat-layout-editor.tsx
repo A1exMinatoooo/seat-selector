@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { NumericInput } from "@/features/forms/numeric-input";
 import { SelectField } from "@/features/forms/select-field";
 import { effectiveCenterAfterColumn } from "@/server/domain/seat-center";
@@ -47,6 +47,7 @@ function layoutTool(cell: LayoutCell): LayoutTool {
 }
 
 export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHallLayout }) {
+  const layoutId = useId();
   const [rowLabels, setRowLabels] = useState(() =>
     initialLayout
       ? Array.from(
@@ -188,16 +189,38 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       <div className="layout-controls">
         <label>
           行数
-          <NumericInput min={1} max={50} value={rowLabels.length} onValueChange={resizeRows} />
+          <NumericInput
+            name="rows"
+            aria-label="行数"
+            aria-describedby={`${layoutId}-rows-help`}
+            data-field-error-key="rows"
+            min={1}
+            max={50}
+            value={rowLabels.length}
+            onValueChange={resizeRows}
+          />
+          <span className="muted" id={`${layoutId}-rows-help`}>1–50 行</span>
         </label>
         <label>
           列数
-          <NumericInput min={1} max={50} value={columns} onValueChange={resizeColumns} />
+          <NumericInput
+            name="columns"
+            aria-label="列数"
+            aria-describedby={`${layoutId}-columns-help`}
+            data-field-error-key="columns"
+            min={1}
+            max={50}
+            value={columns}
+            onValueChange={resizeColumns}
+          />
+          <span className="muted" id={`${layoutId}-columns-help`}>1–50 列</span>
         </label>
         <label>
           中线位于第几列后
           <NumericInput
             key={columns}
+            name="centerAfterColumn"
+            data-field-error-key="centerAfterColumn"
             min={columns === 1 ? 0 : 1}
             max={columns}
             value={effectiveCenterAfterColumn(columns, center) + 1}
@@ -288,9 +311,11 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
       <div className="label-editor">
         <div>
           <strong>行名称</strong>
+          <span className="muted">每个行名称最多 12 个字符。</span>
           {rowLabels.map((label, i) => (
             <input
               aria-label={`第${i + 1}行名称`}
+              data-field-error-key={`layout.rowLabel.${i}`}
               key={i}
               value={label}
               maxLength={12}
@@ -420,6 +445,7 @@ export function SeatLayoutEditor({ initialLayout }: { initialLayout?: EditableHa
                         aria-disabled={tool === "navigate" || undefined}
                         tabIndex={tool === "navigate" ? -1 : undefined}
                         data-seat-column={cell.columnIndex}
+                        data-field-error-key={`layout.columnLabel.${cell.rowIndex}.${cell.columnIndex}`}
                         className={`editor-seat ${mode}`}
                         type="button"
                         key={`${cell.rowIndex}:${cell.columnIndex}`}

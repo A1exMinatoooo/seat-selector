@@ -53,6 +53,78 @@ function parseJsonFormField(formData: FormData, name: string): unknown {
   }
 }
 
+const eventFieldNames: Record<string, true> = {
+  name: true,
+  locationId: true,
+  radiusMeters: true,
+  startDate: true,
+  startTime: true,
+  timeZone: true,
+  locationCheckEnabled: true,
+  lotteryEnabled: true,
+  participationMode: true,
+  maxTicketsPerIssue: true,
+  expectedLotteryTickets: true,
+  lotteryPoolBonus: true,
+  hallId: true,
+  availableSeatIds: true,
+};
+
+function submittedRowKeys(formData: FormData, fieldName: "ticketTypes" | "prizes") {
+  const value = formData.get(fieldName);
+  if (typeof value !== "string") return [];
+  try {
+    const rows: unknown = JSON.parse(value);
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => {
+      if (
+        typeof row !== "object" ||
+        row === null ||
+        !("fieldKey" in row) ||
+        typeof row.fieldKey !== "string"
+      )
+        return null;
+      const validKey =
+        fieldName === "ticketTypes"
+          ? /^ticket-(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|initial-\d+|\d+)$/.test(
+              row.fieldKey,
+            )
+          : /^prize-(?:initial-\d+|\d+)$/.test(row.fieldKey);
+      return validKey ? row.fieldKey : null;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function eventValidationErrors(error: z.ZodError, formData: FormData) {
+  const ticketKeys = submittedRowKeys(formData, "ticketTypes");
+  const prizeKeys = submittedRowKeys(formData, "prizes");
+  const fieldErrors: Record<string, string> = {};
+
+  for (const issue of error.issues) {
+    const [root, rowIndex, property] = issue.path;
+    let key: string | null = null;
+    if (typeof root === "string" && eventFieldNames[root] === true) {
+      key = root;
+    } else if (root === "side") {
+      key = "availableSeatIds";
+    } else if (root === "ticketTypes") {
+      const index = typeof rowIndex === "number" ? rowIndex : ticketKeys.length ? 0 : -1;
+      const rowKey = ticketKeys[index];
+      const field = property === "lotteryEligible" ? "lotteryEligible" : "name";
+      if (typeof rowKey === "string") key = `ticket.${rowKey}.${field}`;
+    } else if (root === "prizes") {
+      const index = typeof rowIndex === "number" ? rowIndex : prizeKeys.length ? 0 : -1;
+      const rowKey = prizeKeys[index];
+      const field = property === "quantity" ? "quantity" : "name";
+      if (typeof rowKey === "string") key = `prize.${rowKey}.${field}`;
+    }
+    if (key) fieldErrors[key] ??= issue.message;
+  }
+  return Object.keys(fieldErrors).length ? fieldErrors : undefined;
+}
+
 const consecutiveConfigurationSchema = z
   .object({
     id: z.string().uuid(),
@@ -90,20 +162,26 @@ export async function updateConsecutiveCheckinAction(
   formData: FormData,
 ): Promise<AdminActionState> {
   await requireAdmin();
-  let parsed: ReturnType<typeof consecutiveConfigurationSchema.safeParse>;
+  let input: z.infer<typeof consecutiveConfigurationSchema>;
   try {
-    parsed = consecutiveConfigurationSchema.safeParse({
+    const parsed = consecutiveConfigurationSchema.safeParse({
       ...Object.fromEntries(formData),
       targetEventIds: parseJsonFormField(formData, "targetEventIds"),
     });
+    if (!parsed.success) {
+      const fieldIssue = parsed.error.issues.find((issue) => issue.path[0] === "targetEventIds");
+      return {
+        ...adminActionError(
+          "连签设置无效，请至少选择一个符合条件的活动。",
+          "INVALID_CONSECUTIVE_CONFIGURATION",
+        ),
+        ...(fieldIssue ? { fieldErrors: { targetEventIds: fieldIssue.message } } : {}),
+      };
+    }
+    input = parsed.data;
   } catch {
     return adminActionError("连签设置无效，请刷新后重试。", "INVALID_CONSECUTIVE_CONFIGURATION");
   }
-  if (!parsed.success)
-    return adminActionError(
-      "连签设置无效，请至少选择一个符合条件的活动。",
-      "INVALID_CONSECUTIVE_CONFIGURATION",
-    );
 
   try {
     await getDb().transaction(async (tx) => {
@@ -118,7 +196,7 @@ export async function updateConsecutiveCheckinAction(
           locationId: events.locationId,
         })
         .from(events)
-        .where(eq(events.id, parsed.data.id))
+        .where(eq(events.id, input.id))
         .limit(1)
         .for("update");
       if (!source) throw new DomainError(errorCodes.notFound, "活动不存在", 404);
@@ -129,7 +207,7 @@ export async function updateConsecutiveCheckinAction(
           409,
         );
 
-      const targetIds = parsed.data.enabled ? parsed.data.targetEventIds : [];
+      const targetIds = input.enabled ? input.targetEventIds : [];
       const targets = targetIds.length
         ? await tx
             .select({
@@ -178,7 +256,7 @@ export async function updateConsecutiveCheckinAction(
       JSON.stringify({
         level: "error",
         message: "consecutive_checkin_configuration_save_failed",
-        eventId: parsed.data.id,
+        eventId: input.id,
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     );
@@ -187,7 +265,7 @@ export async function updateConsecutiveCheckinAction(
       "CONSECUTIVE_CONFIGURATION_SAVE_FAILED",
     );
   }
-  revalidatePath(`/admin/events/${parsed.data.id}`);
+  revalidatePath(`/admin/events/${input.id}`);
   return adminActionSuccess("连签设置已保存。", "CONSECUTIVE_CONFIGURATION_SAVED");
 }
 
@@ -198,12 +276,20 @@ export async function createEventAction(
   await requireAdmin();
   let input: z.infer<typeof eventInputSchema>;
   try {
-    input = eventInputSchema.parse({
+    const parsed = eventInputSchema.safeParse({
       ...Object.fromEntries(formData),
       ticketTypes: parseJsonFormField(formData, "ticketTypes"),
       prizes: parseJsonFormField(formData, "prizes"),
       availableSeatIds: parseJsonFormField(formData, "availableSeatIds"),
     });
+    if (!parsed.success) {
+      const fieldErrors = eventValidationErrors(parsed.error, formData);
+      return {
+        ...adminActionError("活动信息无效，请检查后重试。", "INVALID_EVENT"),
+        ...(fieldErrors ? { fieldErrors } : {}),
+      };
+    }
+    input = parsed.data;
   } catch {
     return adminActionError("活动信息无效，请检查后重试。", "INVALID_EVENT");
   }
@@ -294,11 +380,19 @@ export async function updateEventConfigurationAction(
   await requireAdmin();
   let input: z.infer<typeof eventConfigurationInputSchema>;
   try {
-    input = eventConfigurationInputSchema.parse({
+    const parsed = eventConfigurationInputSchema.safeParse({
       ...Object.fromEntries(formData),
       ticketTypes: parseJsonFormField(formData, "ticketTypes"),
       prizes: parseJsonFormField(formData, "prizes"),
     });
+    if (!parsed.success) {
+      const fieldErrors = eventValidationErrors(parsed.error, formData);
+      return {
+        ...adminActionError("活动设置无效，请检查后重试。", "INVALID_EVENT_CONFIGURATION"),
+        ...(fieldErrors ? { fieldErrors } : {}),
+      };
+    }
+    input = parsed.data;
   } catch {
     return adminActionError("活动设置无效，请检查后重试。", "INVALID_EVENT_CONFIGURATION");
   }
@@ -529,11 +623,16 @@ export async function updateEventSeatsAction(
 ): Promise<SeatAvailabilitySaveState> {
   await requireAdmin();
   const parsed = eventAvailabilityInputSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success)
-    return adminActionError(
-      "座位开放范围数据无效，请刷新页面后重试。",
-      "INVALID_SEAT_AVAILABILITY",
-    );
+  if (!parsed.success) {
+    const fieldErrors = eventValidationErrors(parsed.error, formData);
+    return {
+      ...adminActionError(
+        "座位开放范围数据无效，请刷新页面后重试。",
+        "INVALID_SEAT_AVAILABILITY",
+      ),
+      ...(fieldErrors ? { fieldErrors } : {}),
+    };
+  }
   const input = parsed.data;
   try {
     await getDb().transaction(async (tx) => {

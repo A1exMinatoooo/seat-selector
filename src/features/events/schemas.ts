@@ -38,11 +38,33 @@ const eventConfigurationFields = {
     .array(ticketTypeSchema)
     .min(1)
     .max(20)
-    .refine(
-      (items) => new Set(items.map((item) => item.name)).size === items.length,
-      "票种名称不能重复",
-    ),
-  prizes: z.array(prizeSchema).max(100),
+    .superRefine((items, context) => {
+      const seen = new Set<string>();
+      items.forEach((item, index) => {
+        if (seen.has(item.name))
+          context.addIssue({
+            code: "custom",
+            path: [index, "name"],
+            message: "票种名称不能重复",
+          });
+        seen.add(item.name);
+      });
+    }),
+  prizes: z
+    .array(prizeSchema)
+    .max(100)
+    .superRefine((items, context) => {
+      const seen = new Set<string>();
+      items.forEach((item, index) => {
+        if (seen.has(item.name))
+          context.addIssue({
+            code: "custom",
+            path: [index, "name"],
+            message: "奖品名称不能重复",
+          });
+        seen.add(item.name);
+      });
+    }),
 };
 
 function validateEventConfiguration(
@@ -51,26 +73,28 @@ function validateEventConfiguration(
 ) {
   if (input.lotteryEnabled && input.prizes.length === 0)
     context.addIssue({ code: "custom", path: ["prizes"], message: "开启抽奖时至少需要一项奖品" });
-  if (input.lotteryEnabled && !input.ticketTypes.some((type) => type.lotteryEligible))
+  if (input.lotteryEnabled && !input.ticketTypes.some((type) => type.lotteryEligible)) {
+    const ineligibleIndex = input.ticketTypes.findIndex((type) => !type.lotteryEligible);
     context.addIssue({
       code: "custom",
-      path: ["ticketTypes"],
+      path: ["ticketTypes", ineligibleIndex, "lotteryEligible"],
       message: "开启抽奖时至少需要一个参与抽奖的票种",
     });
-  if (!input.lotteryEnabled && input.ticketTypes.some((type) => type.lotteryEligible))
+  }
+  if (!input.lotteryEnabled && input.ticketTypes.some((type) => type.lotteryEligible)) {
+    const eligibleIndex = input.ticketTypes.findIndex((type) => type.lotteryEligible);
     context.addIssue({
       code: "custom",
-      path: ["ticketTypes"],
+      path: ["ticketTypes", eligibleIndex, "lotteryEligible"],
       message: "未开启抽奖时票种不能参与抽奖",
     });
+  }
   if (input.lotteryEnabled && input.participationMode === "onsite" && !input.expectedLotteryTickets)
     context.addIssue({
       code: "custom",
       path: ["expectedLotteryTickets"],
       message: "现场发行模式开启抽奖时必须填写预计可抽奖票数",
     });
-  if (new Set(input.prizes.map((prize) => prize.name)).size !== input.prizes.length)
-    context.addIssue({ code: "custom", path: ["prizes"], message: "奖品名称不能重复" });
   if (!localDateTimeToDate(input.startDate, input.startTime, input.timeZone))
     context.addIssue({ code: "custom", path: ["startTime"], message: "活动开始时间无效" });
 }

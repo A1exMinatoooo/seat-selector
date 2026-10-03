@@ -40,28 +40,47 @@ export default async function NewEventPage() {
           <div className="form-row">
             <label>
               活动名称
-              <input name="name" required placeholder="例如：八月特别观影会" />
+              <input name="name" maxLength={100} required placeholder="例如：八月特别观影会" />
+              <span className="muted">最多 100 个字符。</span>
             </label>
-            <SearchableSelectField
-              name="timeZone"
-              label="显示时区"
-              defaultValue="Asia/Shanghai"
-              options={timeZones.map((timeZone) => ({ id: timeZone, label: timeZone }))}
-              required
-            />
+            <div data-field-error-key="timeZone">
+              <SearchableSelectField
+                name="timeZone"
+                label="显示时区"
+                defaultValue="Asia/Shanghai"
+                options={timeZones.map((timeZone) => ({ id: timeZone, label: timeZone }))}
+                required
+              />
+            </div>
           </div>
           <div className="form-row">
-            <DatePickerField name="startDate" label="开始日期" defaultValue={start.date} required />
-            <TimePickerField name="startTime" label="开始时间" defaultValue={start.time} required />
+            <div data-field-error-key="startDate">
+              <DatePickerField
+                name="startDate"
+                label="开始日期"
+                defaultValue={start.date}
+                required
+              />
+            </div>
+            <div data-field-error-key="startTime">
+              <TimePickerField
+                name="startTime"
+                label="开始时间"
+                defaultValue={start.time}
+                required
+              />
+            </div>
           </div>
           <LocationCheckFields>
-            <SelectField
-              name="locationId"
-              label="活动地点"
-              defaultValue={locations[0]?.id}
-              options={locations.map((location) => ({ id: location.id, label: location.name }))}
-              required
-            />
+            <div data-field-error-key="locationId">
+              <SelectField
+                name="locationId"
+                label="活动地点"
+                defaultValue={locations[0]?.id}
+                options={locations.map((location) => ({ id: location.id, label: location.name }))}
+                required
+              />
+            </div>
           </LocationCheckFields>
           <EventSeatEditor
             halls={layouts}

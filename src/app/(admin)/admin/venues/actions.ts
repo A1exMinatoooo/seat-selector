@@ -23,7 +23,53 @@ import { postgresErrorInfo } from "@/shared/postgres-error";
 
 export type HallTemplateImportState = AdminActionState;
 export type HallTemplateUpdateState = AdminActionState;
-export type HallTemplateDeleteState = AdminActionState;
+export type HallTemplateArchiveState = AdminActionState;
+
+function hallFieldErrors(
+  error: z.ZodError,
+  rawLayout: FormDataEntryValue | null,
+): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  let submittedCells: Array<{ rowIndex?: number; columnIndex?: number }> = [];
+  if (typeof rawLayout === "string") {
+    try {
+      const parsed: unknown = JSON.parse(rawLayout);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "cells" in parsed &&
+        Array.isArray(parsed.cells)
+      ) {
+        submittedCells = parsed.cells as Array<{ rowIndex?: number; columnIndex?: number }>;
+      }
+    } catch {
+      // Malformed layout data is associated with the visible row-count control below.
+    }
+  }
+  for (const issue of error.issues) {
+    const [root, field, index, cellField] = issue.path;
+    let key: string | undefined;
+    if (root === "name" || root === "cinemaId") key = root;
+    else if (root === "layout") {
+      if (field === "rows" || field === "columns" || field === "centerAfterColumn") {
+        key = field;
+      } else if (field === "cells" && typeof index === "number") {
+        const cell = submittedCells[index];
+        if (cellField === "rowLabel" && typeof cell?.rowIndex === "number")
+          key = `layout.rowLabel.${cell.rowIndex}`;
+        else if (
+          cellField === "columnLabel" &&
+          typeof cell?.rowIndex === "number" &&
+          typeof cell.columnIndex === "number"
+        )
+          key = `layout.columnLabel.${cell.rowIndex}.${cell.columnIndex}`;
+        else key = cellField === "columnIndex" ? "columns" : "rows";
+      } else key = "rows";
+    }
+    if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+  }
+  return fieldErrors;
+}
 
 export async function createCinemaAction(
   _previousState: AdminActionState,
@@ -32,12 +78,18 @@ export async function createCinemaAction(
   await requireAdmin();
   const parsedName = z.string().trim().min(1).max(80).safeParse(formData.get("name"));
   if (!parsedName.success)
-    return adminActionError("影院名称无效，请检查后重试。", "INVALID_CINEMA");
+    return adminActionError(
+      "影院名称无效，请检查后重试。",
+      "INVALID_CINEMA",
+      { name: parsedName.error.issues[0]?.message ?? "请输入有效的影院名称。" },
+    );
   try {
     await getDb().insert(cinemas).values({ name: parsedName.data });
   } catch (error) {
     if (postgresErrorInfo(error).code === "23505")
-      return adminActionError("影院名称已存在，请使用其他名称。", "CINEMA_NAME_CONFLICT");
+      return adminActionError("影院名称已存在，请使用其他名称。", "CINEMA_NAME_CONFLICT", {
+        name: "影院名称已存在，请使用其他名称。",
+      });
     console.error(
       JSON.stringify({
         level: "error",
@@ -78,7 +130,11 @@ export async function createHallAction(
       layout: formData.get("layout"),
     });
   if (!parsed.success)
-    return adminActionError("影厅模板无效，请检查后重试。", "INVALID_HALL_TEMPLATE");
+    return adminActionError(
+      "影厅模板无效，请检查后重试。",
+      "INVALID_HALL_TEMPLATE",
+      hallFieldErrors(parsed.error, formData.get("layout")),
+    );
   const input = parsed.data;
 
   try {
@@ -141,7 +197,12 @@ export async function updateHallAction(
       name: formData.get("name"),
       layout: formData.get("layout"),
     });
-  if (!parsed.success) return adminActionError("模板内容无效，请检查后重试。", "INVALID_TEMPLATE");
+  if (!parsed.success)
+    return adminActionError(
+      "模板内容无效，请检查后重试。",
+      "INVALID_TEMPLATE",
+      hallFieldErrors(parsed.error, formData.get("layout")),
+    );
   try {
     await replaceHallTemplate(parsed.data);
   } catch (error) {
@@ -165,19 +226,19 @@ export async function updateHallAction(
 }
 
 export async function archiveHallAction(
-  _previousState: HallTemplateDeleteState,
+  _previousState: HallTemplateArchiveState,
   formData: FormData,
-): Promise<HallTemplateDeleteState> {
+): Promise<HallTemplateArchiveState> {
   await requireAdmin();
   const parsed = z.object({ id: z.string().uuid() }).safeParse({ id: formData.get("id") });
   if (!parsed.success)
     return adminActionError("模板标识无效，请刷新后重试。", "INVALID_HALL_TEMPLATE");
   try {
     if (!(await archiveHallTemplate(parsed.data.id)))
-      return adminActionError("模板不存在或已被删除。", "HALL_TEMPLATE_NOT_FOUND");
+      return adminActionError("模板不存在或已归档。", "HALL_TEMPLATE_NOT_FOUND");
   } catch (error) {
     if (error instanceof HallTemplateInUseError)
-      return adminActionError("该模板已有活动关联，不能删除。", "HALL_TEMPLATE_IN_USE");
+      return adminActionError("该模板已有活动关联，不能归档。", "HALL_TEMPLATE_IN_USE");
     console.error(
       JSON.stringify({
         level: "error",
@@ -186,7 +247,7 @@ export async function archiveHallAction(
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     );
-    return adminActionError("模板删除失败，请稍后重试。", "HALL_TEMPLATE_DELETE_FAILED");
+    return adminActionError("模板归档失败，请稍后重试。", "HALL_TEMPLATE_DELETE_FAILED");
   }
   revalidatePath("/admin/venues");
   redirect("/admin/venues?notice=hall-template-deleted");
@@ -202,7 +263,9 @@ export async function importHallTemplatesAction(
     .refine((file) => file.size > 0 && file.size <= 10 * 1024 * 1024)
     .safeParse(formData.get("template"));
   if (!parsedFile.success)
-    return adminActionError("请选择不超过 10MB 的 JSON 模板文件。", "INVALID_TEMPLATE_FILE");
+    return adminActionError("请选择有效且不超过 10 MiB 的 JSON 模板文件。", "INVALID_TEMPLATE_FILE", {
+      template: "文件不能为空，且大小不能超过 10 MiB。",
+    });
   try {
     const bundle = parseHallTemplateBundle(JSON.parse(await parsedFile.data.text()) as unknown);
     const imported = await importHallTemplates(bundle);
@@ -223,6 +286,7 @@ export async function importHallTemplatesAction(
       return adminActionError(
         "模板文件格式无效，请选择由本系统导出的 JSON 文件。",
         "INVALID_TEMPLATE_FILE",
+        { template: "文件内容不是有效的影厅模板 JSON。" },
       );
     return adminActionError(
       "模板文件无效或导入失败，请检查文件后重试。",

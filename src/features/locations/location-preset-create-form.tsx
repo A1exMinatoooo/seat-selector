@@ -1,24 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 import { createLocationAction } from "@/app/(admin)/admin/locations/actions";
-import { initialAdminActionState } from "@/features/admin/admin-action-state";
-import { useAdminActionToast } from "@/features/admin/admin-toast";
+import { AdminActionForm } from "@/features/admin/admin-action-form";
+import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
 import { LocationPresetFields } from "./location-preset-fields";
 
 export function LocationPresetCreateForm() {
-  const [state, action, pending] = useActionState(createLocationAction, {
-    ...initialAdminActionState,
-    resetKey: 0,
-  });
-  useAdminActionToast(state);
-
+  const [resetKey, setResetKey] = useState(0);
   return (
-    <form action={action} className="stack-form">
-      <LocationPresetFields key={state.resetKey} />
-      <button className="button primary" type="submit" disabled={pending}>
-        {pending ? "正在保存…" : "保存地点"}
-      </button>
-    </form>
+    <AdminActionForm
+      action={createLocationAction}
+      className="stack-form"
+      onSuccess={(submission) => setResetKey(submission)}
+    >
+      <LocationPresetFields key={resetKey} />
+      <AdminSubmitButton pendingLabel="正在保存…">保存地点</AdminSubmitButton>
+    </AdminActionForm>
   );
 }

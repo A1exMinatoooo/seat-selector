@@ -1,19 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
-import {
-  updateEventSeatsAction,
-  type SeatAvailabilitySaveState,
-} from "@/app/(admin)/admin/events/actions";
-import { useAdminActionToast } from "@/features/admin/admin-toast";
+import { updateEventSeatsAction } from "@/app/(admin)/admin/events/actions";
+import { AdminActionForm } from "@/features/admin/admin-action-form";
+import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
 import { EventSeatEditor, type EventHallLayout } from "./event-seat-editor";
-
-const initialState: SeatAvailabilitySaveState = {
-  status: "idle",
-  message: "",
-  submission: 0,
-  code: null,
-};
 
 export function EventSeatManagementForm({
   eventId,
@@ -36,10 +26,8 @@ export function EventSeatManagementForm({
   enableHalfLockControls: boolean;
   planningToolsEnabled: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(updateEventSeatsAction, initialState);
-  useAdminActionToast(state);
   return (
-    <form action={formAction} className="panel wide stack-form">
+    <AdminActionForm action={updateEventSeatsAction} className="panel wide stack-form">
       <input type="hidden" name="id" value={eventId} />
       <EventSeatEditor
         key={version}
@@ -52,9 +40,7 @@ export function EventSeatManagementForm({
         enableHalfLockControls={enableHalfLockControls}
         planningToolsEnabled={planningToolsEnabled}
       />
-      <button className="button primary" type="submit" disabled={pending}>
-        {pending ? "正在保存…" : "保存活动开放范围"}
-      </button>
-    </form>
+      <AdminSubmitButton pendingLabel="正在保存…">保存活动开放范围</AdminSubmitButton>
+    </AdminActionForm>
   );
 }

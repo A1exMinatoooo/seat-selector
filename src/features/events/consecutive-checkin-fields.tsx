@@ -53,6 +53,7 @@ function ConsecutiveCheckinFieldState({
         <input
           name="enabled"
           type="checkbox"
+          data-field-error-key={candidates.length ? undefined : "targetEventIds"}
           checked={enabled}
           onChange={(event) => setEnabled(event.target.checked)}
         />
@@ -60,15 +61,23 @@ function ConsecutiveCheckinFieldState({
         <span>开启同日连续签到</span>
       </label>
       {enabled ? (
-        <fieldset className="consecutive-targets">
+        <fieldset
+          className="consecutive-targets"
+          data-field-error-key={candidates.length ? "targetEventIds" : undefined}
+        >
           <legend>连签活动</legend>
+          <p className="muted">
+            候选活动需与当前活动位于同一地点、使用同一时区且为同一当地日期，开始时间晚于当前活动；最多选择 20 场。
+          </p>
           {candidates.length ? (
             <div className="consecutive-target-list">
               {candidates.map((candidate) => (
                 <label key={candidate.id}>
                   <input
                     type="checkbox"
+                    name="targetEventIds"
                     checked={selected.has(candidate.id)}
+                    disabled={!selected.has(candidate.id) && selected.size >= 20}
                     onChange={(event) => toggleTarget(candidate.id, event.target.checked)}
                   />
                   <span>

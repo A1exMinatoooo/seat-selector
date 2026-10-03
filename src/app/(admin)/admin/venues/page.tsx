@@ -3,21 +3,20 @@ import { asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { AdminBackButton } from "@/features/admin/admin-back-button";
 import { AdminActionForm } from "@/features/admin/admin-action-form";
 import { AdminSubmitButton } from "@/features/admin/admin-submit-button";
-import { SeatLayoutEditor } from "@/features/venues/seat-layout-editor";
 import { BlockedHallEditButton } from "@/features/venues/blocked-hall-edit-button";
 import { HallTemplateImportForm } from "@/features/venues/hall-template-import-form";
-import { HallTemplateDeleteButton } from "@/features/venues/hall-template-delete-button";
+import { HallTemplateArchiveButton } from "@/features/venues/hall-template-archive-button";
 import { HallLayoutPreviewDialog } from "@/features/venues/hall-layout-preview-dialog";
 import {
   HallTemplateExportMenu,
   HallTemplateGroups,
 } from "@/features/venues/hall-template-navigation";
-import { SelectField } from "@/features/forms/select-field";
+import { HallTemplateCreateForm } from "@/features/venues/hall-template-create-form";
 import { getDb } from "@/server/db/client";
 import { cinemas, events, halls, seats } from "@/server/db/schema";
 import { canDeleteHallTemplate, canEditHallTemplate } from "@/server/domain/hall-template-edit";
 import { requireAdmin } from "@/server/security/admin-session";
-import { createCinemaAction, createHallAction } from "./actions";
+import { createCinemaAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -112,7 +111,7 @@ export default async function VenuesPage() {
                     <BlockedHallEditButton />
                   )}
                   {canDeleteHallTemplate(linkedStatuses) ? (
-                    <HallTemplateDeleteButton id={hall.id} label={label} />
+                    <HallTemplateArchiveButton id={hall.id} label={label} />
                   ) : null}
                 </div>
               </li>
@@ -142,7 +141,8 @@ export default async function VenuesPage() {
           <AdminActionForm action={createCinemaAction} className="stack-form" resetOnSuccess>
             <label>
               影院名称
-              <input name="name" required placeholder="例如：百丽宫影城" />
+              <input name="name" required maxLength={80} placeholder="例如：百丽宫影城" />
+              <span className="muted">最多 80 个字符。</span>
             </label>
             <AdminSubmitButton pendingLabel="正在保存…">保存影院</AdminSubmitButton>
           </AdminActionForm>
@@ -170,23 +170,9 @@ export default async function VenuesPage() {
       <section className="panel wide">
         <h2>新建影厅模板</h2>
         {cinemaRows.length ? (
-          <AdminActionForm action={createHallAction} className="stack-form" resetOnSuccess>
-            <div className="form-row">
-              <SelectField
-                name="cinemaId"
-                label="所属影院"
-                defaultValue={cinemaRows[0]?.id}
-                options={cinemaRows.map((cinema) => ({ id: cinema.id, label: cinema.name }))}
-                required
-              />
-              <label>
-                影厅名称
-                <input name="name" required placeholder="例如：6号激光厅" />
-              </label>
-            </div>
-            <SeatLayoutEditor />
-            <AdminSubmitButton pendingLabel="正在保存…">保存影厅模板</AdminSubmitButton>
-          </AdminActionForm>
+          <HallTemplateCreateForm
+            cinemas={cinemaRows.map(({ id, name }) => ({ id, name }))}
+          />
         ) : (
           <p className="muted">请先新增影院。</p>
         )}

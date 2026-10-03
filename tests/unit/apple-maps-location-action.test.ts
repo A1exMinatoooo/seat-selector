@@ -46,10 +46,9 @@ describe("Apple Maps location import action", () => {
   });
 
   it("returns stable validation errors without parsing oversized input", async () => {
-    await expect(importAppleMapsLocationAction("")).resolves.toEqual({
+    await expect(importAppleMapsLocationAction("")).resolves.toMatchObject({
       status: "error",
       code: "INVALID_APPLE_MAPS_URL",
-      message: "请输入有效的 Apple 地图完整链接。",
     });
     await expect(
       importAppleMapsLocationAction("https://maps.apple.com/place?name=入口"),

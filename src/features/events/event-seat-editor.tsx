@@ -282,10 +282,13 @@ export function EventSeatEditor({
   if (!hall) return null;
 
   return (
-    <fieldset className="layout-editor event-seat-editor">
+    <fieldset
+      className="layout-editor event-seat-editor"
+      data-field-error-key="availableSeatIds"
+    >
       <legend>活动可选区域</legend>
       {includeHallSelect ? (
-        <div className="event-hall-field">
+        <div className="event-hall-field" data-field-error-key="hallId">
           <SelectField
             name="hallId"
             label="影厅"

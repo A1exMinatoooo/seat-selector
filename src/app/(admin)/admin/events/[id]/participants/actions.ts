@@ -10,6 +10,7 @@ import {
   type AdminActionState,
 } from "@/features/admin/admin-action-state";
 import {
+  ParticipantTicketQuantityError,
   parseParticipantCsv,
   parseParticipantInput,
   validateResolvable,
@@ -94,6 +95,21 @@ const participantTargetSchema = z.object({
   participantId: z.string().uuid(),
 });
 
+function participantInputFieldErrors(error: z.ZodError) {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const [field, id] = issue.path;
+    const key =
+      field === "nickname" || field === "phone"
+        ? field
+        : field === "quantities" && typeof id === "string"
+          ? `ticket:${id}`
+          : null;
+    if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+  }
+  return fieldErrors;
+}
+
 async function editableParticipantEvent(eventId: string) {
   const [event] = await getDb()
     .select({ status: events.status, participationMode: events.participationMode })
@@ -114,8 +130,14 @@ export async function importParticipantsAction(
       csv: z.instanceof(File).refine((file) => file.size > 0 && file.size <= 2_000_000),
     })
     .safeParse({ eventId: formData.get("eventId"), csv: formData.get("csv") });
-  if (!parsed.success)
-    return adminActionError("请选择小于 2MB 的有效 CSV 文件。", "INVALID_PARTICIPANT_CSV");
+  if (!parsed.success) {
+    const csvError = parsed.error.issues.some((issue) => issue.path[0] === "csv");
+    return adminActionError(
+      csvError ? "文件无效，请选择非空且不超过 2,000,000 字节的 CSV 文件。" : "活动标识无效，请刷新后重试。",
+      "INVALID_PARTICIPANT_CSV",
+      csvError ? { csv: "请选择非空且不超过 2,000,000 字节的 CSV 文件。" } : undefined,
+    );
+  }
   const { eventId, csv } = parsed.data;
   if (!(await editableParticipantEvent(eventId)))
     return adminActionError("活动不存在、已结束或不允许预录参与者。", "EVENT_NOT_EDITABLE");
@@ -137,11 +159,14 @@ export async function importParticipantsAction(
   try {
     rows = parseParticipantCsv(await csv.text(), types);
     if (rows.length === 0)
-      return adminActionError("CSV 中没有可导入的参与者。", "EMPTY_PARTICIPANT_CSV");
+      return adminActionError("CSV 中没有可导入的参与者。", "EMPTY_PARTICIPANT_CSV", {
+        csv: "文件中没有可导入的参与者。",
+      });
   } catch (error) {
     return adminActionError(
       error instanceof Error ? error.message : "参与者文件格式无效，请检查后重试。",
       "INVALID_PARTICIPANT_CSV",
+      { csv: "请检查所选 CSV 文件的内容和格式。" },
     );
   }
   try {
@@ -194,10 +219,22 @@ export async function addParticipantAction(
       types,
     );
   } catch (error) {
-    return adminActionError(
-      error instanceof Error ? error.message : "参与者信息无效，请检查后重试。",
-      "INVALID_PARTICIPANT",
-    );
+    if (error instanceof ParticipantTicketQuantityError) {
+      return adminActionError(error.message, "INVALID_PARTICIPANT", {
+        [`ticket:${error.ticketTypeId}`]: error.message,
+      });
+    }
+    if (error instanceof z.ZodError) {
+      return adminActionError(
+        "参与者信息无效，请检查昵称、手机号及各票种数量。",
+        "INVALID_PARTICIPANT",
+        participantInputFieldErrors(error),
+      );
+    }
+    const message = error instanceof Error ? error.message : "参与者信息无效，请检查后重试。";
+    const ticketField =
+      message === "至少需要一张票" && types[0] ? { [`ticket:${types[0].id}`]: message } : undefined;
+    return adminActionError(message, "INVALID_PARTICIPANT", ticketField);
   }
   try {
     await insertRows(eventId.data, [row], "manual");

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { useAdminActionPending } from "./admin-action-form";
 
 export function AdminSubmitButton({
   children,
@@ -12,7 +13,8 @@ export function AdminSubmitButton({
   pendingLabel: ReactNode;
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = useAdminActionPending() || formPending;
   return (
     <button className={className} type="submit" disabled={pending}>
       {pending ? pendingLabel : children}

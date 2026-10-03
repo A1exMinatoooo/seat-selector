@@ -26,6 +26,7 @@ export function LocationCheckFields({
             max={100000}
             defaultValue={defaultRadiusMeters}
           />
+          <span className="muted">范围为 50 至 100,000 米。</span>
         </label>
       </div>
       <label className="switch-label">

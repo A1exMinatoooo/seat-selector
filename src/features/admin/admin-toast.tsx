@@ -25,7 +25,7 @@ const noticeMessages = {
   "location-updated": "地点变更已保存。",
   "location-deleted": "地点已删除。",
   "hall-template-updated": "影厅模板已保存。",
-  "hall-template-deleted": "影厅模板已删除。",
+  "hall-template-deleted": "影厅模板已归档。",
   "participant-device-reset": "设备已解绑。",
   "location-exemption-enabled": "已开启定位豁免。",
   "location-exemption-disabled": "已取消定位豁免。",

@@ -28,7 +28,7 @@ import { postgresErrorInfo } from "@/shared/postgres-error";
 
 export type LocationUpdateState = AdminActionState;
 export type LocationDeleteState = AdminActionState;
-export type LocationCreateState = AdminActionState & { resetKey: number };
+export type LocationCreateState = AdminActionState;
 
 export type AppleMapsLocationImportState =
   | {
@@ -40,8 +40,14 @@ export type AppleMapsLocationImportState =
       latitude: string;
       longitude: string;
       conversion: "gcj02-to-wgs84" | "unchanged";
+      fieldErrors?: Record<string, string>;
     }
-  | { status: "error"; code: AppleMapsLocationErrorCode; message: string };
+  | {
+      status: "error";
+      code: AppleMapsLocationErrorCode;
+      message: string;
+      fieldErrors?: Record<string, string>;
+    };
 
 const appleMapsImportErrorMessages: Record<AppleMapsLocationErrorCode, string> = {
   INVALID_APPLE_MAPS_URL: "请输入有效的 Apple 地图完整链接。",
@@ -61,6 +67,7 @@ export async function importAppleMapsLocationAction(
       status: "error",
       code: "INVALID_APPLE_MAPS_URL",
       message: appleMapsImportErrorMessages.INVALID_APPLE_MAPS_URL,
+      fieldErrors: { appleMapsUrl: input.error.issues[0]?.message ?? "请输入有效的地图链接。" },
     };
   }
   const parsed = parseAppleMapsLocation(input.data);
@@ -69,6 +76,7 @@ export async function importAppleMapsLocationAction(
       status: "error",
       code: parsed.code,
       message: appleMapsImportErrorMessages[parsed.code],
+      fieldErrors: { appleMapsUrl: appleMapsImportErrorMessages[parsed.code] },
     };
   }
   const nameNotice = !parsed.name ? "missing" : parsed.name.length > 80 ? "too-long" : null;
@@ -87,27 +95,41 @@ export async function importAppleMapsLocationAction(
   };
 }
 
+function locationFieldErrors(error: z.ZodError): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  const allowedFields: Record<string, true> = {
+    name: true,
+    latitude: true,
+    longitude: true,
+    defaultRadiusMeters: true,
+  };
+  for (const issue of error.issues) {
+    const key = issue.path[0];
+    if (typeof key === "string" && allowedFields[key] && !fieldErrors[key])
+      fieldErrors[key] = issue.message;
+  }
+  return fieldErrors;
+}
+
 export async function createLocationAction(
-  previousState: LocationCreateState,
+  _previousState: LocationCreateState,
   formData: FormData,
 ): Promise<LocationCreateState> {
   await requireAdmin();
   const parsed = locationPresetSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      ...adminActionError("地点信息无效，请检查后重试。", "INVALID_LOCATION"),
-      resetKey: previousState.resetKey,
-    };
-  }
+  if (!parsed.success)
+    return adminActionError(
+      "地点信息无效，请检查后重试。",
+      "INVALID_LOCATION",
+      locationFieldErrors(parsed.error),
+    );
   try {
     await createLocationPreset(parsed.data);
   } catch (error) {
-    if (postgresErrorInfo(error).code === "23505") {
-      return {
-        ...adminActionError("地点名称已存在，请使用其他名称。", "LOCATION_NAME_CONFLICT"),
-        resetKey: previousState.resetKey,
-      };
-    }
+    if (postgresErrorInfo(error).code === "23505")
+      return adminActionError("地点名称已存在，请使用其他名称。", "LOCATION_NAME_CONFLICT", {
+        name: "地点名称已存在，请使用其他名称。",
+      });
     console.error(
       JSON.stringify({
         level: "error",
@@ -115,14 +137,10 @@ export async function createLocationAction(
         error: error instanceof Error ? error.message : "Unknown error",
       }),
     );
-    return {
-      ...adminActionError("地点保存失败，请稍后重试。", "LOCATION_CREATE_FAILED"),
-      resetKey: previousState.resetKey,
-    };
+    return adminActionError("地点保存失败，请稍后重试。", "LOCATION_CREATE_FAILED");
   }
   revalidatePath("/admin/locations");
-  const success = adminActionSuccess("地点已保存。", "LOCATION_CREATED");
-  return { ...success, resetKey: success.submission };
+  return adminActionSuccess("地点已保存。", "LOCATION_CREATED");
 }
 
 export async function updateLocationAction(
@@ -131,14 +149,21 @@ export async function updateLocationAction(
 ): Promise<LocationUpdateState> {
   await requireAdmin();
   const parsed = locationPresetUpdateSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return adminActionError("地点信息无效，请检查后重试。", "INVALID_LOCATION");
+  if (!parsed.success)
+    return adminActionError(
+      "地点信息无效，请检查后重试。",
+      "INVALID_LOCATION",
+      locationFieldErrors(parsed.error),
+    );
   const { id, ...input } = parsed.data;
   try {
     if (!(await updateLocationPreset(id, input)))
       return adminActionError("地点不存在或已被删除。", "LOCATION_NOT_FOUND");
   } catch (error) {
     if (postgresErrorInfo(error).code === "23505")
-      return adminActionError("地点名称已存在，请使用其他名称。", "LOCATION_NAME_CONFLICT");
+      return adminActionError("地点名称已存在，请使用其他名称。", "LOCATION_NAME_CONFLICT", {
+        name: "地点名称已存在，请使用其他名称。",
+      });
     console.error(
       JSON.stringify({
         level: "error",

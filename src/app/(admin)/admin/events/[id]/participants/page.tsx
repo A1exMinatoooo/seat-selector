@@ -124,6 +124,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
                   选择填写后的 CSV 文件
                   <input type="file" name="csv" accept=".csv,text/csv" required />
                 </label>
+                <small>文件须非空且不超过 2,000,000 字节（约 2MB），最多 2000 行。</small>
                 <AdminSubmitButton pendingLabel="正在导入…">导入参与者</AdminSubmitButton>
               </AdminActionForm>
             ) : (
@@ -149,16 +150,12 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
                       placeholder="社交平台昵称"
                       required
                     />
+                    <small>最多 80 个字符。</small>
                   </label>
                   <label>
                     手机号或四位尾号
-                    <input
-                      name="phone"
-                      inputMode="tel"
-                      maxLength={20}
-                      autoComplete="off"
-                      required
-                    />
+                    <input name="phone" inputMode="tel" autoComplete="off" required />
+                    <small>请输入完整手机号或四位尾号。</small>
                   </label>
                 </div>
                 <fieldset className="ticket-allocation">
@@ -170,6 +167,7 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
                         {type.lotteryEligible ? "（参与抽奖）" : ""}
                         <NumericInput
                           name={`ticket:${type.id}`}
+                          data-field-error-key={`ticket:${type.id}`}
                           min={0}
                           max={20}
                           defaultValue={0}
@@ -191,7 +189,13 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
       <section className="panel wide">
         <h2>{event.participationMode === "onsite" ? "发行记录" : "参与者"}</h2>
         {people.length ? (
-          <div className="table-wrap">
+          <>
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-label="参与者记录，可横向滚动"
+          >
             <table>
               <thead>
                 <tr>
@@ -249,7 +253,10 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
                           </AdminSubmitButton>
                         </AdminActionForm>
                         {reservationMap.has(person.id) ? (
-                          <AdminActionForm action={resetSelectionAction}>
+                          <AdminActionForm
+                            action={resetSelectionAction}
+                            confirmMessage="此操作会删除该参与者的选座记录并释放座位占用，继续吗？"
+                          >
                             <input type="hidden" name="eventId" value={id} />
                             <input type="hidden" name="participantId" value={person.id} />
                             <AdminSubmitButton
@@ -267,6 +274,8 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
               </tbody>
             </table>
           </div>
+          <p className="muted">表格可横向滚动查看完整记录和操作。</p>
+          </>
         ) : (
           <p className="muted">
             {event.participationMode === "onsite"

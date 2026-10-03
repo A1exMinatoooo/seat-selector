@@ -14,7 +14,7 @@ type LocationPresetValues = {
   defaultRadiusMeters: number;
 };
 
-type ImportFeedback = Pick<AppleMapsLocationImportState, "status" | "message">;
+type ImportFeedback = Pick<AppleMapsLocationImportState, "status" | "message" | "fieldErrors">;
 
 export function LocationPresetFields({ initialValues }: { initialValues?: LocationPresetValues }) {
   const appleMapsUrlId = useId();
@@ -48,7 +48,11 @@ export function LocationPresetFields({ initialValues }: { initialValues?: Locati
               : "";
         setFeedback({ status: "success", message: `${result.message}${nameNotice}` });
       } catch {
-        setFeedback({ status: "error", message: "地点导入失败，请刷新页面后重试。" });
+        setFeedback({
+          status: "error",
+          message: "地点导入失败，请刷新页面后重试。",
+          fieldErrors: { appleMapsUrl: "无法读取地图链接，请检查后重试。" },
+        });
       }
     });
   }
@@ -62,6 +66,12 @@ export function LocationPresetFields({ initialValues }: { initialValues?: Locati
             id={appleMapsUrlId}
             type="url"
             value={appleMapsUrl}
+            maxLength={4096}
+            aria-invalid={
+              feedback?.status === "error" && feedback.fieldErrors?.appleMapsUrl
+                ? true
+                : undefined
+            }
             aria-describedby={feedback ? feedbackId : undefined}
             placeholder="https://maps.apple.com/place?..."
             onChange={(event) => {
@@ -78,6 +88,7 @@ export function LocationPresetFields({ initialValues }: { initialValues?: Locati
             {pending ? "正在导入…" : "导入 Apple 地图"}
           </button>
         </div>
+        <span className="muted">仅支持完整的 Apple 地图分享链接，最多 4096 个字符。</span>
         {feedback ? (
           <p
             id={feedbackId}
@@ -92,18 +103,23 @@ export function LocationPresetFields({ initialValues }: { initialValues?: Locati
         地点名称
         <input
           name="name"
+          aria-label="地点名称"
+          aria-describedby={`${appleMapsUrlId}-name-help`}
           required
           maxLength={80}
           value={name}
           placeholder="例如：上海影城正门"
           onChange={(event) => setName(event.target.value)}
         />
+        <span className="muted" id={`${appleMapsUrlId}-name-help`}>最多 80 个字符。</span>
       </label>
       <div className="form-row">
         <label>
           纬度
           <NumericInput
             name="latitude"
+            aria-label="纬度"
+            aria-describedby={`${appleMapsUrlId}-latitude-help`}
             step="any"
             min={-90}
             max={90}
@@ -111,29 +127,36 @@ export function LocationPresetFields({ initialValues }: { initialValues?: Locati
             placeholder="31.2304"
             onDraftValueChange={setLatitude}
           />
+          <span className="muted" id={`${appleMapsUrlId}-latitude-help`}>范围为 -90 至 90。</span>
         </label>
         <label>
           经度
           <NumericInput
             name="longitude"
             step="any"
+            aria-label="经度"
+            aria-describedby={`${appleMapsUrlId}-longitude-help`}
             min={-180}
             max={180}
             draftValue={longitude}
             placeholder="121.4737"
             onDraftValueChange={setLongitude}
           />
+          <span className="muted" id={`${appleMapsUrlId}-longitude-help`}>范围为 -180 至 180。</span>
         </label>
       </div>
       <label>
         默认范围（米）
         <NumericInput
           name="defaultRadiusMeters"
+          aria-label="默认范围（米）"
+          aria-describedby={`${appleMapsUrlId}-radius-help`}
           min={50}
           max={100000}
           draftValue={defaultRadiusMeters}
           onDraftValueChange={setDefaultRadiusMeters}
         />
+        <span className="muted" id={`${appleMapsUrlId}-radius-help`}>范围为 50–100000 米。</span>
       </label>
     </>
   );

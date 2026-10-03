@@ -185,41 +185,50 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <div className="form-row">
             <label>
               活动名称
-              <input name="name" defaultValue={event.name} required />
+              <input name="name" defaultValue={event.name} maxLength={100} required />
+              <span className="muted">最多 100 个字符。</span>
             </label>
-            <SearchableSelectField
-              name="timeZone"
-              label="显示时区"
-              defaultValue={event.timeZone}
-              options={supportedTimeZones().map((timeZone) => ({ id: timeZone, label: timeZone }))}
-              required
-            />
+            <div data-field-error-key="timeZone">
+              <SearchableSelectField
+                name="timeZone"
+                label="显示时区"
+                defaultValue={event.timeZone}
+                options={supportedTimeZones().map((timeZone) => ({ id: timeZone, label: timeZone }))}
+                required
+              />
+            </div>
           </div>
           <div className="form-row">
-            <DatePickerField
-              name="startDate"
-              label="开始日期"
-              defaultValue={localStart.date}
-              required
-            />
-            <TimePickerField
-              name="startTime"
-              label="开始时间"
-              defaultValue={localStart.time}
-              required
-            />
+            <div data-field-error-key="startDate">
+              <DatePickerField
+                name="startDate"
+                label="开始日期"
+                defaultValue={localStart.date}
+                required
+              />
+            </div>
+            <div data-field-error-key="startTime">
+              <TimePickerField
+                name="startTime"
+                label="开始时间"
+                defaultValue={localStart.time}
+                required
+              />
+            </div>
           </div>
           <LocationCheckFields
             defaultEnabled={event.locationCheckEnabled}
             defaultRadiusMeters={event.radiusMeters}
           >
-            <SelectField
-              name="locationId"
-              label="活动地点"
-              defaultValue={event.locationId}
-              options={locations.map((location) => ({ id: location.id, label: location.name }))}
-              required
-            />
+            <div data-field-error-key="locationId">
+              <SelectField
+                name="locationId"
+                label="活动地点"
+                defaultValue={event.locationId}
+                options={locations.map((location) => ({ id: location.id, label: location.name }))}
+                required
+              />
+            </div>
           </LocationCheckFields>
           <TicketTypeFields
             initialTypes={types.map((type) => ({

@@ -1,8 +1,11 @@
+export type AdminFieldErrors = Record<string, string>;
+
 export type AdminActionState = {
   status: "idle" | "success" | "error";
   message: string;
   submission: number;
   code: string | null;
+  fieldErrors?: AdminFieldErrors;
 };
 
 export type AdminFormAction = (
@@ -21,6 +24,10 @@ export function adminActionSuccess(message: string, code: string): AdminActionSt
   return { status: "success", message, submission: Date.now(), code };
 }
 
-export function adminActionError(message: string, code: string): AdminActionState {
-  return { status: "error", message, submission: Date.now(), code };
+export function adminActionError(
+  message: string,
+  code: string,
+  fieldErrors?: AdminFieldErrors,
+): AdminActionState {
+  return { status: "error", message, submission: Date.now(), code, ...(fieldErrors ? { fieldErrors } : {}) };
 }

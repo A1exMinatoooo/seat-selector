@@ -36,7 +36,10 @@ export function TicketTypeFields({
   const nextKey = useRef(1);
   const createKey = (prefix: string) => `${prefix}-${nextKey.current++}`;
   const [types, setTypes] = useState<TicketTypeValue[]>(() =>
-    initialTypes.map((type, index) => ({ ...type, key: type.id ?? `ticket-initial-${index}` })),
+    initialTypes.map((type, index) => ({
+      ...type,
+      key: type.id ? `ticket-${type.id}` : `ticket-initial-${index}`,
+    })),
   );
   const [lotteryEnabled, setLotteryEnabled] = useState(initialLotteryEnabled);
   const [participationMode, setParticipationMode] = useState(initialParticipationMode);
@@ -87,6 +90,7 @@ export function TicketTypeFields({
               max={20}
               defaultValue={initialMaxTicketsPerIssue}
             />
+            <span className="muted">每次发行 1 至 20 张。</span>
           </label>
         ) : (
           <input type="hidden" name="maxTicketsPerIssue" value={initialMaxTicketsPerIssue} />
@@ -143,21 +147,28 @@ export function TicketTypeFields({
             <div className="prize-list">
               {prizes.map((prize, index) => (
                 <div key={prize.key}>
-                  <input
-                    aria-label={`奖品名 ${index + 1}`}
-                    placeholder="奖品名"
-                    required
-                    value={prize.name}
-                    onChange={(event) =>
-                      setPrizes((current) =>
-                        current.map((item) =>
-                          item.key === prize.key ? { ...item, name: event.target.value } : item,
-                        ),
-                      )
-                    }
-                  />
+                  <div className="dynamic-name-field">
+                    <input
+                      aria-label={`奖品名 ${index + 1}`}
+                      data-field-error-key={`prize.${prize.key}.name`}
+                      name={`prize.${prize.key}.name`}
+                      placeholder="奖品名"
+                      maxLength={80}
+                      required
+                      value={prize.name}
+                      onChange={(event) =>
+                        setPrizes((current) =>
+                          current.map((item) =>
+                            item.key === prize.key ? { ...item, name: event.target.value } : item,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
                   <NumericInput
                     aria-label={`奖品数量 ${index + 1}`}
+                    data-field-error-key={`prize.${prize.key}.quantity`}
+                    name={`prize.${prize.key}.quantity`}
                     min={1}
                     max={100000}
                     value={prize.quantity}
@@ -181,9 +192,11 @@ export function TicketTypeFields({
                 </div>
               ))}
             </div>
+            <p className="muted">奖品名称最多 80 个字符，最多添加 100 项。</p>
             <button
               className="button"
               type="button"
+              disabled={prizes.length >= 100}
               onClick={() =>
                 setPrizes((current) => [
                   ...current,
@@ -199,7 +212,9 @@ export function TicketTypeFields({
           type="hidden"
           name="prizes"
           value={JSON.stringify(
-            lotteryEnabled ? prizes.map(({ name, quantity }) => ({ name, quantity })) : [],
+            lotteryEnabled
+              ? prizes.map(({ key, name, quantity }) => ({ fieldKey: key, name, quantity }))
+              : [],
           )}
         />
         {!lotteryEnabled ? <input type="hidden" name="lotteryPoolBonus" value="0" /> : null}
@@ -209,22 +224,28 @@ export function TicketTypeFields({
         <legend>票种</legend>
         {types.map((type, index) => (
           <div className="ticket-type-row" key={type.key}>
-            <input
-              aria-label={`票种 ${index + 1}`}
-              required
-              value={type.name}
-              onChange={(event) =>
-                setTypes((current) =>
-                  current.map((item) =>
-                    item.key === type.key ? { ...item, name: event.target.value } : item,
-                  ),
-                )
-              }
-            />
+            <div className="dynamic-name-field">
+              <input
+                aria-label={`票种 ${index + 1}`}
+                data-field-error-key={`ticket.${type.key}.name`}
+                name={`ticket.${type.key}.name`}
+                maxLength={40}
+                required
+                value={type.name}
+                onChange={(event) =>
+                  setTypes((current) =>
+                    current.map((item) =>
+                      item.key === type.key ? { ...item, name: event.target.value } : item,
+                    ),
+                  )
+                }
+              />
+            </div>
             {lotteryEnabled ? (
               <label className="switch-label compact">
                 <input
                   type="checkbox"
+                  name={`ticket.${type.key}.lotteryEligible`}
                   checked={type.lotteryEligible}
                   onChange={(event) =>
                     setTypes((current) =>
@@ -249,9 +270,11 @@ export function TicketTypeFields({
             </button>
           </div>
         ))}
+        <p className="muted">票种名称最多 40 个字符，至少 1 种、最多 20 种；名称不能重复。</p>
         <button
           className="button"
           type="button"
+          disabled={types.length >= 20}
           onClick={() =>
             setTypes((current) => [
               ...current,
@@ -265,7 +288,12 @@ export function TicketTypeFields({
           type="hidden"
           name="ticketTypes"
           value={JSON.stringify(
-            types.map(({ id, name, lotteryEligible }) => ({ id, name, lotteryEligible })),
+            types.map(({ id, key, name, lotteryEligible }) => ({
+              id,
+              fieldKey: key,
+              name,
+              lotteryEligible,
+            })),
           )}
         />
       </fieldset>
